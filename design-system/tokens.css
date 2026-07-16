@@ -1,0 +1,22 @@
+:root {
+  --pulso-paper: #f4f2ed;
+  --pulso-carbon: #161616;
+  --pulso-signal: #e65318;
+  --pulso-mineral: #7a7a7a;
+  --pulso-neutral: #c9c9c9;
+
+  --surface-page: var(--pulso-paper);
+  --surface-card: #ffffff;
+  --surface-inverse: var(--pulso-carbon);
+  --text-primary: var(--pulso-carbon);
+  --text-secondary: #5f5f5f;
+  --text-inverse: #ffffff;
+  --border-subtle: #dedbd4;
+  --action-primary: var(--pulso-signal);
+  --focus-ring: var(--pulso-signal);
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --shadow-card: 0 12px 40px rgb(22 22 22 / 8%);
+}

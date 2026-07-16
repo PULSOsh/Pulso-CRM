@@ -1,0 +1,537 @@
+Project PULSO_CRM {
+  database_type: 'PostgreSQL'
+  Note: 'Modelo lógico resumido. O SQL é a fonte técnica completa.'
+}
+
+Table organizations {
+  id uuid [pk]
+  name varchar
+  slug varchar [unique]
+  legal_name varchar
+  document_number varchar
+  timezone varchar
+  currency char
+  created_at timestamptz
+}
+
+Table users {
+  id uuid [pk]
+  name varchar
+  email varchar [unique]
+  last_login_at timestamptz
+  created_at timestamptz
+}
+
+Table organization_members {
+  id uuid [pk]
+  organization_id uuid [not null]
+  user_id uuid [not null]
+  role_id uuid
+  status varchar
+}
+
+Table roles {
+  id uuid [pk]
+  organization_id uuid [not null]
+  name varchar
+  key varchar
+}
+
+Table companies {
+  id uuid [pk]
+  organization_id uuid [not null]
+  owner_user_id uuid
+  trade_name varchar
+  legal_name varchar
+  document_number varchar
+  segment varchar
+  email varchar
+  phone varchar
+  created_at timestamptz
+}
+
+Table contacts {
+  id uuid [pk]
+  organization_id uuid [not null]
+  owner_user_id uuid
+  first_name varchar
+  last_name varchar
+  email varchar
+  phone varchar
+  whatsapp varchar
+  origin varchar
+  created_at timestamptz
+}
+
+Table company_contacts {
+  company_id uuid
+  contact_id uuid
+  relationship varchar
+  is_primary boolean
+}
+
+Table pipelines {
+  id uuid [pk]
+  organization_id uuid [not null]
+  name varchar
+  is_default boolean
+}
+
+Table pipeline_stages {
+  id uuid [pk]
+  pipeline_id uuid [not null]
+  name varchar
+  position int
+  probability int
+  is_won boolean
+  is_lost boolean
+}
+
+Table opportunities {
+  id uuid [pk]
+  organization_id uuid [not null]
+  pipeline_id uuid [not null]
+  stage_id uuid [not null]
+  company_id uuid
+  primary_contact_id uuid
+  owner_user_id uuid
+  title varchar
+  status varchar
+  estimated_value numeric
+  negotiated_value numeric
+  expected_close_date date
+  next_action_at timestamptz
+  created_at timestamptz
+}
+
+Table products {
+  id uuid [pk]
+  organization_id uuid [not null]
+  name varchar
+  category varchar
+  base_price numeric
+  average_delivery_days int
+}
+
+Table opportunity_products {
+  opportunity_id uuid
+  product_id uuid
+  quantity numeric
+  unit_price numeric
+  discount numeric
+}
+
+Table activities {
+  id uuid [pk]
+  organization_id uuid [not null]
+  actor_user_id uuid
+  opportunity_id uuid
+  company_id uuid
+  contact_id uuid
+  type varchar
+  title varchar
+  body text
+  occurred_at timestamptz
+}
+
+Table tasks {
+  id uuid [pk]
+  organization_id uuid [not null]
+  assigned_to uuid
+  opportunity_id uuid
+  project_id uuid
+  title varchar
+  status varchar
+  priority varchar
+  due_at timestamptz
+}
+
+Table proposals {
+  id uuid [pk]
+  organization_id uuid [not null]
+  opportunity_id uuid [not null]
+  code varchar
+  title varchar
+  status varchar
+  total numeric
+  valid_until date
+  public_token uuid
+}
+
+Table proposal_versions {
+  id uuid [pk]
+  proposal_id uuid [not null]
+  version_number int
+  scope text
+  terms text
+  total numeric
+  snapshot jsonb
+}
+
+Table proposal_items {
+  id uuid [pk]
+  proposal_version_id uuid [not null]
+  product_id uuid
+  description varchar
+  quantity numeric
+  unit_price numeric
+  total numeric
+}
+
+Table contracts {
+  id uuid [pk]
+  organization_id uuid [not null]
+  opportunity_id uuid
+  proposal_id uuid
+  code varchar
+  title varchar
+  status varchar
+  content text
+  public_token uuid
+  signed_at timestamptz
+}
+
+Table projects {
+  id uuid [pk]
+  organization_id uuid [not null]
+  opportunity_id uuid
+  company_id uuid
+  owner_user_id uuid
+  name varchar
+  status varchar
+  total_value numeric
+  due_date date
+  progress int
+}
+
+Table receivables {
+  id uuid [pk]
+  organization_id uuid [not null]
+  project_id uuid
+  opportunity_id uuid
+  company_id uuid
+  description varchar
+  total_amount numeric
+  status varchar
+}
+
+Table installments {
+  id uuid [pk]
+  receivable_id uuid [not null]
+  installment_number int
+  amount numeric
+  due_date date
+  status varchar
+  paid_at timestamptz
+}
+
+Table stored_files {
+  id uuid [pk]
+  organization_id uuid [not null]
+  uploaded_by uuid
+  object_key text
+  original_name varchar
+  mime_type varchar
+  size_bytes bigint
+}
+
+Table attachments {
+  id uuid [pk]
+  organization_id uuid [not null]
+  file_id uuid [not null]
+  entity_type varchar
+  entity_id uuid
+}
+
+Table audit_logs {
+  id bigint [pk]
+  organization_id uuid
+  actor_user_id uuid
+  action varchar
+  entity_type varchar
+  entity_id uuid
+  before_data jsonb
+  after_data jsonb
+  created_at timestamptz
+}
+
+Ref: organization_members.organization_id > organizations.id
+Ref: organization_members.user_id > users.id
+Ref: organization_members.role_id > roles.id
+Ref: roles.organization_id > organizations.id
+Ref: companies.organization_id > organizations.id
+Ref: companies.owner_user_id > users.id
+Ref: contacts.organization_id > organizations.id
+Ref: contacts.owner_user_id > users.id
+Ref: company_contacts.company_id > companies.id
+Ref: company_contacts.contact_id > contacts.id
+Ref: pipelines.organization_id > organizations.id
+Ref: pipeline_stages.pipeline_id > pipelines.id
+Ref: opportunities.organization_id > organizations.id
+Ref: opportunities.pipeline_id > pipelines.id
+Ref: opportunities.stage_id > pipeline_stages.id
+Ref: opportunities.company_id > companies.id
+Ref: opportunities.primary_contact_id > contacts.id
+Ref: opportunities.owner_user_id > users.id
+Ref: products.organization_id > organizations.id
+Ref: opportunity_products.opportunity_id > opportunities.id
+Ref: opportunity_products.product_id > products.id
+Ref: activities.opportunity_id > opportunities.id
+Ref: activities.company_id > companies.id
+Ref: activities.contact_id > contacts.id
+Ref: tasks.opportunity_id > opportunities.id
+Ref: tasks.project_id > projects.id
+Ref: proposals.opportunity_id > opportunities.id
+Ref: proposal_versions.proposal_id > proposals.id
+Ref: proposal_items.proposal_version_id > proposal_versions.id
+Ref: proposal_items.product_id > products.id
+Ref: contracts.opportunity_id > opportunities.id
+Ref: contracts.proposal_id > proposals.id
+Ref: projects.opportunity_id > opportunities.id
+Ref: projects.company_id > companies.id
+Ref: receivables.project_id > projects.id
+Ref: installments.receivable_id > receivables.id
+Ref: attachments.file_id > stored_files.id
+
+// -------------------------------------------------------------------
+// V2 — Briefings públicos e orçamentos em site
+// -------------------------------------------------------------------
+
+Table briefing_templates {
+  id uuid [pk]
+  organization_id uuid [not null, ref: > organizations.id]
+  product_id uuid [ref: > products.id]
+  default_pipeline_id uuid [ref: > pipelines.id]
+  default_stage_id uuid [ref: > pipeline_stages.id]
+  default_owner_user_id uuid [ref: > users.id]
+  name varchar [not null]
+  slug varchar [not null]
+  public_title varchar [not null]
+  public_description text
+  status varchar [not null]
+  create_opportunity_on_submit boolean [not null]
+  published_version_id uuid
+  settings jsonb
+  created_at timestamptz
+  updated_at timestamptz
+
+  Indexes {
+    (organization_id, slug) [unique]
+  }
+}
+
+Table briefing_template_versions {
+  id uuid [pk]
+  template_id uuid [not null, ref: > briefing_templates.id]
+  version_number int [not null]
+  snapshot jsonb [not null]
+  published_at timestamptz
+  published_by uuid [ref: > users.id]
+  created_at timestamptz
+
+  Indexes {
+    (template_id, version_number) [unique]
+  }
+}
+
+Ref: briefing_templates.published_version_id > briefing_template_versions.id
+
+Table briefing_sections {
+  id uuid [pk]
+  template_version_id uuid [not null, ref: > briefing_template_versions.id]
+  stable_key varchar [not null]
+  title varchar [not null]
+  description text
+  position int [not null]
+  settings jsonb
+}
+
+Table briefing_questions {
+  id uuid [pk]
+  section_id uuid [not null, ref: > briefing_sections.id]
+  stable_key varchar [not null]
+  question_type varchar [not null]
+  title varchar [not null]
+  help_text text
+  is_required boolean
+  is_sensitive boolean
+  can_use_in_proposal boolean
+  can_display_publicly boolean
+  crm_mapping_key varchar
+  validation jsonb
+  settings jsonb
+  position int [not null]
+}
+
+Table briefing_question_options {
+  id uuid [pk]
+  question_id uuid [not null, ref: > briefing_questions.id]
+  value varchar [not null]
+  label varchar [not null]
+  position int [not null]
+  metadata jsonb
+}
+
+Table briefing_logic_rules {
+  id uuid [pk]
+  template_version_id uuid [not null, ref: > briefing_template_versions.id]
+  target_question_id uuid [ref: > briefing_questions.id]
+  target_section_id uuid [ref: > briefing_sections.id]
+  action varchar [not null]
+  conditions jsonb [not null]
+  position int
+}
+
+Table briefing_submissions {
+  id uuid [pk]
+  organization_id uuid [not null, ref: > organizations.id]
+  template_id uuid [not null, ref: > briefing_templates.id]
+  template_version_id uuid [not null, ref: > briefing_template_versions.id]
+  contact_id uuid [ref: > contacts.id]
+  company_id uuid [ref: > companies.id]
+  opportunity_id uuid [ref: > opportunities.id]
+  assigned_to uuid [ref: > users.id]
+  protocol varchar [not null]
+  status varchar [not null]
+  source varchar [not null]
+  contact_name varchar
+  contact_email citext
+  contact_phone varchar
+  company_name varchar
+  completion_percent int
+  template_snapshot jsonb
+  metadata jsonb
+  submitted_at timestamptz
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+Table briefing_submission_answers {
+  id uuid [pk]
+  submission_id uuid [not null, ref: > briefing_submissions.id]
+  question_id uuid [not null, ref: > briefing_questions.id]
+  question_key varchar [not null]
+  value jsonb [not null]
+  normalized_text text
+  source varchar [not null]
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+Table briefing_resume_tokens {
+  id uuid [pk]
+  submission_id uuid [not null, ref: > briefing_submissions.id]
+  token_hash varchar [not null, unique]
+  expires_at timestamptz [not null]
+  revoked_at timestamptz
+  created_at timestamptz
+}
+
+Table consent_records {
+  id uuid [pk]
+  organization_id uuid [not null, ref: > organizations.id]
+  submission_id uuid [ref: > briefing_submissions.id]
+  proposal_id uuid [ref: > proposals.id]
+  consent_key varchar [not null]
+  purpose varchar [not null]
+  text_version varchar [not null]
+  text_snapshot text [not null]
+  granted boolean [not null]
+  granted_at timestamptz
+}
+
+Table proposal_blocks {
+  id uuid [pk]
+  proposal_version_id uuid [not null, ref: > proposal_versions.id]
+  block_type varchar [not null]
+  stable_key varchar [not null]
+  title varchar
+  content jsonb [not null]
+  is_enabled boolean [not null]
+  position int [not null]
+  source varchar [not null]
+}
+
+Table proposal_payment_options {
+  id uuid [pk]
+  proposal_version_id uuid [not null, ref: > proposal_versions.id]
+  name varchar [not null]
+  entry_amount numeric
+  installment_count int
+  installment_amount numeric
+  total_amount numeric [not null]
+  is_default boolean
+  position int
+}
+
+Table proposal_public_links {
+  id uuid [pk]
+  proposal_id uuid [not null, ref: > proposals.id]
+  proposal_version_id uuid [not null, ref: > proposal_versions.id]
+  token_hash varchar [not null, unique]
+  public_token_prefix varchar [not null]
+  is_active boolean [not null]
+  expires_at timestamptz
+  revoked_at timestamptz
+  first_viewed_at timestamptz
+  last_viewed_at timestamptz
+  view_count int
+  created_at timestamptz
+}
+
+Table proposal_responses {
+  id uuid [pk]
+  proposal_id uuid [not null, ref: > proposals.id]
+  proposal_version_id uuid [not null, ref: > proposal_versions.id]
+  public_link_id uuid [ref: > proposal_public_links.id]
+  response_type varchar [not null]
+  signer_name varchar
+  signer_email citext
+  signer_role varchar
+  message text
+  payment_option_id uuid [ref: > proposal_payment_options.id]
+  snapshot_hash varchar [not null]
+  idempotency_key varchar
+  created_at timestamptz
+}
+
+Table proposal_selected_addons {
+  response_id uuid [not null, ref: > proposal_responses.id]
+  proposal_item_id uuid [not null, ref: > proposal_items.id]
+  selected boolean [not null]
+  amount_snapshot numeric [not null]
+
+  Indexes {
+    (response_id, proposal_item_id) [pk]
+  }
+}
+
+Table idempotency_keys {
+  id uuid [pk]
+  organization_id uuid [ref: > organizations.id]
+  scope varchar [not null]
+  key_hash varchar [not null]
+  request_hash varchar
+  response_status int
+  response_body jsonb
+  expires_at timestamptz [not null]
+  created_at timestamptz
+
+  Indexes {
+    (scope, key_hash) [unique]
+  }
+}
+
+Table outbox_events {
+  id uuid [pk]
+  organization_id uuid [ref: > organizations.id]
+  event_type varchar [not null]
+  aggregate_type varchar [not null]
+  aggregate_id uuid [not null]
+  payload jsonb [not null]
+  occurred_at timestamptz
+  available_at timestamptz
+  processed_at timestamptz
+  attempts int
+  last_error text
+}
