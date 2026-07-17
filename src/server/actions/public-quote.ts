@@ -12,6 +12,10 @@ import {
 } from "../db/schema";
 
 export async function getPublicProposal(token: string) {
+  if (!token) {
+    return null;
+  }
+
   // 1. Fetch proposal by public token
   const proposal = await db.query.proposals.findFirst({
     where: eq(proposals.publicToken, token),
@@ -61,6 +65,10 @@ export async function getPublicProposal(token: string) {
 }
 
 export async function approveProposal(token: string, _signerData: { name: string; email: string }) {
+  if (!token) {
+    return { success: false, error: "Proposta inválida ou já processada." };
+  }
+
   // 1. Fetch proposal
   const proposal = await db.query.proposals.findFirst({
     where: eq(proposals.publicToken, token),

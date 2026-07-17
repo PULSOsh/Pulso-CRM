@@ -102,13 +102,17 @@ export default async function QuotesPage() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       {/* For now we just preview, edit will be complex */}
-                      <Link
-                        href={`/proposta/${quote.publicToken}`}
-                        target="_blank"
-                        className="text-orange-600 hover:text-orange-700 font-medium"
-                      >
-                        Ver Proposta
-                      </Link>
+                      {quote.publicToken ? (
+                        <Link
+                          href={`/proposta/${quote.publicToken}`}
+                          target="_blank"
+                          className="text-orange-600 hover:text-orange-700 font-medium"
+                        >
+                          Ver Proposta
+                        </Link>
+                      ) : (
+                        <span className="text-slate-400">Não publicada</span>
+                      )}
                     </td>
                   </tr>
                 ))}
