@@ -1,0 +1,277 @@
+"use server";
+
+import { and, desc, eq } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
+import { db } from "../db/connection";
+import {
+  contractEvents,
+  contracts,
+  organizations,
+  proposalItems,
+  proposals,
+  proposalVersions,
+} from "../db/schema";
+
+export async function getContracts(organizationId: string) {
+  return await db.query.contracts.findMany({
+    where: eq(contracts.organizationId, organizationId),
+    orderBy: [desc(contracts.createdAt)],
+  });
+}
+
+export async function getContractById(id: string, organizationId: string) {
+  return await db.query.contracts.findFirst({
+    where: and(eq(contracts.id, id), eq(contracts.organizationId, organizationId)),
+  });
+}
+
+async function nextContractCode(organizationId: string) {
+  const [last] = await db.query.contracts.findMany({
+    where: eq(contracts.organizationId, organizationId),
+    orderBy: [desc(contracts.createdAt)],
+    limit: 1,
+  });
+  const lastNumber = last ? Number(last.code.replace(/\D/g, "")) || 0 : 0;
+  return `CTR-${String(lastNumber + 1).padStart(4, "0")}`;
+}
+
+function buildContractContent(params: {
+  organizationName: string;
+  proposalTitle: string;
+  proposalCode: string;
+  items: { description: string; quantity: string; unitPrice: string; total: string }[];
+  total: string;
+  scope: string | null;
+  terms: string | null;
+}) {
+  const itemLines = params.items
+    .map(
+      (item) => `- ${item.description} (${item.quantity}x R$ ${item.unitPrice}) — R$ ${item.total}`,
+    )
+    .join("\n");
+
+  return `CONTRATO DE PRESTAÇÃO DE SERVIÇOS
+
+Contratada: ${params.organizationName}
+Referente à proposta: ${params.proposalCode} - ${params.proposalTitle}
+
+ESCOPO
+${params.scope || "Conforme descrito na proposta comercial vinculada."}
+
+ITENS CONTRATADOS
+${itemLines || "- Nenhum item registrado na proposta."}
+
+VALOR TOTAL
+R$ ${params.total}
+
+CONDIÇÕES
+${params.terms || "A definir entre as partes."}
+
+Este documento reflete o snapshot da proposta aprovada no momento da geração do contrato.`;
+}
+
+export async function createContractFromProposal(
+  proposalId: string,
+  organizationId: string,
+  userId: string,
+) {
+  const proposal = await db.query.proposals.findFirst({
+    where: and(eq(proposals.id, proposalId), eq(proposals.organizationId, organizationId)),
+  });
+
+  if (!proposal) throw new Error("Proposta não encontrada");
+  if (proposal.status !== "approved") {
+    throw new Error("Só é possível gerar contrato a partir de uma proposta aprovada");
+  }
+  if (!proposal.currentVersionId) {
+    throw new Error("Proposta não possui uma versão publicada");
+  }
+
+  const existingContract = await db.query.contracts.findFirst({
+    where: and(eq(contracts.proposalId, proposal.id), eq(contracts.organizationId, organizationId)),
+  });
+  if (existingContract) {
+    throw new Error(`Esta proposta já possui um contrato gerado (${existingContract.code})`);
+  }
+
+  const version = await db.query.proposalVersions.findFirst({
+    where: eq(proposalVersions.id, proposal.currentVersionId),
+  });
+
+  const items = await db.query.proposalItems.findMany({
+    where: eq(proposalItems.proposalVersionId, proposal.currentVersionId),
+    orderBy: (t, { asc }) => [asc(t.position)],
+  });
+
+  const organization = await db.query.organizations.findFirst({
+    where: eq(organizations.id, organizationId),
+  });
+
+  const code = await nextContractCode(organizationId);
+  const content = buildContractContent({
+    organizationName: organization?.name ?? "PULSO",
+    proposalTitle: proposal.title,
+    proposalCode: proposal.code,
+    items,
+    total: proposal.total,
+    scope: version?.scope ?? null,
+    terms: version?.terms ?? null,
+  });
+
+  const [contract] = await db
+    .insert(contracts)
+    .values({
+      organizationId,
+      opportunityId: proposal.opportunityId,
+      proposalId: proposal.id,
+      createdBy: userId,
+      code,
+      title: proposal.title,
+      status: "draft",
+      content,
+    })
+    .returning();
+
+  await db.insert(contractEvents).values({
+    contractId: contract.id,
+    eventType: "created",
+    actorUserId: userId,
+  });
+
+  revalidatePath("/crm/contratos");
+  return contract;
+}
+
+export async function getApprovedProposalsWithoutContract(organizationId: string) {
+  const approvedProposals = await db.query.proposals.findMany({
+    where: and(eq(proposals.organizationId, organizationId), eq(proposals.status, "approved")),
+  });
+
+  const existingContracts = await db.query.contracts.findMany({
+    where: eq(contracts.organizationId, organizationId),
+  });
+  const proposalIdsWithContract = new Set(
+    existingContracts.map((c) => c.proposalId).filter(Boolean),
+  );
+
+  return approvedProposals.filter((p) => !proposalIdsWithContract.has(p.id));
+}
+
+export async function sendContract(id: string, organizationId: string, userId: string) {
+  const contract = await getContractById(id, organizationId);
+  if (!contract) throw new Error("Contrato não encontrado");
+  if (contract.status !== "draft")
+    throw new Error("Apenas contratos em rascunho podem ser enviados");
+
+  await db
+    .update(contracts)
+    .set({ status: "sent", sentAt: new Date(), publicAccessEnabled: true, updatedAt: new Date() })
+    .where(eq(contracts.id, id));
+
+  await db.insert(contractEvents).values({
+    contractId: id,
+    eventType: "sent",
+    actorUserId: userId,
+  });
+
+  revalidatePath("/crm/contratos");
+  revalidatePath(`/crm/contratos/${id}`);
+  return { success: true };
+}
+
+export async function cancelContract(
+  id: string,
+  organizationId: string,
+  userId: string,
+  reason: string,
+) {
+  const contract = await getContractById(id, organizationId);
+  if (!contract) throw new Error("Contrato não encontrado");
+  if (contract.status === "signed") throw new Error("Contrato assinado não pode ser cancelado");
+
+  await db
+    .update(contracts)
+    .set({ status: "cancelled", publicAccessEnabled: false, updatedAt: new Date() })
+    .where(eq(contracts.id, id));
+
+  await db.insert(contractEvents).values({
+    contractId: id,
+    eventType: "cancelled",
+    actorUserId: userId,
+    metadata: { reason },
+  });
+
+  revalidatePath("/crm/contratos");
+  revalidatePath(`/crm/contratos/${id}`);
+  return { success: true };
+}
+
+export async function getPublicContract(token: string) {
+  if (!token) return null;
+
+  const contract = await db.query.contracts.findFirst({
+    where: eq(contracts.publicToken, token),
+  });
+
+  if (!contract?.publicAccessEnabled) return null;
+
+  return {
+    code: contract.code,
+    title: contract.title,
+    status: contract.status,
+    content: contract.content,
+    signedAt: contract.signedAt,
+    createdAt: contract.createdAt,
+  };
+}
+
+export async function signContractPublic(
+  token: string,
+  signerData: { name: string; document?: string },
+) {
+  if (!token) return { success: false, error: "Contrato inválido." };
+
+  const contract = await db.query.contracts.findFirst({
+    where: eq(contracts.publicToken, token),
+  });
+
+  if (!contract?.publicAccessEnabled || contract.status !== "sent") {
+    return { success: false, error: "Contrato inválido ou já processado." };
+  }
+
+  const requestHeaders = await headers();
+  const ip = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const userAgent = requestHeaders.get("user-agent") ?? undefined;
+
+  await db
+    .update(contracts)
+    .set({
+      status: "signed",
+      signedAt: new Date(),
+      signerName: signerData.name,
+      signerDocument: signerData.document,
+      signerIp: ip,
+      signerUserAgent: userAgent,
+      signatureEvidence: {
+        name: signerData.name,
+        document: signerData.document ?? null,
+        signedAt: new Date().toISOString(),
+        ip: ip ?? null,
+        userAgent: userAgent ?? null,
+      },
+      updatedAt: new Date(),
+    })
+    .where(eq(contracts.id, contract.id));
+
+  await db.insert(contractEvents).values({
+    contractId: contract.id,
+    eventType: "signed",
+    ipAddress: ip,
+    userAgent,
+    metadata: { signerName: signerData.name },
+  });
+
+  revalidatePath(`/crm/contratos/${contract.id}`);
+  return { success: true };
+}

@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-
 import {
   BarChart3,
   Building2,
@@ -15,12 +13,13 @@ import {
   LogOut,
   Menu,
   Settings,
-  X,
   WalletCards,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
 
 const primary = [
@@ -32,11 +31,11 @@ const primary = [
 ];
 
 const commercial = [
-  { href: "/orcamentos/novo", label: "Orçamentos", key: "budgets", icon: FileText },
-  { href: "#", label: "Contratos", key: "contracts", icon: FileSignature },
+  { href: "/crm/quotes", label: "Orçamentos", key: "budgets", icon: FileText },
+  { href: "/crm/contratos", label: "Contratos", key: "contracts", icon: FileSignature },
 ];
 
-const operation = [
+const _operation = [
   { href: "#", label: "Projetos", key: "projects", icon: KanbanSquare },
   { href: "#", label: "Tarefas", key: "tasks", icon: CheckSquare },
   { href: "#", label: "Financeiro", key: "finance", icon: WalletCards },
@@ -44,7 +43,14 @@ const operation = [
   { href: "#", label: "Configurações", key: "settings", icon: Settings },
 ];
 
-type ActiveKey = "dashboard" | "crm" | "briefings" | "budgets" | "contacts" | "companies";
+type ActiveKey =
+  | "dashboard"
+  | "crm"
+  | "briefings"
+  | "budgets"
+  | "contacts"
+  | "companies"
+  | "contracts";
 
 type AppShellProps = {
   active: ActiveKey;
@@ -75,28 +81,47 @@ export function AppShell({ active, eyebrow, title, children }: AppShellProps) {
     <div className="app-layout">
       {/* Mobile Overlay */}
       {isMobileMenuOpen && (
-        <div 
-          className="mobile-overlay" 
+        <button
+          type="button"
+          aria-label="Fechar menu"
+          className="mobile-overlay"
           onClick={() => setIsMobileMenuOpen(false)}
-          style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 40 }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            zIndex: 40,
+            border: "none",
+            cursor: "pointer",
+          }}
         />
       )}
-      
-      <aside className={`sidebar ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
-        <div className="sidebar-brand" style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+
+      <aside className={`sidebar ${isMobileMenuOpen ? "mobile-open" : ""}`}>
+        <div
+          className="sidebar-brand"
+          style={{ display: "flex", justifyContent: "space-between", width: "100%" }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <Image
               src="/brand/pulso_horizontal_signal_white.svg"
               alt="PULSO"
               width={120}
               height={30}
             />
-            <span style={{ fontSize: '14px', fontWeight: 'bold' }}>CRM</span>
+            <span style={{ fontSize: "14px", fontWeight: "bold" }}>CRM</span>
           </div>
-          <button 
+          <button
+            type="button"
             className="mobile-close-btn"
             onClick={() => setIsMobileMenuOpen(false)}
-            style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', padding: '4px' }}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "white",
+              cursor: "pointer",
+              padding: "4px",
+            }}
           >
             <X size={20} />
           </button>
@@ -138,11 +163,17 @@ export function AppShell({ active, eyebrow, title, children }: AppShellProps) {
       </aside>
       <main className="main-area">
         <header className="topbar">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <button 
+          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            <button
+              type="button"
               className="mobile-menu-btn"
               onClick={() => setIsMobileMenuOpen(true)}
-              style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px' }}
+              style={{
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                padding: "4px",
+              }}
             >
               <Menu size={24} className="text-slate-700" />
             </button>
