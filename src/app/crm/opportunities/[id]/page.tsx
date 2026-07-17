@@ -5,6 +5,7 @@ import { ArrowLeft, Building2, CheckCircle2, User, XCircle } from "lucide-react"
 import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { getActiveOrganizationId } from "@/server/actions/organization";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db/connection";
 import { companies, contacts, opportunities, pipelineStages } from "@/server/db/schema";
@@ -18,7 +19,7 @@ export default async function OpportunityDetailsPage({ params }: { params: { id:
     redirect("/login");
   }
 
-  const orgId = "00000000-0000-0000-0000-000000000000";
+  const orgId = await getActiveOrganizationId(session.user.id);
 
   const opp = await db.query.opportunities.findFirst({
     where: and(eq(opportunities.id, params.id), eq(opportunities.organizationId, orgId)),

@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getBriefingTemplates } from "@/server/actions/briefing-templates";
+import { getActiveOrganizationId } from "@/server/actions/organization";
 import { auth } from "@/server/auth";
 
 export default async function BriefingTemplatesPage() {
@@ -14,9 +15,7 @@ export default async function BriefingTemplatesPage() {
     redirect("/login");
   }
 
-  // TODO: Get actual organization ID from session or user context
-  // Fallback to a query parameter or static ID if we don't have the active org implemented yet
-  const orgId = "00000000-0000-0000-0000-000000000000"; // Replace with actual active organization id
+  const orgId = await getActiveOrganizationId(session.user.id);
 
   const templates = await getBriefingTemplates(orgId).catch(() => []);
 

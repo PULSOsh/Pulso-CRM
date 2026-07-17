@@ -20,6 +20,7 @@ export * from "./pipelines";
 export * from "./products";
 export * from "./projects";
 export * from "./proposals";
+export * from "./relations";
 export * from "./roles";
 export * from "./tags";
 export * from "./tasks";

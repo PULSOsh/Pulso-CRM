@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { TemplateBuilder } from "@/components/briefings/builder/template-builder";
 import { getBriefingTemplateById } from "@/server/actions/briefing-templates";
+import { getActiveOrganizationId } from "@/server/actions/organization";
 import { auth } from "@/server/auth";
 
 export default async function BriefingTemplateEditorPage({ params }: { params: { id: string } }) {
@@ -15,8 +16,7 @@ export default async function BriefingTemplateEditorPage({ params }: { params: {
     redirect("/login");
   }
 
-  // TODO: Get actual organization ID
-  const orgId = "00000000-0000-0000-0000-000000000000";
+  const orgId = await getActiveOrganizationId(session.user.id);
 
   const template = await getBriefingTemplateById(params.id, orgId);
 

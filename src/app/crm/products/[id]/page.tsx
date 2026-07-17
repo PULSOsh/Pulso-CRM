@@ -3,6 +3,7 @@ import { ArrowLeft, Save } from "lucide-react";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { getActiveOrganizationId } from "@/server/actions/organization";
 import { getProductById } from "@/server/actions/products";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db/connection";
@@ -17,7 +18,7 @@ export default async function EditProductPage({ params }: { params: { id: string
     redirect("/login");
   }
 
-  const orgId = "00000000-0000-0000-0000-000000000000";
+  const orgId = await getActiveOrganizationId(session.user.id);
   const product = await getProductById(params.id, orgId);
 
   if (!product) {

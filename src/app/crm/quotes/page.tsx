@@ -4,6 +4,7 @@ import { FileText, Plus } from "lucide-react";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getActiveOrganizationId } from "@/server/actions/organization";
 import { getQuotes } from "@/server/actions/quotes";
 import { auth } from "@/server/auth";
 
@@ -16,7 +17,7 @@ export default async function QuotesPage() {
     redirect("/login");
   }
 
-  const orgId = "00000000-0000-0000-0000-000000000000";
+  const orgId = await getActiveOrganizationId(session.user.id);
   const quotes = await getQuotes(orgId);
 
   return (
