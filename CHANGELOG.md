@@ -133,6 +133,19 @@ Todas as mudanças relevantes devem ser registradas aqui.
 
 ---
 
+## [2026-07-17] — Fase 2 (parte 2a): primeiro uso real de components/ui/* no shell
+
+### Alterado
+
+- `src/components/crm/app-shell.tsx`: os 3 botões de ícone (fechar mobile, logout, abrir menu mobile) trocados do `<button>` cru pelo componente real `Button` (`variant="ghost" size="icon"`). **Mudança visual intencional**: botões agora têm 44×44px fixo (antes ~28-32px), atendendo o alvo mínimo de toque do design system. Hover sobrescrito pra `hover:bg-white/10` nos dois botões sobre fundo escuro do sidebar (o hover padrão do `ghost` é pensado pra fundo claro).
+
+### Testes
+
+- `tsc --noEmit`, `vitest run` (2/2), `next build` (27 rotas), `npm run lint` (0 erros reais): verdes.
+- Sem verificação visual ainda — pendente confirmação do responsável logado em produção (modelo combinado: uma fatia pequena por vez, push, confirmação visual, próxima fatia).
+
+---
+
 Formato recomendado por alteração:
 
 ```text

@@ -127,11 +127,13 @@ Nada foi apagado ou recriado. Nenhum dado de produção foi alterado nesta fase,
 
 ## 9. Fase atual
 
-**Fase 2 em andamento.** Parte 1 (limpeza de rotas mockadas) concluída — ver seção 12. Parte 1b (extração mecânica de inline styles do shell para Tailwind) concluída — ver seção 13. Parte 1c (limpeza de lint de acessibilidade — labels sem controle, botões sem `type`) concluída — ver seção 14. Parte 1d (`noExplicitAny` e `@ts-ignore` reais, deixados pendentes na 1c) concluída — ver seção 15. `npm run lint` está em **zero erros/warnings de regra real** (só resta drift de fim-de-linha CRLF/LF do checkout Windows, documentado como fora de escopo). A migração real para `components/ui/*` (a parte grande da fase) ainda não foi iniciada.
+**Fase 2 em andamento.** Parte 1 (limpeza de rotas mockadas) concluída — ver seção 12. Parte 1b (extração mecânica de inline styles do shell para Tailwind) concluída — ver seção 13. Parte 1c (limpeza de lint de acessibilidade — labels sem controle, botões sem `type`) concluída — ver seção 14. Parte 1d (`noExplicitAny` e `@ts-ignore` reais, deixados pendentes na 1c) concluída — ver seção 15. `npm run lint` está em **zero erros/warnings de regra real** (só resta drift de fim-de-linha CRLF/LF do checkout Windows, documentado como fora de escopo). Parte 2a (primeira fatia real de migração pra `components/ui/*` — os 3 botões de ícone do shell) concluída, **aguardando confirmação visual do responsável** — ver seção 16.
+
+**Decisão registrada com o responsável em 17/07/2026**: os links ocultos de nav (Tarefas/Financeiro/Relatórios/Configurações) ficam como estão — array com `href: "#"`, filtrado da renderização (`app-shell.tsx`), documentado como placeholder pras fases futuras que constroem essas telas (Financeiro = Fase 8, Relatórios = Fase 10, Tarefas = Fase 3, Configurações = módulo de Workspace/Fase 1 pendente de UI). Não remover nem promover sem que a tela real exista.
 
 ## 10. Próxima ação exata
 
-Continuar Fase 2 (`docs/ROADMAP.md`): migrar o shell (`app-shell.tsx`, hoje ainda estruturado com as classes CSS bespoke de `globals.css` — `.sidebar`, `.nav-link`, `.primary-button` — não usa `components/ui/*`) e os formulários principais para os componentes reais de `components/ui/*` (agora que o `@theme` funciona), em fatias pequenas por tela, rodando `npm run check` a cada mudança. Essa migração estrutural exige verificação visual em tela autenticada (login real) antes do push — combinar com o responsável a forma de validar (ambiente de teste, ou confirmação dele após push) antes de tentar. Depois decidir o destino definitivo dos links de nav ocultos (Tarefas/Financeiro/Relatórios/Configurações) — hoje só ocultos, sem página real. Sem refatoração visual total em um único commit (regra explícita de `docs/DESIGN_SYSTEM.md` seção 6).
+Continuar Fase 2 (`docs/ROADMAP.md`) migrando `components/ui/*` de verdade, uma fatia pequena por vez, sempre com push seguido de confirmação visual do responsável logado em produção antes de seguir pra próxima fatia (modelo combinado em 17/07/2026, ver seção 16). Próximas fatias candidatas do shell: `Input` no campo de busca do topbar (adiado na parte 2a por risco de sobreposição de estilo com a classe `.search` existente — precisa reconciliar largura/altura/padding antes), depois as classes de layout bespoke (`.sidebar`, `.nav-link`, `.app-layout` e as duas media queries em 900px/768px) por Tailwind puro — essa é a parte mais arriscada porque envolve breakpoints que não são os padrão do Tailwind (900px não é `md`/`lg`), então precisa de teste visual em mobile E desktop, não só desktop. Depois seguir pros formulários principais (`companies-client.tsx`, `contacts-client.tsx`, `pipeline/kanban-board.tsx`, etc.), que hoje usam Tailwind cru com paleta `slate`/`orange` em vez dos tokens Pulso.
 
 Pendências que seguem precisando de autorização explícita do responsável antes de agir:
 - rotacionar a senha administrativa já semeada em produção;
@@ -262,3 +264,39 @@ Investiguei os 5 itens deixados pendentes na parte 1c em vez de deixá-los como 
 ### Débitos que ficam para depois
 
 - Nenhum item de lint real conhecido restante. Próximo item de qualidade de código seria decidir se vale tipar as colunas `jsonb("metadata")` do schema com `.$type<>()` em vez de casts pontuais — não fizemos isso agora por afetar múltiplas tabelas fora do escopo desta sessão.
+
+## 16. Fase 2 (parte 2a) — Primeira fatia real de `components/ui/*` no shell (concluída 17/07/2026, pendente confirmação visual)
+
+### Contexto e modelo de trabalho combinado com o responsável
+
+Com a limpeza mecânica esgotada (partes 1b/1c/1d), o que sobra da Fase 2 é a migração de verdade — trocar as classes CSS bespoke de `globals.css` (`.sidebar`, `.nav-link`, `.primary-button`, etc.) pelos componentes reais de `components/ui/*` e por Tailwind puro com os tokens Pulso. Essa migração **muda a aparência de verdade** (ex.: botões de ícone ficam maiores, tocando o alvo mínimo de 44px do `docs/DESIGN_SYSTEM.md` §10), então não dá pra continuar com o critério "zero mudança visual, sem precisar de login" das partes anteriores.
+
+Modelo combinado: eu migro **uma fatia pequena por vez**, dou push, e o responsável confirma visualmente logado em produção antes da próxima fatia. Reversão rápida se algo quebrar (commits pequenos e isolados).
+
+### O que foi feito nesta fatia
+
+`src/components/crm/app-shell.tsx`: os 3 botões de ícone (fechar menu mobile, sair/logout, abrir menu mobile) trocados do `<button>` cru pro componente real `Button` de `components/ui/button.tsx`, com `variant="ghost" size="icon"`:
+
+- Botão de fechar (X, dentro do `.sidebar-brand`, fundo escuro): `hover:bg-white/10` sobrescrevendo o hover padrão do `ghost` (que é `hover:bg-pulso-neutral-soft`, um tom quase branco pensado pra fundo claro — errado sobre o fundo escuro do sidebar). Confirmado que `cn()` usa `tailwind-merge`, então o `className` customizado sobrescreve corretamente o hover do variant.
+- Botão de logout (mesma lógica de fundo escuro, mesmo override de hover).
+- Botão de abrir menu mobile (topbar, fundo claro): usa o `ghost` padrão sem override, já que o hover quase-branco faz sentido nesse contexto.
+
+Classes de visibilidade responsiva existentes (`mobile-close-btn`, `mobile-menu-btn`) mantidas junto com as novas classes do `Button` — não são utilities do Tailwind, então `tailwind-merge` não mexe nelas.
+
+**Mudança visual real e intencional**: o tamanho do botão passa de ~28-32px (padding 4px + ícone 20-24px) pra 44×44px fixo (`size="icon"` = `size-11`). Isso é uma correção de acessibilidade (alvo mínimo de toque), não um efeito colateral acidental — mas é visível, e vale conferir se não ficou desproporcional no header/sidebar.
+
+**Adiado nesta fatia**: o campo de busca do topbar (`<input className="search">`) não foi trocado pelo componente `Input` real. Motivo: a classe `.search` já define largura/altura/padding/borda próprios (320px/42px/13px), que não bate exatamente com os valores do componente `Input` (min-h-11=44px, px-4=16px) — trocar sem reconciliar essas diferenças criaria uma sobreposição de dois sistemas de estilo com resultado imprevisível. Fica pra próxima fatia, feito com cuidado.
+
+### Validação real
+
+- `tsc --noEmit`: limpo.
+- `npm run lint`: 0 erros/warnings de regra real (só o de sempre, format CRLF/LF).
+- `vitest run`: 2/2 passando.
+- `next build`: verde, 27 rotas (sem mudança de manifesto).
+- **Não verificado visualmente ainda** — pendente do responsável logar em produção após o push e confirmar que os 3 botões (fechar mobile, logout, abrir menu mobile) estão com tamanho/cor/hover corretos, antes de eu seguir pra próxima fatia.
+
+### Débitos que ficam para depois
+
+- Campo de busca do topbar ainda usa `<input className="search">` cru.
+- Layout do shell (`.sidebar`, `.nav-link`, `.app-layout`, media queries de 900px/768px) ainda é CSS bespoke, não Tailwind.
+- Formulários das telas de CRM (`companies-client.tsx`, `contacts-client.tsx`, `pipeline/kanban-board.tsx`) ainda usam Tailwind cru com paleta `slate`/`orange`, não os tokens Pulso nem `components/ui/*`.

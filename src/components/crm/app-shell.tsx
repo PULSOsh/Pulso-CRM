@@ -20,6 +20,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 
 const primary = [
@@ -103,13 +104,14 @@ export function AppShell({ active, eyebrow, title, children }: AppShellProps) {
             />
             <span className="text-[14px] font-bold">CRM</span>
           </div>
-          <button
-            type="button"
-            className="mobile-close-btn cursor-pointer border-none bg-transparent p-1 text-white"
+          <Button
+            variant="ghost"
+            size="icon"
+            className="mobile-close-btn text-white hover:bg-white/10"
             onClick={() => setIsMobileMenuOpen(false)}
           >
             <X size={20} />
-          </button>
+          </Button>
         </div>
         <nav>
           {group(primary)}
@@ -128,26 +130,28 @@ export function AppShell({ active, eyebrow, title, children }: AppShellProps) {
               <span>Administrador</span>
             </div>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={handleLogout}
             title="Sair"
-            className="cursor-pointer border-none bg-transparent text-[inherit]"
+            className="text-white hover:bg-white/10"
           >
             <LogOut size={20} />
-          </button>
+          </Button>
         </div>
       </aside>
       <main className="main-area">
         <header className="topbar">
           <div className="flex items-center gap-4">
-            <button
-              type="button"
-              className="mobile-menu-btn cursor-pointer border-none bg-transparent p-1"
+            <Button
+              variant="ghost"
+              size="icon"
+              className="mobile-menu-btn"
               onClick={() => setIsMobileMenuOpen(true)}
             >
               <Menu size={24} className="text-slate-700" />
-            </button>
+            </Button>
             <div>
               <p className="eyebrow">{eyebrow}</p>
               <h1>{title}</h1>
