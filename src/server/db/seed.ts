@@ -1,98 +1,78 @@
-import { auth } from "../auth";
 import { db } from "./connection";
-import { organizationMembers, organizations, permissions, rolePermissions, roles } from "./schema";
+import { users, roles, permissions, rolePermissions, organizationMembers, organizations, accounts } from "./schema";
+import crypto from "crypto";
+import { hashPassword } from "better-auth/crypto";
 import "dotenv/config";
 
 async function runSeed() {
-  console.log("🌱 Starting seed...");
-
+  console.log("🌱 Starting direct seed...");
+  
   // 1. Create Organization
-  const [org] = await db
-    .insert(organizations)
-    .values({
-      name: "PULSO Cloud",
-      slug: "pulso-cloud",
-      legalName: "PULSO Tecnologia LTDA",
-      documentNumber: "12345678000199",
-      email: "contato@pulso.cloud",
-      website: "https://pulso.cloud",
-    })
-    .returning();
-  console.log("✅ Created Organization:", org.name);
+  const orgResult = await db.insert(organizations).values({
+    name: "PULSO Cloud",
+    slug: "pulso-cloud",
+    legalName: "PULSO Tecnologia LTDA",
+    documentNumber: "12345678000199",
+    email: "contato@pulso.cloud",
+    website: "https://pulso.cloud",
+  }).returning();
+  const orgId = orgResult[0].id;
+  console.log("✅ Created Organization");
 
-  // 2. Create Roles and Permissions
-  const [adminRole] = await db
-    .insert(roles)
-    .values({
-      organizationId: org.id,
-      name: "Super Administrador",
-      key: "admin",
-      description: "Acesso total ao sistema",
-      isSystem: true,
-    })
-    .returning();
+  // 2. Create Roles & Permissions
+  const permissionsList = [
+    { key: "all_access", module: "system", action: "manage", description: "Acesso global a tudo" },
+  ];
+  const createdPerms = await db.insert(permissions).values(permissionsList).returning();
+  
+  const superAdminRole = await db.insert(roles).values({
+    organizationId: orgId,
+    name: "Super Admin",
+    key: "super_admin",
+    description: "Administrador geral do sistema",
+    isSystem: true,
+  }).returning();
 
-  const [permAll] = await db
-    .insert(permissions)
-    .values({
-      key: "all_access",
-      module: "system",
-      action: "manage",
-      description: "Acesso global a tudo",
-    })
-    .returning();
-
-  await db.insert(rolePermissions).values({
-    roleId: adminRole.id,
-    permissionId: permAll.id,
-  });
+  await db.insert(rolePermissions).values(
+    createdPerms.map(p => ({
+      roleId: superAdminRole[0].id,
+      permissionId: p.id,
+    }))
+  );
   console.log("✅ Created Roles and Permissions");
 
-  // 3. Check if user already exists before creating
-  const existingUser = await db.query.users.findFirst({
-    where: (users, { eq }) => eq(users.email, "admin@pulso.cloud"),
+  // 3. Create Admin User
+  const userId = crypto.randomUUID();
+  await db.insert(users).values({
+    id: userId,
+    name: "Super ADM",
+    email: "admin@pulso.cloud",
+    emailVerified: false,
   });
 
-  let userId: string;
-
-  if (!existingUser) {
-    // We use Better Auth's internal API to create the user with properly hashed password
-    const res = await auth.api.signUpEmail({
-      body: {
-        email: "admin@pulso.cloud",
-        password: "pulso_admin_secure",
-        name: "Super ADM",
-      },
-    });
-
-    if (!res.user) {
-      throw new Error("Failed to create Super ADM via Better Auth");
-    }
-    userId = res.user.id;
-    console.log("✅ Created Super ADM User");
-  } else {
-    userId = existingUser.id;
-    console.log("✅ Super ADM User already exists");
-  }
-
-  // 4. Link User to Organization
-  const existingMember = await db.query.organizationMembers.findFirst({
-    where: (members, { and, eq }) =>
-      and(eq(members.userId, userId), eq(members.organizationId, org.id)),
+  // 4. Create Credential Account
+  // Must use better-auth's own hasher (scrypt-based) — bcrypt hashes are rejected
+  // by better-auth's verifyPassword with an "Invalid password hash" error.
+  const hashedPassword = await hashPassword("pulso_admin_secure");
+  await db.insert(accounts).values({
+    id: crypto.randomUUID(),
+    userId,
+    accountId: userId,
+    providerId: "credential",
+    password: hashedPassword,
+    createdAt: new Date(),
+    updatedAt: new Date(),
   });
 
-  if (!existingMember) {
-    await db.insert(organizationMembers).values({
-      organizationId: org.id,
-      userId: userId,
-      roleId: adminRole.id,
-      status: "active",
-      joinedAt: new Date(),
-    });
-    console.log("✅ Linked Super ADM to Organization");
-  }
+  // 5. Add user to Organization
+  await db.insert(organizationMembers).values({
+    organizationId: orgId,
+    userId,
+    roleId: superAdminRole[0].id,
+    status: "active",
+  });
 
-  console.log("🎉 Seed finished successfully!");
+  console.log("✅ Created Admin User: admin@pulso.cloud / pulso_admin_secure");
   process.exit(0);
 }
 

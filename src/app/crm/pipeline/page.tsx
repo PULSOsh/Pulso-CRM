@@ -4,6 +4,12 @@ import { redirect } from "next/navigation";
 import { KanbanBoard } from "@/components/crm/pipeline/kanban-board";
 import { getPipelineWithOpportunities } from "@/server/actions/pipeline";
 import { auth } from "@/server/auth";
+import { db } from "@/server/db/connection";
+import { organizationMembers } from "@/server/db/schema";
+import { eq } from "drizzle-orm";
+import { getCompanies } from "@/server/actions/companies";
+import { getContacts } from "@/server/actions/contacts";
+import { Plus } from "lucide-react";
 
 export default async function PipelinePage() {
   const session = await auth.api.getSession({
@@ -14,10 +20,20 @@ export default async function PipelinePage() {
     redirect("/login");
   }
 
-  // TODO: Get active org ID from session/context
-  const orgId = "00000000-0000-0000-0000-000000000000";
+  // Get active org ID from user's organization members
+  const member = await db.query.organizationMembers.findFirst({
+    where: eq(organizationMembers.userId, session.user.id),
+  });
+
+  if (!member) {
+    throw new Error("Usuário não pertence a nenhuma organização");
+  }
+
+  const orgId = member.organizationId;
 
   const data = await getPipelineWithOpportunities(orgId);
+  const companies = await getCompanies(orgId);
+  const contacts = await getContacts(orgId);
 
   // Map backend types to frontend types for the Kanban
   const mappedStages = data.stages.map((stage) => ({
@@ -47,7 +63,14 @@ export default async function PipelinePage() {
         </div>
       </div>
 
-      <KanbanBoard initialStages={mappedStages} userId={session.user.id} orgId={orgId} />
+      <KanbanBoard 
+        initialStages={mappedStages} 
+        userId={session.user.id} 
+        orgId={orgId}
+        pipelineId={data.pipeline.id}
+        companies={companies.map(c => ({ id: c.id, name: c.tradeName }))}
+        contacts={contacts.map(c => ({ id: c.id, name: `${c.firstName} ${c.lastName || ""}`.trim() }))}
+      />
     </div>
   );
 }

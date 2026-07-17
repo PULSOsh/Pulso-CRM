@@ -14,21 +14,30 @@ import {
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { useMemo, useState } from "react";
-import { moveOpportunity } from "@/server/actions/pipeline";
+import { moveOpportunity, createOpportunity } from "@/server/actions/pipeline";
 import { KanbanCard, type OpportunityCardType } from "./kanban-card";
 import { KanbanColumn, type PipelineStageColumnType } from "./kanban-column";
+import { Plus, X } from "lucide-react";
 
 export function KanbanBoard({
   initialStages,
   userId,
   orgId,
+  pipelineId,
+  companies,
+  contacts,
 }: {
   initialStages: PipelineStageColumnType[];
   userId: string;
   orgId: string;
+  pipelineId: string;
+  companies: { id: string; name: string }[];
+  contacts: { id: string; name: string }[];
 }) {
   const [stages, setStages] = useState<PipelineStageColumnType[]>(initialStages);
   const [activeCard, setActiveCard] = useState<OpportunityCardType | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -176,6 +185,64 @@ export function KanbanBoard({
     }
   };
 
+  async function handleCreateOpportunity(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoading(true);
+    const formData = new FormData(e.currentTarget);
+    const title = formData.get("title") as string;
+    const companyId = formData.get("companyId") as string;
+    const contactId = formData.get("contactId") as string;
+    const stageId = formData.get("stageId") as string;
+    const estimatedValueStr = formData.get("estimatedValue") as string;
+    
+    try {
+      const newOpp = await createOpportunity({
+        organizationId: orgId,
+        pipelineId,
+        title,
+        companyId: companyId || undefined,
+        primaryContactId: contactId || undefined,
+        stageId,
+        estimatedValue: estimatedValueStr ? estimatedValueStr : undefined,
+        ownerUserId: userId,
+      });
+
+      // Optimistically add to UI
+      setStages(prev => {
+        const newStages = [...prev];
+        const stageIndex = newStages.findIndex(s => s.id === stageId);
+        if (stageIndex !== -1) {
+          // We mock the full structure for UI
+          const selectedCompanyName = companies.find(c => c.id === companyId)?.name;
+          const selectedContactName = contacts.find(c => c.id === contactId)?.name;
+          const [contactFirstName, ...contactLastNameParts] = selectedContactName?.split(" ") ?? [];
+
+          newStages[stageIndex].opportunities.push({
+            id: newOpp.id,
+            title: newOpp.title,
+            company: selectedCompanyName ? { tradeName: selectedCompanyName } : null,
+            primaryContact: contactFirstName
+              ? {
+                  firstName: contactFirstName,
+                  lastName: contactLastNameParts.length ? contactLastNameParts.join(" ") : null,
+                }
+              : null,
+            estimatedValue: newOpp.estimatedValue,
+            position: newOpp.position.toString(),
+            stageId: newOpp.stageId,
+          });
+        }
+        return newStages;
+      });
+      setIsModalOpen(false);
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao criar oportunidade.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <DndContext
       sensors={sensors}
@@ -184,7 +251,17 @@ export function KanbanBoard({
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}
     >
-      <div className="flex gap-6 overflow-x-auto pb-8 h-[calc(100vh-180px)]">
+      <div className="flex justify-between items-center mb-4">
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors shadow-sm"
+        >
+          <Plus size={20} />
+          Nova Oportunidade
+        </button>
+      </div>
+
+      <div className="flex gap-6 overflow-x-auto pb-8 h-[calc(100vh-240px)]">
         {/* We use SortableContext here so columns themselves could be sortable if we wanted, 
             but for now we just map through them. */}
         {stages.map((stage) => (
@@ -193,6 +270,89 @@ export function KanbanBoard({
       </div>
 
       <DragOverlay>{activeCard ? <KanbanCard opportunity={activeCard} /> : null}</DragOverlay>
+
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">Nova Oportunidade</h2>
+                <p className="text-slate-500 text-sm mt-1">Adicione um novo negócio ao funil.</p>
+              </div>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto">
+              <form id="oppForm" onSubmit={handleCreateOpportunity} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Título do Negócio *</label>
+                  <input
+                    name="title"
+                    required
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
+                    placeholder="Ex: Consultoria - Empresa XYZ"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Empresa</label>
+                  <select name="companyId" className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:border-orange-500 outline-none">
+                    <option value="">-- Selecione uma empresa --</option>
+                    {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Contato Principal</label>
+                  <select name="contactId" className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:border-orange-500 outline-none">
+                    <option value="">-- Selecione um contato --</option>
+                    {contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Etapa Inicial *</label>
+                  <select name="stageId" required className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:border-orange-500 outline-none">
+                    {stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Valor Estimado (R$)</label>
+                  <input
+                    name="estimatedValue"
+                    type="number"
+                    step="0.01"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
+                    placeholder="0.00"
+                  />
+                </div>
+              </form>
+            </div>
+            
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="px-4 py-2 text-slate-700 hover:bg-slate-200 rounded-md transition-colors"
+                disabled={loading}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                form="oppForm"
+                disabled={loading}
+                className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors disabled:opacity-50 flex items-center justify-center min-w-[100px]"
+              >
+                {loading ? "Salvando..." : "Salvar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </DndContext>
   );
 }

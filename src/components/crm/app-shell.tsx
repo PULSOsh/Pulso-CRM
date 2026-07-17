@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import {
   BarChart3,
   Building2,
@@ -11,7 +13,9 @@ import {
   KanbanSquare,
   LayoutDashboard,
   LogOut,
+  Menu,
   Settings,
+  X,
   WalletCards,
 } from "lucide-react";
 import Image from "next/image";
@@ -21,10 +25,10 @@ import { authClient } from "@/lib/auth-client";
 
 const primary = [
   { href: "/dashboard", label: "Visão geral", key: "dashboard", icon: LayoutDashboard },
-  { href: "/crm", label: "CRM", key: "crm", icon: KanbanSquare },
+  { href: "/crm/pipeline", label: "Funil (Kanban)", key: "crm", icon: KanbanSquare },
   { href: "/briefings", label: "Briefings", key: "briefings", icon: ClipboardList },
-  { href: "#", label: "Contatos", key: "contacts", icon: Contact },
-  { href: "#", label: "Empresas", key: "companies", icon: Building2 },
+  { href: "/crm/contatos", label: "Contatos", key: "contacts", icon: Contact },
+  { href: "/crm/empresas", label: "Empresas", key: "companies", icon: Building2 },
 ];
 
 const commercial = [
@@ -40,7 +44,7 @@ const operation = [
   { href: "#", label: "Configurações", key: "settings", icon: Settings },
 ];
 
-type ActiveKey = "dashboard" | "crm" | "briefings" | "budgets";
+type ActiveKey = "dashboard" | "crm" | "briefings" | "budgets" | "contacts" | "companies";
 
 type AppShellProps = {
   active: ActiveKey;
@@ -52,6 +56,7 @@ type AppShellProps = {
 export function AppShell({ active, eyebrow, title, children }: AppShellProps) {
   const router = useRouter();
   const { data: session } = authClient.useSession();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
     await authClient.signOut();
@@ -68,22 +73,40 @@ export function AppShell({ active, eyebrow, title, children }: AppShellProps) {
 
   return (
     <div className="app-layout">
-      <aside className="sidebar">
-        <div className="sidebar-brand">
-          <Image
-            src="/brand/pulso_horizontal_signal_white.svg"
-            alt="PULSO"
-            width={150}
-            height={38}
-          />
-          <span>CRM</span>
+      {/* Mobile Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="mobile-overlay" 
+          onClick={() => setIsMobileMenuOpen(false)}
+          style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 40 }}
+        />
+      )}
+      
+      <aside className={`sidebar ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
+        <div className="sidebar-brand" style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Image
+              src="/brand/pulso_horizontal_signal_white.svg"
+              alt="PULSO"
+              width={120}
+              height={30}
+            />
+            <span style={{ fontSize: '14px', fontWeight: 'bold' }}>CRM</span>
+          </div>
+          <button 
+            className="mobile-close-btn"
+            onClick={() => setIsMobileMenuOpen(false)}
+            style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', padding: '4px' }}
+          >
+            <X size={20} />
+          </button>
         </div>
         <nav>
           {group(primary)}
           <div className="nav-label">COMERCIAL</div>
           {group(commercial)}
-          <div className="nav-label">OPERAÇÃO</div>
-          {group(operation)}
+          {/* <div className="nav-label">OPERAÇÃO</div> */}
+          {/* {group(operation)} */}
         </nav>
         <div
           className="sidebar-user"
@@ -115,9 +138,18 @@ export function AppShell({ active, eyebrow, title, children }: AppShellProps) {
       </aside>
       <main className="main-area">
         <header className="topbar">
-          <div>
-            <p className="eyebrow">{eyebrow}</p>
-            <h1>{title}</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <button 
+              className="mobile-menu-btn"
+              onClick={() => setIsMobileMenuOpen(true)}
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px' }}
+            >
+              <Menu size={24} className="text-slate-700" />
+            </button>
+            <div>
+              <p className="eyebrow">{eyebrow}</p>
+              <h1>{title}</h1>
+            </div>
           </div>
           <div className="topbar-actions">
             <input className="search" placeholder="Buscar clientes, briefings, propostas..." />

@@ -1649,3 +1649,28 @@ textarea:focus-visible {
     padding-inline: 10px;
   }
 }
+
+/* Mobile Menu */
+.mobile-menu-btn { display: none; }
+.mobile-close-btn { display: none; }
+
+@media (max-width: 768px) {
+  .mobile-menu-btn { display: block; }
+  .mobile-close-btn { display: block; }
+  .sidebar {
+    transform: translateX(-100%);
+    position: fixed;
+    z-index: 50;
+    height: 100vh;
+    transition: transform 0.3s ease;
+  }
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+  .main-area {
+    margin-left: 0 !important;
+  }
+  .app-layout {
+    grid-template-columns: 1fr !important;
+  }
+}
