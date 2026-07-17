@@ -1,5 +1,6 @@
 export * from "./activities";
 export * from "./audit";
+export * from "./auth";
 export * from "./briefings";
 export * from "./companies";
 export * from "./consent";

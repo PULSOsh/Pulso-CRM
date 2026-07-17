@@ -1,3 +1,5 @@
+"use client";
+
 import {
   BarChart3,
   Building2,
@@ -8,11 +10,14 @@ import {
   FileText,
   KanbanSquare,
   LayoutDashboard,
+  LogOut,
   Settings,
   WalletCards,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { authClient } from "@/lib/auth-client";
 
 const primary = [
   { href: "/dashboard", label: "Visão geral", key: "dashboard", icon: LayoutDashboard },
@@ -45,6 +50,14 @@ type AppShellProps = {
 };
 
 export function AppShell({ active, eyebrow, title, children }: AppShellProps) {
+  const router = useRouter();
+  const { data: session } = authClient.useSession();
+
+  const handleLogout = async () => {
+    await authClient.signOut();
+    router.push("/login");
+  };
+
   const group = (items: typeof primary) =>
     items.map(({ href, label, key, icon: Icon }) => (
       <Link key={label} href={href} className={`nav-link ${key === active ? "active" : ""}`}>
@@ -72,12 +85,32 @@ export function AppShell({ active, eyebrow, title, children }: AppShellProps) {
           <div className="nav-label">OPERAÇÃO</div>
           {group(operation)}
         </nav>
-        <div className="sidebar-user">
-          <div className="avatar">GC</div>
-          <div>
-            <strong>Gustavo Costa</strong>
-            <span>Administrador</span>
+        <div
+          className="sidebar-user"
+          style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+        >
+          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+            <div className="avatar">
+              {session?.user?.name?.substring(0, 2).toUpperCase() || "..."}
+            </div>
+            <div>
+              <strong>{session?.user?.name || "Carregando..."}</strong>
+              <span>Administrador</span>
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            title="Sair"
+            style={{
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              color: "inherit",
+            }}
+          >
+            <LogOut size={20} />
+          </button>
         </div>
       </aside>
       <main className="main-area">
@@ -88,7 +121,9 @@ export function AppShell({ active, eyebrow, title, children }: AppShellProps) {
           </div>
           <div className="topbar-actions">
             <input className="search" placeholder="Buscar clientes, briefings, propostas..." />
-            <div className="avatar">GC</div>
+            <div className="avatar">
+              {session?.user?.name?.substring(0, 2).toUpperCase() || "..."}
+            </div>
           </div>
         </header>
         {children}

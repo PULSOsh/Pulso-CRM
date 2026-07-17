@@ -1,7 +1,40 @@
+"use client";
 import Image from "next/image";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { authClient } from "@/lib/auth-client";
 
 export default function LoginPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      const { error } = await authClient.signIn.email({
+        email,
+        password,
+      });
+
+      if (error) {
+        setError(error.message || "Erro ao realizar login");
+      } else {
+        router.push("/crm");
+        router.refresh();
+      }
+    } catch (_err) {
+      setError("Erro de rede. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <main className="login-page">
       <section className="login-brand">
@@ -27,30 +60,37 @@ export default function LoginPage() {
         </footer>
       </section>
       <section className="login-form-side">
-        <form className="login-form">
+        <form className="login-form" onSubmit={handleLogin}>
           <div>
             <p className="eyebrow">ACESSO SEGURO</p>
             <h2>Entre no PULSO CRM</h2>
-            <p className="muted">
-              Interface inicial do starter. A autenticação real entra na Fase 1.
-            </p>
+            <p className="muted">Autenticação centralizada.</p>
           </div>
+          {error && <div style={{ color: "red", fontSize: "14px" }}>{error}</div>}
           <label className="field">
             <span>E-mail</span>
-            <input type="email" defaultValue="gustavo@pulso.cloud" />
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={loading}
+            />
           </label>
           <label className="field">
             <span>Senha</span>
-            <input type="password" defaultValue="pulso123" />
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
+            />
           </label>
-          <Link
-            href="/crm"
-            className="primary-button login-button"
-            style={{ display: "grid", placeItems: "center", textDecoration: "none" }}
-          >
-            Entrar no sistema
-          </Link>
-          <div className="security-line">Starter front-end sem autenticação de produção.</div>
+          <button type="submit" className="primary-button login-button" disabled={loading}>
+            {loading ? "Entrando..." : "Entrar no sistema"}
+          </button>
+          <div className="security-line">Acesso restrito.</div>
         </form>
       </section>
     </main>
