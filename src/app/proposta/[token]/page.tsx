@@ -1,8 +1,9 @@
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { MessageCircle } from "lucide-react";
+import { CheckCircle2, MessageCircle } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getPublicProposal } from "@/server/actions/public-quote";
+import ApproveModal from "./approve-modal";
 
 export default async function PublicQuotePage({ params }: { params: { token: string } }) {
   const proposal = await getPublicProposal(params.token);
@@ -34,9 +35,15 @@ export default async function PublicQuotePage({ params }: { params: { token: str
         </div>
         <div className="flex items-center gap-4 text-sm font-medium">
           <span className="text-slate-400 hidden md:inline-block">Proposta Nº {proposal.code}</span>
-          <span className="px-3 py-1 rounded-full bg-orange-500/10 text-orange-500 border border-orange-500/20">
-            {proposal.status === "draft" ? "Em Análise" : proposal.status}
-          </span>
+          {proposal.status === "approved" ? (
+            <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center gap-1.5">
+              <CheckCircle2 size={14} /> Aprovada
+            </span>
+          ) : (
+            <span className="px-3 py-1 rounded-full bg-orange-500/10 text-orange-500 border border-orange-500/20">
+              {proposal.status === "draft" ? "Em Análise" : proposal.status}
+            </span>
+          )}
         </div>
       </nav>
 
@@ -151,16 +158,18 @@ export default async function PublicQuotePage({ params }: { params: { token: str
       </main>
 
       {/* Floating Action Button */}
-      <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent flex justify-center z-50">
+      <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent flex justify-center items-center gap-4 z-50">
         <a
           href={whatsappUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-3 px-8 py-4 bg-orange-600 text-white rounded-full font-semibold shadow-[0_0_40px_-10px_rgba(234,88,12,0.5)] hover:bg-orange-500 hover:scale-105 hover:shadow-[0_0_60px_-15px_rgba(234,88,12,0.7)] transition-all duration-300"
+          className={`flex items-center gap-3 px-8 py-4 ${proposal.status === "approved" ? "bg-orange-600 shadow-[0_0_40px_-10px_rgba(234,88,12,0.5)]" : "bg-slate-800 shadow-xl border border-white/10"} text-white rounded-full font-semibold hover:scale-105 transition-all duration-300`}
         >
           <MessageCircle size={24} />
           Falar com Especialista
         </a>
+
+        {proposal.status === "draft" && <ApproveModal token={params.token} />}
       </div>
     </div>
   );

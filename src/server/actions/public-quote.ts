@@ -1,8 +1,15 @@
 "use server";
 
+import crypto from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db } from "../db/connection";
-import { proposalItems, proposals, proposalVersions } from "../db/schema";
+import {
+  opportunities,
+  pipelineStages,
+  proposalItems,
+  proposals,
+  proposalVersions,
+} from "../db/schema";
 
 export async function getPublicProposal(token: string) {
   // 1. Fetch proposal by public token
@@ -51,4 +58,63 @@ export async function getPublicProposal(token: string) {
       total: item.total,
     })),
   };
+}
+
+export async function approveProposal(token: string, _signerData: { name: string; email: string }) {
+  // 1. Fetch proposal
+  const proposal = await db.query.proposals.findFirst({
+    where: eq(proposals.publicToken, token),
+  });
+
+  if (proposal?.status !== "draft") {
+    return { success: false, error: "Proposta inválida ou já processada." };
+  }
+
+  // 2. Mark proposal as approved
+  await db
+    .update(proposals)
+    .set({
+      status: "approved",
+      approvedAt: new Date(),
+    })
+    .where(eq(proposals.id, proposal.id));
+
+  // 3. Move Opportunity in Kanban
+  if (proposal.opportunityId) {
+    // Find the 'won' stage for the organization
+    // For MVP, we'll try to find a stage named "Ganho" or "Won", or just the one with highest position
+    const opp = await db.query.opportunities.findFirst({
+      where: eq(opportunities.id, proposal.opportunityId),
+    });
+
+    if (opp) {
+      const stages = await db.query.pipelineStages.findMany({
+        where: eq(pipelineStages.pipelineId, opp.pipelineId),
+        orderBy: (stages, { desc }) => [desc(stages.position)],
+      });
+
+      // Usually the last stage or a stage marked 'isWon'. We assume last stage for MVP if isWon is not set.
+      const wonStage = stages.find((s) => s.isWon) || stages[0];
+
+      if (wonStage) {
+        await db
+          .update(opportunities)
+          .set({
+            status: "won",
+            stageId: wonStage.id,
+            wonAt: new Date(),
+          })
+          .where(eq(opportunities.id, opp.id));
+      }
+    }
+  }
+
+  // 4. Save response record
+  // We mock a hash for the snapshot
+  const _snapshotHash = crypto.randomUUID();
+
+  // Note: we'd ideally insert into proposalResponses here, but the schema requires publicLinkId which is for phase 9 extension
+  // For the MVP, updating the proposal and opportunity is the core business value.
+
+  return { success: true };
 }
