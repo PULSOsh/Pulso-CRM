@@ -15,13 +15,9 @@ type QuoteItemInput = {
 export default function QuoteBuilderForm({
   opportunities,
   products,
-  organizationId,
-  userId,
 }: {
   opportunities: any[];
   products: any[];
-  organizationId: string;
-  userId: string;
 }) {
   const [isPending, startTransition] = useTransition();
   const [opportunityId, setOpportunityId] = useState("");
@@ -79,8 +75,6 @@ export default function QuoteBuilderForm({
 
     startTransition(async () => {
       await createQuote({
-        organizationId,
-        userId,
         opportunityId,
         title,
         scope,

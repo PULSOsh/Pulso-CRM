@@ -2,7 +2,6 @@ import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { SubmissionDetails } from "@/components/crm/briefings/submission-details";
 import { getBriefingSubmissionById } from "@/server/actions/briefing-submissions";
-import { getActiveOrganizationId } from "@/server/actions/organization";
 import { auth } from "@/server/auth";
 
 export default async function InboxDetailsPage({ params }: { params: { id: string } }) {
@@ -14,9 +13,7 @@ export default async function InboxDetailsPage({ params }: { params: { id: strin
     redirect("/login");
   }
 
-  const orgId = await getActiveOrganizationId(session.user.id);
-
-  const submission = await getBriefingSubmissionById(params.id, orgId);
+  const submission = await getBriefingSubmissionById(params.id);
 
   if (!submission) {
     notFound();
@@ -24,7 +21,7 @@ export default async function InboxDetailsPage({ params }: { params: { id: strin
 
   return (
     <div className="p-8">
-      <SubmissionDetails submission={submission} orgId={orgId} userId={session.user.id} />
+      <SubmissionDetails submission={submission} />
     </div>
   );
 }

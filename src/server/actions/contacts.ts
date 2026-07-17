@@ -2,12 +2,13 @@
 
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { requirePermission } from "../auth/require-permission";
 import { db } from "../db/connection";
 import { contacts } from "../db/schema";
-import { auth } from "../auth";
-import { headers } from "next/headers";
 
-export async function getContacts(organizationId: string) {
+export async function getContacts() {
+  const { organizationId } = await requirePermission("contacts.read");
+
   return await db.query.contacts.findMany({
     where: eq(contacts.organizationId, organizationId),
     orderBy: (contacts, { desc }) => [desc(contacts.createdAt)],
@@ -15,7 +16,6 @@ export async function getContacts(organizationId: string) {
 }
 
 export async function createContact(data: {
-  organizationId: string;
   firstName: string;
   lastName?: string;
   email?: string;
@@ -23,15 +23,12 @@ export async function createContact(data: {
   whatsapp?: string;
   jobTitle?: string;
 }) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
-  if (!session) throw new Error("Unauthorized");
+  const { organizationId } = await requirePermission("contacts.create");
 
   const [contact] = await db
     .insert(contacts)
     .values({
-      organizationId: data.organizationId,
+      organizationId,
       firstName: data.firstName,
       lastName: data.lastName,
       email: data.email,

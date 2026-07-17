@@ -13,23 +13,19 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { Plus, X } from "lucide-react";
 import { useMemo, useState } from "react";
-import { moveOpportunity, createOpportunity } from "@/server/actions/pipeline";
+import { createOpportunity, moveOpportunity } from "@/server/actions/pipeline";
 import { KanbanCard, type OpportunityCardType } from "./kanban-card";
 import { KanbanColumn, type PipelineStageColumnType } from "./kanban-column";
-import { Plus, X } from "lucide-react";
 
 export function KanbanBoard({
   initialStages,
-  userId,
-  orgId,
   pipelineId,
   companies,
   contacts,
 }: {
   initialStages: PipelineStageColumnType[];
-  userId: string;
-  orgId: string;
   pipelineId: string;
   companies: { id: string; name: string }[];
   contacts: { id: string; name: string }[];
@@ -178,7 +174,7 @@ export function KanbanBoard({
 
     // Server Action
     try {
-      await moveOpportunity(activeId, targetStage.id, newPosition, userId, orgId);
+      await moveOpportunity(activeId, targetStage.id, newPosition);
     } catch (err) {
       console.error("Failed to move opportunity", err);
       // In a real app, we might want to revert the optimistic update here or show a toast
@@ -194,27 +190,25 @@ export function KanbanBoard({
     const contactId = formData.get("contactId") as string;
     const stageId = formData.get("stageId") as string;
     const estimatedValueStr = formData.get("estimatedValue") as string;
-    
+
     try {
       const newOpp = await createOpportunity({
-        organizationId: orgId,
         pipelineId,
         title,
         companyId: companyId || undefined,
         primaryContactId: contactId || undefined,
         stageId,
         estimatedValue: estimatedValueStr ? estimatedValueStr : undefined,
-        ownerUserId: userId,
       });
 
       // Optimistically add to UI
-      setStages(prev => {
+      setStages((prev) => {
         const newStages = [...prev];
-        const stageIndex = newStages.findIndex(s => s.id === stageId);
+        const stageIndex = newStages.findIndex((s) => s.id === stageId);
         if (stageIndex !== -1) {
           // We mock the full structure for UI
-          const selectedCompanyName = companies.find(c => c.id === companyId)?.name;
-          const selectedContactName = contacts.find(c => c.id === contactId)?.name;
+          const selectedCompanyName = companies.find((c) => c.id === companyId)?.name;
+          const selectedContactName = contacts.find((c) => c.id === contactId)?.name;
           const [contactFirstName, ...contactLastNameParts] = selectedContactName?.split(" ") ?? [];
 
           newStages[stageIndex].opportunities.push({
@@ -279,15 +273,20 @@ export function KanbanBoard({
                 <h2 className="text-xl font-bold text-slate-900">Nova Oportunidade</h2>
                 <p className="text-slate-500 text-sm mt-1">Adicione um novo negócio ao funil.</p>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
                 <X size={24} />
               </button>
             </div>
-            
+
             <div className="p-6 overflow-y-auto">
               <form id="oppForm" onSubmit={handleCreateOpportunity} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Título do Negócio *</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Título do Negócio *
+                  </label>
                   <input
                     name="title"
                     required
@@ -295,32 +294,60 @@ export function KanbanBoard({
                     placeholder="Ex: Consultoria - Empresa XYZ"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Empresa</label>
-                  <select name="companyId" className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:border-orange-500 outline-none">
+                  <select
+                    name="companyId"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:border-orange-500 outline-none"
+                  >
                     <option value="">-- Selecione uma empresa --</option>
-                    {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    {companies.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Contato Principal</label>
-                  <select name="contactId" className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:border-orange-500 outline-none">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Contato Principal
+                  </label>
+                  <select
+                    name="contactId"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:border-orange-500 outline-none"
+                  >
                     <option value="">-- Selecione um contato --</option>
-                    {contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    {contacts.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Etapa Inicial *</label>
-                  <select name="stageId" required className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:border-orange-500 outline-none">
-                    {stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Etapa Inicial *
+                  </label>
+                  <select
+                    name="stageId"
+                    required
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:border-orange-500 outline-none"
+                  >
+                    {stages.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Valor Estimado (R$)</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Valor Estimado (R$)
+                  </label>
                   <input
                     name="estimatedValue"
                     type="number"
@@ -331,7 +358,7 @@ export function KanbanBoard({
                 </div>
               </form>
             </div>
-            
+
             <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 shrink-0">
               <button
                 type="button"

@@ -17,15 +17,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { approveBriefingSubmission } from "@/server/actions/briefing-submissions";
 
-export function SubmissionDetails({
-  submission,
-  orgId,
-  userId,
-}: {
-  submission: any;
-  orgId: string;
-  userId: string;
-}) {
+export function SubmissionDetails({ submission }: { submission: any }) {
   const router = useRouter();
   const [isApproving, setIsApproving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +26,7 @@ export function SubmissionDetails({
     setIsApproving(true);
     setError(null);
     try {
-      await approveBriefingSubmission(submission.id, orgId, userId);
+      await approveBriefingSubmission(submission.id);
       // Success is handled by server revalidation and navigating/updating
       router.refresh();
     } catch (err: unknown) {

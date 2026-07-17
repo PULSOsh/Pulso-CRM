@@ -1,26 +1,30 @@
 "use server";
 
 import crypto from "node:crypto";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { requirePermission } from "../auth/require-permission";
 import { db } from "../db/connection";
 import { products } from "../db/schema";
 
-export async function getProducts(organizationId: string) {
+export async function getProducts() {
+  const { organizationId } = await requirePermission("products.read");
+
   return await db.query.products.findMany({
     where: eq(products.organizationId, organizationId),
     orderBy: [asc(products.category), asc(products.basePrice)],
   });
 }
 
-export async function getProductById(id: string, organizationId: string) {
+export async function getProductById(id: string) {
+  const { organizationId } = await requirePermission("products.read");
+
   return await db.query.products.findFirst({
     where: (p, { and, eq }) => and(eq(p.id, id), eq(p.organizationId, organizationId)),
   });
 }
 
 export async function createProduct(data: {
-  organizationId: string;
   name: string;
   slug?: string;
   category: string;
@@ -31,9 +35,12 @@ export async function createProduct(data: {
   scopeDefault?: string;
   termsDefault?: string;
 }) {
+  const { organizationId } = await requirePermission("products.manage");
+
   const id = crypto.randomUUID();
   await db.insert(products).values({
     id,
+    organizationId,
     ...data,
   });
 
@@ -41,7 +48,31 @@ export async function createProduct(data: {
   return { success: true, id };
 }
 
-export async function seedProductsFromCatalog(organizationId: string) {
+export async function updateProduct(
+  id: string,
+  data: {
+    name: string;
+    category: string;
+    description?: string;
+    basePrice: string;
+    pricingUnit: string;
+    averageDeliveryDays?: number;
+    scopeDefault?: string;
+  },
+) {
+  const { organizationId } = await requirePermission("products.manage");
+
+  await db
+    .update(products)
+    .set({ ...data, updatedAt: new Date() })
+    .where(and(eq(products.id, id), eq(products.organizationId, organizationId)));
+
+  revalidatePath("/crm/products");
+  return { success: true };
+}
+
+export async function seedProductsFromCatalog() {
+  const { organizationId } = await requirePermission("products.manage");
   // Extracted from catalogo.pulsosh.cloud
   const catalog = [
     {

@@ -2,6 +2,7 @@
 
 import { and, asc, desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { requirePermission } from "../auth/require-permission";
 import { db } from "../db/connection";
 import {
   briefingSubmissions,
@@ -12,7 +13,9 @@ import {
   pipelines,
 } from "../db/schema";
 
-export async function getBriefingSubmissions(organizationId: string) {
+export async function getBriefingSubmissions() {
+  const { organizationId } = await requirePermission("briefings.read");
+
   return await db.query.briefingSubmissions.findMany({
     where: eq(briefingSubmissions.organizationId, organizationId),
     orderBy: [desc(briefingSubmissions.createdAt)],
@@ -27,7 +30,9 @@ export async function getBriefingSubmissions(organizationId: string) {
   });
 }
 
-export async function getBriefingSubmissionById(id: string, organizationId: string) {
+export async function getBriefingSubmissionById(id: string) {
+  const { organizationId } = await requirePermission("briefings.read");
+
   return await db.query.briefingSubmissions.findFirst({
     where: and(
       eq(briefingSubmissions.id, id),
@@ -43,12 +48,10 @@ export async function getBriefingSubmissionById(id: string, organizationId: stri
   });
 }
 
-export async function approveBriefingSubmission(
-  id: string,
-  organizationId: string,
-  userId: string,
-) {
-  const submission = await getBriefingSubmissionById(id, organizationId);
+export async function approveBriefingSubmission(id: string) {
+  const { organizationId, userId } = await requirePermission("briefings.review");
+
+  const submission = await getBriefingSubmissionById(id);
   if (!submission) throw new Error("Submissão não encontrada");
   if (submission.status === "linked") throw new Error("Submissão já foi aprovada e vinculada");
 

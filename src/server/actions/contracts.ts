@@ -3,6 +3,7 @@
 import { and, desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
+import { requirePermission } from "../auth/require-permission";
 import { db } from "../db/connection";
 import {
   contractEvents,
@@ -13,14 +14,18 @@ import {
   proposalVersions,
 } from "../db/schema";
 
-export async function getContracts(organizationId: string) {
+export async function getContracts() {
+  const { organizationId } = await requirePermission("contracts.read");
+
   return await db.query.contracts.findMany({
     where: eq(contracts.organizationId, organizationId),
     orderBy: [desc(contracts.createdAt)],
   });
 }
 
-export async function getContractById(id: string, organizationId: string) {
+export async function getContractById(id: string) {
+  const { organizationId } = await requirePermission("contracts.read");
+
   return await db.query.contracts.findFirst({
     where: and(eq(contracts.id, id), eq(contracts.organizationId, organizationId)),
   });
@@ -71,11 +76,9 @@ ${params.terms || "A definir entre as partes."}
 Este documento reflete o snapshot da proposta aprovada no momento da geração do contrato.`;
 }
 
-export async function createContractFromProposal(
-  proposalId: string,
-  organizationId: string,
-  userId: string,
-) {
+export async function createContractFromProposal(proposalId: string) {
+  const { organizationId, userId } = await requirePermission("contracts.create");
+
   const proposal = await db.query.proposals.findFirst({
     where: and(eq(proposals.id, proposalId), eq(proposals.organizationId, organizationId)),
   });
@@ -143,7 +146,9 @@ export async function createContractFromProposal(
   return contract;
 }
 
-export async function getApprovedProposalsWithoutContract(organizationId: string) {
+export async function getApprovedProposalsWithoutContract() {
+  const { organizationId } = await requirePermission("contracts.read");
+
   const approvedProposals = await db.query.proposals.findMany({
     where: and(eq(proposals.organizationId, organizationId), eq(proposals.status, "approved")),
   });
@@ -158,8 +163,10 @@ export async function getApprovedProposalsWithoutContract(organizationId: string
   return approvedProposals.filter((p) => !proposalIdsWithContract.has(p.id));
 }
 
-export async function sendContract(id: string, organizationId: string, userId: string) {
-  const contract = await getContractById(id, organizationId);
+export async function sendContract(id: string) {
+  const { userId } = await requirePermission("contracts.send");
+
+  const contract = await getContractById(id);
   if (!contract) throw new Error("Contrato não encontrado");
   if (contract.status !== "draft")
     throw new Error("Apenas contratos em rascunho podem ser enviados");
@@ -180,13 +187,10 @@ export async function sendContract(id: string, organizationId: string, userId: s
   return { success: true };
 }
 
-export async function cancelContract(
-  id: string,
-  organizationId: string,
-  userId: string,
-  reason: string,
-) {
-  const contract = await getContractById(id, organizationId);
+export async function cancelContract(id: string, reason: string) {
+  const { userId } = await requirePermission("contracts.cancel");
+
+  const contract = await getContractById(id);
   if (!contract) throw new Error("Contrato não encontrado");
   if (contract.status === "signed") throw new Error("Contrato assinado não pode ser cancelado");
 

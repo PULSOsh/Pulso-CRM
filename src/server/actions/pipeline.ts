@@ -2,29 +2,66 @@
 
 import { and, asc, desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { requirePermission } from "../auth/require-permission";
 import { db } from "../db/connection";
 import { opportunities, opportunityStageHistory, pipelineStages, pipelines } from "../db/schema";
 
-export async function getPipelineWithOpportunities(organizationId: string) {
+export async function getPipelineWithOpportunities() {
+  const { organizationId } = await requirePermission("opportunities.read");
+
   // Fetch default pipeline for the organization
   let defaultPipeline = await db.query.pipelines.findFirst({
     where: eq(pipelines.organizationId, organizationId),
   });
 
   if (!defaultPipeline) {
-    const [inserted] = await db.insert(pipelines).values({
-      organizationId,
-      name: "Funil Padrão",
-      isDefault: true,
-    }).returning();
+    const [inserted] = await db
+      .insert(pipelines)
+      .values({
+        organizationId,
+        name: "Funil Padrão",
+        isDefault: true,
+      })
+      .returning();
     defaultPipeline = inserted;
 
     await db.insert(pipelineStages).values([
-      { pipelineId: defaultPipeline.id, name: "Lead", position: 1, color: "#64748b", probability: 10 },
-      { pipelineId: defaultPipeline.id, name: "Qualificação", position: 2, color: "#3b82f6", probability: 30 },
-      { pipelineId: defaultPipeline.id, name: "Proposta Enviada", position: 3, color: "#f59e0b", probability: 60 },
-      { pipelineId: defaultPipeline.id, name: "Negociação", position: 4, color: "#8b5cf6", probability: 80 },
-      { pipelineId: defaultPipeline.id, name: "Fechado", position: 5, color: "#10b981", isWon: true, probability: 100 },
+      {
+        pipelineId: defaultPipeline.id,
+        name: "Lead",
+        position: 1,
+        color: "#64748b",
+        probability: 10,
+      },
+      {
+        pipelineId: defaultPipeline.id,
+        name: "Qualificação",
+        position: 2,
+        color: "#3b82f6",
+        probability: 30,
+      },
+      {
+        pipelineId: defaultPipeline.id,
+        name: "Proposta Enviada",
+        position: 3,
+        color: "#f59e0b",
+        probability: 60,
+      },
+      {
+        pipelineId: defaultPipeline.id,
+        name: "Negociação",
+        position: 4,
+        color: "#8b5cf6",
+        probability: 80,
+      },
+      {
+        pipelineId: defaultPipeline.id,
+        name: "Fechado",
+        position: 5,
+        color: "#10b981",
+        isWon: true,
+        probability: 100,
+      },
     ]);
   }
 
@@ -69,9 +106,9 @@ export async function moveOpportunity(
   opportunityId: string,
   newStageId: string,
   newPosition: number,
-  userId: string,
-  organizationId: string,
 ) {
+  const { organizationId, userId } = await requirePermission("opportunities.move");
+
   const opp = await db.query.opportunities.findFirst({
     where: and(
       eq(opportunities.id, opportunityId),
@@ -109,15 +146,15 @@ export async function moveOpportunity(
 }
 
 export async function createOpportunity(data: {
-  organizationId: string;
   pipelineId: string;
   title: string;
   companyId?: string;
   primaryContactId?: string;
   stageId: string;
   estimatedValue?: string;
-  ownerUserId: string;
 }) {
+  const { organizationId, userId } = await requirePermission("opportunities.create");
+
   const [lastInStage] = await db.query.opportunities.findMany({
     where: eq(opportunities.stageId, data.stageId),
     orderBy: [desc(opportunities.position)],
@@ -125,17 +162,20 @@ export async function createOpportunity(data: {
   });
   const nextPosition = (lastInStage ? Number(lastInStage.position) : 0) + 1000;
 
-  const [opp] = await db.insert(opportunities).values({
-    organizationId: data.organizationId,
-    pipelineId: data.pipelineId,
-    title: data.title,
-    companyId: data.companyId,
-    primaryContactId: data.primaryContactId,
-    stageId: data.stageId,
-    estimatedValue: data.estimatedValue,
-    ownerUserId: data.ownerUserId,
-    position: nextPosition.toString(),
-  }).returning();
+  const [opp] = await db
+    .insert(opportunities)
+    .values({
+      organizationId,
+      pipelineId: data.pipelineId,
+      title: data.title,
+      companyId: data.companyId,
+      primaryContactId: data.primaryContactId,
+      stageId: data.stageId,
+      estimatedValue: data.estimatedValue,
+      ownerUserId: userId,
+      position: nextPosition.toString(),
+    })
+    .returning();
 
   revalidatePath("/crm/pipeline");
   return opp;

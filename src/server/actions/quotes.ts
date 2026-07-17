@@ -3,6 +3,7 @@
 import crypto from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { requirePermission } from "../auth/require-permission";
 import { db } from "../db/connection";
 import { opportunities, proposalItems, proposals, proposalVersions } from "../db/schema";
 
@@ -12,7 +13,9 @@ function generateProposalCode() {
   return `PRP-${num}`;
 }
 
-export async function getQuotes(organizationId: string) {
+export async function getQuotes() {
+  const { organizationId } = await requirePermission("proposals.read");
+
   const allQuotes = await db.query.proposals.findMany({
     where: eq(proposals.organizationId, organizationId),
     orderBy: [desc(proposals.createdAt)],
@@ -60,7 +63,9 @@ export async function getQuotes(organizationId: string) {
   });
 }
 
-export async function getOpenOpportunities(organizationId: string) {
+export async function getOpenOpportunities() {
+  const { organizationId } = await requirePermission("opportunities.read");
+
   const opps = await db.query.opportunities.findMany({
     where: and(eq(opportunities.organizationId, organizationId), eq(opportunities.status, "open")),
   });
@@ -98,14 +103,14 @@ export type QuoteItemInput = {
 };
 
 export async function createQuote(data: {
-  organizationId: string;
-  userId: string;
   opportunityId: string;
   title: string;
   scope: string;
   terms: string;
   items: QuoteItemInput[];
 }) {
+  const { organizationId, userId } = await requirePermission("proposals.create");
+
   const proposalId = crypto.randomUUID();
   const versionId = crypto.randomUUID();
   const publicToken = crypto.randomUUID();
@@ -125,9 +130,9 @@ export async function createQuote(data: {
   // 1. Create Proposal
   await db.insert(proposals).values({
     id: proposalId,
-    organizationId: data.organizationId,
+    organizationId,
     opportunityId: data.opportunityId,
-    createdBy: data.userId,
+    createdBy: userId,
     code: generateProposalCode(),
     title: data.title,
     status: "draft",
@@ -149,7 +154,7 @@ export async function createQuote(data: {
     subtotal: subtotal.toString(),
     discount: totalDiscount.toString(),
     total: finalTotal.toString(),
-    createdBy: data.userId,
+    createdBy: userId,
   });
 
   // 3. Insert Items

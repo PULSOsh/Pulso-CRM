@@ -4,7 +4,6 @@ import { FileText, Plus } from "lucide-react";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getActiveOrganizationId } from "@/server/actions/organization";
 import { getQuotes } from "@/server/actions/quotes";
 import { auth } from "@/server/auth";
 
@@ -17,8 +16,7 @@ export default async function QuotesPage() {
     redirect("/login");
   }
 
-  const orgId = await getActiveOrganizationId(session.user.id);
-  const quotes = await getQuotes(orgId);
+  const quotes = await getQuotes();
 
   return (
     <div className="p-8 h-screen flex flex-col">

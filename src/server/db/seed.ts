@@ -1,16 +1,9 @@
 import { hashPassword } from "better-auth/crypto";
 import crypto from "crypto";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "./connection";
-import {
-  accounts,
-  organizationMembers,
-  organizations,
-  permissions,
-  rolePermissions,
-  roles,
-  users,
-} from "./schema";
+import { accounts, organizationMembers, organizations, roles, users } from "./schema";
+import { seedPermissionsAndRoles } from "./seed-permissions";
 import "dotenv/config";
 
 const ADMIN_NAME = process.env.SEED_ADMIN_NAME;
@@ -50,50 +43,16 @@ async function runSeed() {
   }
   const orgId = organization.id;
 
-  // 2. Create Roles & Permissions (idempotent)
-  let superAdminRole = await db.query.roles.findFirst({
-    where: eq(roles.key, "super_admin"),
+  // 2. Create the full permission catalog and the 6 roles (idempotent).
+  // Also renames a legacy "super_admin" role to "owner" in place if found,
+  // so any existing membership keeps working without a manual migration.
+  await seedPermissionsAndRoles(orgId);
+
+  const ownerRole = await db.query.roles.findFirst({
+    where: and(eq(roles.key, "owner"), eq(roles.organizationId, orgId)),
   });
-
-  if (!superAdminRole) {
-    const permissionsList = [
-      {
-        key: "all_access",
-        module: "system",
-        action: "manage",
-        description: "Acesso global a tudo",
-      },
-    ];
-    const createdPerms = await db.insert(permissions).values(permissionsList).returning();
-
-    const [insertedRole] = await db
-      .insert(roles)
-      .values({
-        organizationId: orgId,
-        name: "Super Admin",
-        key: "super_admin",
-        description: "Administrador geral do sistema",
-        isSystem: true,
-      })
-      .returning();
-    if (!insertedRole) {
-      throw new Error("Falha ao criar o papel super_admin");
-    }
-    superAdminRole = insertedRole;
-
-    const roleId = superAdminRole.id;
-    await db.insert(rolePermissions).values(
-      createdPerms.map((p) => ({
-        roleId,
-        permissionId: p.id,
-      })),
-    );
-    console.log("✅ Created Roles and Permissions");
-  } else {
-    console.log("↷ Roles already exist, skipping");
-  }
-  if (!superAdminRole) {
-    throw new Error("Papel super_admin ausente após etapa de criação");
+  if (!ownerRole) {
+    throw new Error("Papel owner ausente após seedPermissionsAndRoles");
   }
 
   // 3. Create Admin User (idempotent)
@@ -132,7 +91,7 @@ async function runSeed() {
   await db.insert(organizationMembers).values({
     organizationId: orgId,
     userId,
-    roleId: superAdminRole.id,
+    roleId: ownerRole.id,
     status: "active",
   });
 

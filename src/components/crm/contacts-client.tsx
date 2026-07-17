@@ -1,7 +1,7 @@
 "use client";
 
+import { Briefcase, Contact, Mail, Phone, Plus, Search } from "lucide-react";
 import { useState } from "react";
-import { Contact, Plus, Search, Mail, Phone, Briefcase } from "lucide-react";
 import { createContact } from "@/server/actions/contacts";
 
 type ContactType = {
@@ -15,20 +15,14 @@ type ContactType = {
   createdAt: Date;
 };
 
-export function ContactsClient({
-  initialContacts,
-  organizationId,
-}: {
-  initialContacts: ContactType[];
-  organizationId: string;
-}) {
+export function ContactsClient({ initialContacts }: { initialContacts: ContactType[] }) {
   const [contacts, setContacts] = useState(initialContacts);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
 
   const filtered = contacts.filter((c) =>
-    `${c.firstName} ${c.lastName || ""}`.toLowerCase().includes(search.toLowerCase())
+    `${c.firstName} ${c.lastName || ""}`.toLowerCase().includes(search.toLowerCase()),
   );
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -44,7 +38,6 @@ export function ContactsClient({
 
     try {
       const newContact = await createContact({
-        organizationId,
         firstName,
         lastName,
         email,
@@ -177,7 +170,7 @@ export function ContactsClient({
               <h2 className="text-xl font-bold text-slate-900">Novo Contato</h2>
               <p className="text-slate-500 text-sm mt-1">Cadastre uma nova pessoa.</p>
             </div>
-            
+
             <div className="p-6 overflow-y-auto">
               <form id="contactForm" onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -190,7 +183,9 @@ export function ContactsClient({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Sobrenome</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Sobrenome
+                    </label>
                     <input
                       name="lastName"
                       className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
@@ -207,14 +202,18 @@ export function ContactsClient({
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">WhatsApp</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      WhatsApp
+                    </label>
                     <input
                       name="whatsapp"
                       className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Outro Telefone</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Outro Telefone
+                    </label>
                     <input
                       name="phone"
                       className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
@@ -222,7 +221,9 @@ export function ContactsClient({
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Cargo / Ocupação</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Cargo / Ocupação
+                  </label>
                   <input
                     name="jobTitle"
                     className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
@@ -230,7 +231,7 @@ export function ContactsClient({
                 </div>
               </form>
             </div>
-            
+
             <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 shrink-0">
               <button
                 type="button"

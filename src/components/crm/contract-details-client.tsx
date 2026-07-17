@@ -22,15 +22,7 @@ const statusLabels: Record<string, string> = {
   ended: "Encerrado",
 };
 
-export function ContractDetailsClient({
-  contract,
-  organizationId,
-  userId,
-}: {
-  contract: Contract;
-  organizationId: string;
-  userId: string;
-}) {
+export function ContractDetailsClient({ contract }: { contract: Contract }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +36,7 @@ export function ContractDetailsClient({
     setLoading(true);
     setError(null);
     try {
-      await sendContract(contract.id, organizationId, userId);
+      await sendContract(contract.id);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao enviar contrato.");
@@ -59,7 +51,7 @@ export function ContractDetailsClient({
     setLoading(true);
     setError(null);
     try {
-      await cancelContract(contract.id, organizationId, userId, reason);
+      await cancelContract(contract.id, reason);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao cancelar contrato.");

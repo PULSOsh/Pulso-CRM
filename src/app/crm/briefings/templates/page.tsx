@@ -3,7 +3,6 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getBriefingTemplates } from "@/server/actions/briefing-templates";
-import { getActiveOrganizationId } from "@/server/actions/organization";
 import { auth } from "@/server/auth";
 
 export default async function BriefingTemplatesPage() {
@@ -15,9 +14,7 @@ export default async function BriefingTemplatesPage() {
     redirect("/login");
   }
 
-  const orgId = await getActiveOrganizationId(session.user.id);
-
-  const templates = await getBriefingTemplates(orgId).catch(() => []);
+  const templates = await getBriefingTemplates().catch(() => []);
 
   return (
     <div style={{ padding: "24px" }}>

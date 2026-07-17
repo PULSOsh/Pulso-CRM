@@ -2,7 +2,6 @@ import { ArrowLeft, Save } from "lucide-react";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getActiveOrganizationId } from "@/server/actions/organization";
 import { createProduct } from "@/server/actions/products";
 import { auth } from "@/server/auth";
 
@@ -15,13 +14,10 @@ export default async function NewProductPage() {
     redirect("/login");
   }
 
-  const orgId = await getActiveOrganizationId(session.user.id);
-
   async function handleCreate(formData: FormData) {
     "use server";
 
     await createProduct({
-      organizationId: orgId,
       name: formData.get("name") as string,
       category: formData.get("category") as string,
       description: formData.get("description") as string,

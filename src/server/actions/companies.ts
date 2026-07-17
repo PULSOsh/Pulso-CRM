@@ -2,12 +2,13 @@
 
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { requirePermission } from "../auth/require-permission";
 import { db } from "../db/connection";
 import { companies } from "../db/schema";
-import { auth } from "../auth";
-import { headers } from "next/headers";
 
-export async function getCompanies(organizationId: string) {
+export async function getCompanies() {
+  const { organizationId } = await requirePermission("companies.read");
+
   return await db.query.companies.findMany({
     where: eq(companies.organizationId, organizationId),
     orderBy: (companies, { desc }) => [desc(companies.createdAt)],
@@ -15,7 +16,6 @@ export async function getCompanies(organizationId: string) {
 }
 
 export async function createCompany(data: {
-  organizationId: string;
   tradeName: string;
   legalName?: string;
   documentNumber?: string;
@@ -23,15 +23,12 @@ export async function createCompany(data: {
   phone?: string;
   website?: string;
 }) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
-  if (!session) throw new Error("Unauthorized");
+  const { organizationId } = await requirePermission("companies.create");
 
   const [company] = await db
     .insert(companies)
     .values({
-      organizationId: data.organizationId,
+      organizationId,
       tradeName: data.tradeName,
       legalName: data.legalName,
       documentNumber: data.documentNumber,

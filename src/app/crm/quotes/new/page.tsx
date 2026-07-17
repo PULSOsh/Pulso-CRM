@@ -2,7 +2,6 @@ import { ArrowLeft } from "lucide-react";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getActiveOrganizationId } from "@/server/actions/organization";
 import { getProducts } from "@/server/actions/products";
 import { getOpenOpportunities } from "@/server/actions/quotes";
 import { auth } from "@/server/auth";
@@ -17,12 +16,7 @@ export default async function NewQuotePage() {
     redirect("/login");
   }
 
-  const orgId = await getActiveOrganizationId(session.user.id);
-
-  const [opportunities, products] = await Promise.all([
-    getOpenOpportunities(orgId),
-    getProducts(orgId),
-  ]);
+  const [opportunities, products] = await Promise.all([getOpenOpportunities(), getProducts()]);
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-8">
@@ -39,12 +33,7 @@ export default async function NewQuotePage() {
         </div>
       </div>
 
-      <QuoteBuilderForm
-        opportunities={opportunities}
-        products={products}
-        organizationId={orgId}
-        userId={session.user.id}
-      />
+      <QuoteBuilderForm opportunities={opportunities} products={products} />
     </div>
   );
 }

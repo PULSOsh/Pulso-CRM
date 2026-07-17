@@ -1,13 +1,9 @@
-import { eq } from "drizzle-orm";
 import { ArrowLeft, Save } from "lucide-react";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { getActiveOrganizationId } from "@/server/actions/organization";
-import { getProductById } from "@/server/actions/products";
+import { getProductById, updateProduct } from "@/server/actions/products";
 import { auth } from "@/server/auth";
-import { db } from "@/server/db/connection";
-import { products } from "@/server/db/schema";
 
 export default async function EditProductPage({ params }: { params: { id: string } }) {
   const session = await auth.api.getSession({
@@ -18,8 +14,7 @@ export default async function EditProductPage({ params }: { params: { id: string
     redirect("/login");
   }
 
-  const orgId = await getActiveOrganizationId(session.user.id);
-  const product = await getProductById(params.id, orgId);
+  const product = await getProductById(params.id);
 
   if (!product) {
     notFound();
@@ -28,19 +23,15 @@ export default async function EditProductPage({ params }: { params: { id: string
   async function handleUpdate(formData: FormData) {
     "use server";
 
-    await db
-      .update(products)
-      .set({
-        name: formData.get("name") as string,
-        category: formData.get("category") as string,
-        description: formData.get("description") as string,
-        basePrice: formData.get("basePrice") as string,
-        pricingUnit: formData.get("pricingUnit") as string,
-        averageDeliveryDays: Number(formData.get("averageDeliveryDays")) || 0,
-        scopeDefault: formData.get("scopeDefault") as string,
-        updatedAt: new Date(),
-      })
-      .where(eq(products.id, params.id));
+    await updateProduct(params.id, {
+      name: formData.get("name") as string,
+      category: formData.get("category") as string,
+      description: formData.get("description") as string,
+      basePrice: formData.get("basePrice") as string,
+      pricingUnit: formData.get("pricingUnit") as string,
+      averageDeliveryDays: Number(formData.get("averageDeliveryDays")) || 0,
+      scopeDefault: formData.get("scopeDefault") as string,
+    });
 
     redirect("/crm/products");
   }

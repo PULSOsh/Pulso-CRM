@@ -1,7 +1,7 @@
 "use client";
 
+import { Building2, Globe, MapPin, Plus, Search } from "lucide-react";
 import { useState } from "react";
-import { Building2, Plus, Search, MapPin, Globe } from "lucide-react";
 import { createCompany } from "@/server/actions/companies";
 
 type Company = {
@@ -17,20 +17,14 @@ type Company = {
   createdAt: Date;
 };
 
-export function CompaniesClient({
-  initialCompanies,
-  organizationId,
-}: {
-  initialCompanies: Company[];
-  organizationId: string;
-}) {
+export function CompaniesClient({ initialCompanies }: { initialCompanies: Company[] }) {
   const [companies, setCompanies] = useState(initialCompanies);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
 
   const filtered = companies.filter((c) =>
-    c.tradeName.toLowerCase().includes(search.toLowerCase())
+    c.tradeName.toLowerCase().includes(search.toLowerCase()),
   );
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -45,7 +39,6 @@ export function CompaniesClient({
 
     try {
       const newCompany = await createCompany({
-        organizationId,
         tradeName,
         documentNumber,
         email,
@@ -129,7 +122,11 @@ export function CompaniesClient({
                           <p className="font-semibold text-slate-900">{company.tradeName}</p>
                           {company.website && (
                             <a
-                              href={company.website.startsWith("http") ? company.website : `https://${company.website}`}
+                              href={
+                                company.website.startsWith("http")
+                                  ? company.website
+                                  : `https://${company.website}`
+                              }
                               target="_blank"
                               rel="noreferrer"
                               className="text-xs text-slate-500 flex items-center gap-1 hover:text-orange-600"
@@ -167,13 +164,17 @@ export function CompaniesClient({
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-6 border-b border-slate-100">
               <h2 className="text-xl font-bold text-slate-900">Nova Empresa</h2>
-              <p className="text-slate-500 text-sm mt-1">Preencha os dados da organização parceira.</p>
+              <p className="text-slate-500 text-sm mt-1">
+                Preencha os dados da organização parceira.
+              </p>
             </div>
-            
+
             <div className="p-6 overflow-y-auto">
               <form id="companyForm" onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Nome Fantasia *</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Nome Fantasia *
+                  </label>
                   <input
                     name="tradeName"
                     required
@@ -182,7 +183,9 @@ export function CompaniesClient({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">CNPJ / CPF</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    CNPJ / CPF
+                  </label>
                   <input
                     name="documentNumber"
                     className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
@@ -200,7 +203,9 @@ export function CompaniesClient({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Telefone</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Telefone
+                    </label>
                     <input
                       name="phone"
                       className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
@@ -218,7 +223,7 @@ export function CompaniesClient({
                 </div>
               </form>
             </div>
-            
+
             <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 shrink-0">
               <button
                 type="button"

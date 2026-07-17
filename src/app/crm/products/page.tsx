@@ -3,7 +3,6 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getActiveOrganizationId } from "@/server/actions/organization";
 import { getProducts, seedProductsFromCatalog } from "@/server/actions/products";
 import { auth } from "@/server/auth";
 
@@ -16,13 +15,12 @@ export default async function ProductsCatalogPage() {
     redirect("/login");
   }
 
-  const orgId = await getActiveOrganizationId(session.user.id);
-  const products = await getProducts(orgId);
+  const products = await getProducts();
 
   // Quick form action to trigger the seed
   async function handleSeed() {
     "use server";
-    await seedProductsFromCatalog(orgId);
+    await seedProductsFromCatalog();
     revalidatePath("/crm/products");
   }
 

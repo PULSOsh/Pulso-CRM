@@ -3,7 +3,6 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { InboxList } from "@/components/crm/briefings/inbox-list";
 import { getBriefingSubmissions } from "@/server/actions/briefing-submissions";
-import { getActiveOrganizationId } from "@/server/actions/organization";
 import { auth } from "@/server/auth";
 
 export default async function InboxPage() {
@@ -15,9 +14,7 @@ export default async function InboxPage() {
     redirect("/login");
   }
 
-  const orgId = await getActiveOrganizationId(session.user.id);
-
-  const submissions = await getBriefingSubmissions(orgId);
+  const submissions = await getBriefingSubmissions();
 
   return (
     <div className="p-8">

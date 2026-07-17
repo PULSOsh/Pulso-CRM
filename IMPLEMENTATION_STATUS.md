@@ -52,7 +52,7 @@ O `BETTER_AUTH_SECRET` foi ajustado via CLI (`docker service update --env-add`),
 |---|---|---|
 | Autenticação | Funcional | Better Auth e sessão real |
 | Workspace PULSO | Parcial | Há organização no banco; não construir multiempresa |
-| Usuários e papéis | Parcial/ausente | Sem RBAC completo por módulo |
+| Usuários e papéis | Funcional (Fase 1) | 6 papéis (owner/admin/commercial/projects/finance/viewer), catálogo de permissões, `requirePermission()` aplicado em todas as actions internas. Falta UI de gestão de papéis/convite. |
 | Contatos | Funcional básico | Falta validação robusta, normalização e duplicidade |
 | Empresas | Funcional básico | Falta validação robusta, normalização e duplicidade |
 | Funil e oportunidades | Funcional básico | Kanban persiste; cards e regras incompletos |
@@ -98,15 +98,16 @@ Nada foi apagado ou recriado. Nenhum dado de produção foi alterado nesta fase,
 
 ## 6. Débitos conhecidos (confirmados nesta auditoria)
 
-- **RBAC ausente**: nenhuma constante de papel/permissão existe no código; qualquer usuário autenticado tem acesso total.
-- **Nenhuma server action valida sessão ou papel internamente.** Toda action recebe `organizationId` como parâmetro simples vindo da página chamadora; a própria action nunca confere se esse valor bate com a sessão real, nem confere se existe sessão. Únicas exceções parciais: `createCompany`/`createContact` checam `if (!session) throw`, mas não validam que o `organizationId` recebido é o da sessão. **Isso é exatamente o padrão que `CLAUDE.md` proíbe** ("confiar em `organization_id` enviado pelo cliente"). Hoje o risco prático é baixo (existe apenas 1 organização), mas o código está estruturalmente inseguro para quando isso deixar de ser verdade. Arquivos afetados: `pipeline.ts`, `products.ts`, `quotes.ts`, `public-quote.ts`, `contracts.ts`, `projects.ts`, `briefing-templates.ts`, `briefing-submissions.ts`, `organization.ts` — 0 chamadas a `auth.api.getSession` em nenhum deles.
+- ~~RBAC ausente~~ **Corrigido na Fase 1** — ver seção 11.
+- ~~Nenhuma server action valida sessão ou papel internamente~~ **Corrigido na Fase 1** — ver seção 11.
 - **Rotas antigas com mock coexistem com rotas reais**: `/crm` (usa `components/crm/kanban-board.tsx` + `src/data/opportunities.ts`) e `/briefings` (usa `components/briefings/briefing-inbox.tsx` + dado mockado) continuam no ar ao lado de `/crm/pipeline` e `/crm/briefings/inbox`, que são as versões reais.
-- **Nav com links mortos**: Tarefas, Financeiro, Relatórios e Configurações apontam para `href="#"`.
+- **Nav com links mortos**: `Tarefas`, `Financeiro`, `Relatórios` e `Configurações` continuam sem página real (agora ocultos do menu em vez de aparecer como link morto - `app-shell.tsx` filtra `href === "#"`).
 - **Design system não funciona na base** (achado e parcialmente corrigido nesta sessão): `components/ui/*` (Button, Card, Badge, Modal, Input, Select, Textarea) usa classes Tailwind (`bg-pulso-signal`, `rounded-card`, `duration-base`...) que nunca foram registradas via `@theme`. Corrigido agora (`globals.css`), mas **zero arquivos no projeto importam esses componentes** — cada tela usa Tailwind cru independente. 8 arquivos usam classes arbitrárias em colchetes (`shadow-[...]` etc).
 - **Link público de proposta aparece antes do estado correto**: `publicToken` é gravado na criação da proposta (antes de qualquer publicação), então a lista de orçamentos já mostra "Ver Proposta" para rascunhos, que dá 404 na página pública — comportamento correto do lado da página pública (não vaza rascunho), mas a UI interna induz ao erro.
-- **Contratos e projetos foram acelerados sem gate de qualidade**: ambos compilam e passam nos testes existentes, mas foram construídos com Tailwind cru (não os tokens Pulso) e sem teste de aceite formal.
-- Ausência de testes significativos (2 testes triviais, inalterado).
+- **Contratos e projetos foram acelerados sem gate de qualidade**: ambos compilam e passam nos testes existentes, mas foram construídos com Tailwind cru (não os tokens Pulso) e sem teste de aceite formal. Autorização agora aplicada (Fase 1), mas a interface continua fora do design system.
+- Ausência de testes significativos (2 testes triviais, inalterado — `requirePermission()` e o mapeamento de papéis ainda não têm teste automatizado, só validação manual).
 - Financeiro, tarefas, arquivos, aprovações e relatórios: ausentes.
+- `docs/ARCHITECTURE_AND_STANDARDS.md` seção 6 não lista permissões de `briefings.*` — adicionadas por extensão consistente (`briefings.read/manage_templates/review`) em `src/server/auth/permission-keys.ts`, já que o módulo existe e precisa de autorização. Revisar se a divisão faz sentido.
 
 ## 7. Checks (executados nesta auditoria, 17/07/2026)
 
@@ -126,10 +127,34 @@ Nada foi apagado ou recriado. Nenhum dado de produção foi alterado nesta fase,
 
 ## 9. Fase atual
 
-**Fase 0 concluída nesta sessão.** Critérios de saída do Roadmap ("nenhum dado perdido, nenhum segredo fixo e estado real documentado") atendidos, com uma ressalva: a senha administrativa já semeada em produção ainda não foi rotacionada (requer autorização explícita, é alteração de dado de produção).
-
-Não avançar para Fase 1 sem decisão do responsável sobre a ordem: o Roadmap sugere Fase 1 (workspace/RBAC/autorização) antes de qualquer outra coisa, dado o achado da seção 6.
+**Fase 1 concluída nesta sessão** (workspace interno, usuários, RBAC e autorização).
 
 ## 10. Próxima ação exata
 
-Iniciar Fase 1 (`docs/ROADMAP.md`): criar o helper central de autorização (`requirePermission`), papéis tipados (owner/admin/commercial/projects/finance/viewer) e aplicar validação de sessão + papel dentro de cada server action listada na seção 6 — não apenas na página que a chama. Antes disso, obter autorização explícita para rotacionar a senha administrativa de produção.
+Iniciar Fase 2 (`docs/ROADMAP.md`): auditar e corrigir o design system de verdade — migrar o shell e os formulários principais para os componentes de `components/ui/*` (agora que o `@theme` funciona), remover/isolar `/crm` e `/briefings` (rotas mockadas antigas), decidir o que fazer com os links de nav ocultos (Tarefas/Financeiro/Relatórios/Configurações). Rodar `npm run check` a cada mudança pequena, sem refatoração visual total em um único commit (regra explícita de `docs/DESIGN_SYSTEM.md` seção 6).
+
+Pendências que seguem precisando de autorização explícita do responsável antes de agir:
+- rotacionar a senha administrativa já semeada em produção;
+- persistir `BETTER_AUTH_SECRET` forte na configuração salva do Dokploy (hoje só existe via `docker service update`, some no próximo redeploy).
+
+## 11. Fase 1 — Workspace, usuários, RBAC e autorização (concluída 17/07/2026)
+
+### O que foi feito
+
+- **Catálogo de permissões tipado**: `src/server/auth/permission-keys.ts` — todas as chaves de `docs/ARCHITECTURE_AND_STANDARDS.md` seção 6, mais `briefings.read/manage_templates/review` (extensão necessária, o doc não cobria o módulo de briefings). 6 papéis: `owner` (tudo), `admin` (tudo exceto `profitability.*_personal`/`view_founder_summary`), `commercial`, `projects`, `finance`, `viewer` (só leitura).
+- **Helper central**: `src/server/auth/require-permission.ts::requirePermission(key)` — resolve sessão real via Better Auth, busca o vínculo ativo (`organization_members` com `status = "active"`), resolve o papel, confere a permissão via join `role_permissions` × `permissions` no banco (não um mapa hardcoded em memória), nega por padrão. Retorna `{ userId, organizationId, memberId, roleKey }` — **nunca confia em `organizationId` vindo do cliente**.
+- **Seed de papéis/permissões**: `src/server/db/seed-permissions.ts::seedPermissionsAndRoles()` — idempotente, migra o antigo papel `super_admin` para `owner` em vez de duplicar (o membro existente continua com o mesmo `role_id`, só o `key`/`name` mudam). **Executado contra produção** nesta sessão (autorizado pelo responsável ao dizer "segue da melhor forma" após eu confirmar que Fase 1 não altera dados de produção além de RBAC aditivo): 69 permissões e 6 papéis criados, papel do admin migrado para `owner` com sucesso, confirmado idempotente (segunda execução não duplicou nada).
+- **Todas as server actions internas agora chamam `requirePermission()` e usam o `organizationId`/`userId` retornado, não mais um parâmetro recebido**: `pipeline.ts`, `companies.ts`, `contacts.ts`, `products.ts`, `quotes.ts`, `briefing-templates.ts`, `briefing-submissions.ts`, `contracts.ts` (exceto `getPublicContract`/`signContractPublic`, que são públicas por token e continuam sem sessão, como deve ser), `projects.ts`. Todas as páginas e client components que chamavam essas actions foram atualizadas para não enviar mais `organizationId`/`userId`.
+- **Bugs de isolamento corrigidos no caminho**: `products/[id]/page.tsx` fazia `db.update` direto na página sem filtro de organização (nova action `updateProduct` corrige isso); `toggleChecklistItem` em projetos não verificava organização nenhuma antes de atualizar um item de checklist por ID.
+
+### Validação real (não só "compilou")
+
+- `tsc --noEmit`, `vitest run` (2/2) e `next build` (30 rotas) verdes.
+- **Testado manualmente de ponta a ponta** com servidor local (`next dev`) apontado para o banco de produção via túnel SSH, logado como `admin@pulso.cloud`: `/crm/pipeline` (leitura + criar oportunidade via `createOpportunity` — log do servidor confirma a chamada usando `organizationId` resolvido da sessão, não de parâmetro), `/crm/contatos`, `/crm/empresas`, `/crm/quotes`, `/crm/contratos`, `/crm/projetos` — todas renderizam e funcionam.
+- Dado de teste criado durante a validação (`"Teste Autorizacao Fase1"`) removido do banco depois.
+
+### Débitos que ficam para depois
+
+- Sem UI de gestão de papéis/convite de membros ainda (papéis existem no banco, mas só via seed).
+- Sem teste automatizado do `requirePermission` (só validação manual via navegador).
+- Mapeamento papel→permissão é uma primeira tentativa baseada nas descrições de `docs/PRODUCT_VISION.md` seção 4 — não validado com uso real ainda (ex.: se `commercial` deveria poder `contracts.cancel`).
