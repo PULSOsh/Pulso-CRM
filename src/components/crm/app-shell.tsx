@@ -35,8 +35,8 @@ const commercial = [
   { href: "/crm/contratos", label: "Contratos", key: "contracts", icon: FileSignature },
 ];
 
-const _operation = [
-  { href: "#", label: "Projetos", key: "projects", icon: KanbanSquare },
+const operation = [
+  { href: "/crm/projetos", label: "Projetos", key: "projects", icon: KanbanSquare },
   { href: "#", label: "Tarefas", key: "tasks", icon: CheckSquare },
   { href: "#", label: "Financeiro", key: "finance", icon: WalletCards },
   { href: "#", label: "Relatórios", key: "reports", icon: BarChart3 },
@@ -50,7 +50,8 @@ type ActiveKey =
   | "budgets"
   | "contacts"
   | "companies"
-  | "contracts";
+  | "contracts"
+  | "projects";
 
 type AppShellProps = {
   active: ActiveKey;
@@ -70,12 +71,14 @@ export function AppShell({ active, eyebrow, title, children }: AppShellProps) {
   };
 
   const group = (items: typeof primary) =>
-    items.map(({ href, label, key, icon: Icon }) => (
-      <Link key={label} href={href} className={`nav-link ${key === active ? "active" : ""}`}>
-        <Icon aria-hidden="true" />
-        <span>{label}</span>
-      </Link>
-    ));
+    items
+      .filter((item) => item.href !== "#")
+      .map(({ href, label, key, icon: Icon }) => (
+        <Link key={label} href={href} className={`nav-link ${key === active ? "active" : ""}`}>
+          <Icon aria-hidden="true" />
+          <span>{label}</span>
+        </Link>
+      ));
 
   return (
     <div className="app-layout">
@@ -130,8 +133,8 @@ export function AppShell({ active, eyebrow, title, children }: AppShellProps) {
           {group(primary)}
           <div className="nav-label">COMERCIAL</div>
           {group(commercial)}
-          {/* <div className="nav-label">OPERAÇÃO</div> */}
-          {/* {group(operation)} */}
+          <div className="nav-label">OPERAÇÃO</div>
+          {group(operation)}
         </nav>
         <div
           className="sidebar-user"

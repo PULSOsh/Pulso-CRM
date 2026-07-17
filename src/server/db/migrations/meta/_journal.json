@@ -15,6 +15,13 @@
       "when": 1784257248845,
       "tag": "0001_sticky_spot",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784309461247,
+      "tag": "0002_safe_exiles",
+      "breakpoints": true
     }
   ]
 }

@@ -14,6 +14,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { companies } from "./companies";
 import { contacts } from "./contacts";
+import { contracts } from "./contracts";
 import { projectStatusEnum } from "./enums";
 import { opportunities } from "./opportunities";
 import { organizations } from "./organizations";
@@ -42,6 +43,7 @@ export const projects = pgTable("projects", {
   opportunityId: uuid("opportunity_id").references(() => opportunities.id, {
     onDelete: "set null",
   }),
+  contractId: uuid("contract_id").references(() => contracts.id, { onDelete: "set null" }),
   companyId: uuid("company_id").references(() => companies.id, { onDelete: "set null" }),
   primaryContactId: uuid("primary_contact_id").references(() => contacts.id, {
     onDelete: "set null",
