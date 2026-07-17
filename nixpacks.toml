@@ -5,4 +5,4 @@ cmds = ['npm install']
 cmds = ['npm run build', 'cp -r public .next/standalone/', 'cp -r .next/static .next/standalone/.next/']
 
 [start]
-cmd = 'node .next/standalone/server.js'
+cmd = 'HOSTNAME=0.0.0.0 PORT=3000 node .next/standalone/server.js'
