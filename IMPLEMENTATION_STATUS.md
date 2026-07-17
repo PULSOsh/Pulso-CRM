@@ -100,7 +100,7 @@ Nada foi apagado ou recriado. Nenhum dado de produção foi alterado nesta fase,
 
 - ~~RBAC ausente~~ **Corrigido na Fase 1** — ver seção 11.
 - ~~Nenhuma server action valida sessão ou papel internamente~~ **Corrigido na Fase 1** — ver seção 11.
-- **Rotas antigas com mock coexistem com rotas reais**: `/crm` (usa `components/crm/kanban-board.tsx` + `src/data/opportunities.ts`) e `/briefings` (usa `components/briefings/briefing-inbox.tsx` + dado mockado) continuam no ar ao lado de `/crm/pipeline` e `/crm/briefings/inbox`, que são as versões reais.
+- ~~Rotas antigas com mock coexistem com rotas reais~~ **Corrigido na Fase 2 (parte 1)** — ver seção 12.
 - **Nav com links mortos**: `Tarefas`, `Financeiro`, `Relatórios` e `Configurações` continuam sem página real (agora ocultos do menu em vez de aparecer como link morto - `app-shell.tsx` filtra `href === "#"`).
 - **Design system não funciona na base** (achado e parcialmente corrigido nesta sessão): `components/ui/*` (Button, Card, Badge, Modal, Input, Select, Textarea) usa classes Tailwind (`bg-pulso-signal`, `rounded-card`, `duration-base`...) que nunca foram registradas via `@theme`. Corrigido agora (`globals.css`), mas **zero arquivos no projeto importam esses componentes** — cada tela usa Tailwind cru independente. 8 arquivos usam classes arbitrárias em colchetes (`shadow-[...]` etc).
 - **Link público de proposta aparece antes do estado correto**: `publicToken` é gravado na criação da proposta (antes de qualquer publicação), então a lista de orçamentos já mostra "Ver Proposta" para rascunhos, que dá 404 na página pública — comportamento correto do lado da página pública (não vaza rascunho), mas a UI interna induz ao erro.
@@ -127,11 +127,11 @@ Nada foi apagado ou recriado. Nenhum dado de produção foi alterado nesta fase,
 
 ## 9. Fase atual
 
-**Fase 1 concluída nesta sessão** (workspace interno, usuários, RBAC e autorização).
+**Fase 2 em andamento.** Parte 1 (limpeza de rotas mockadas) concluída nesta sessão — ver seção 12. Parte 2 (migração real do shell e formulários para `components/ui/*`) ainda não iniciada.
 
 ## 10. Próxima ação exata
 
-Iniciar Fase 2 (`docs/ROADMAP.md`): auditar e corrigir o design system de verdade — migrar o shell e os formulários principais para os componentes de `components/ui/*` (agora que o `@theme` funciona), remover/isolar `/crm` e `/briefings` (rotas mockadas antigas), decidir o que fazer com os links de nav ocultos (Tarefas/Financeiro/Relatórios/Configurações). Rodar `npm run check` a cada mudança pequena, sem refatoração visual total em um único commit (regra explícita de `docs/DESIGN_SYSTEM.md` seção 6).
+Continuar Fase 2 (`docs/ROADMAP.md`): migrar o shell (`app-shell.tsx`, hoje CSS global bespoke em `globals.css` — classes como `.sidebar`, `.nav-link`, `.primary-button` — não usa `components/ui/*`) e os formulários principais para os componentes reais de `components/ui/*` (agora que o `@theme` funciona), em fatias pequenas por tela (ex.: primeiro o shell, depois um módulo por vez), rodando `npm run check` a cada mudança. Depois decidir o destino definitivo dos links de nav ocultos (Tarefas/Financeiro/Relatórios/Configurações) — hoje só ocultos, sem página real. Sem refatoração visual total em um único commit (regra explícita de `docs/DESIGN_SYSTEM.md` seção 6).
 
 Pendências que seguem precisando de autorização explícita do responsável antes de agir:
 - rotacionar a senha administrativa já semeada em produção;
@@ -158,3 +158,34 @@ Pendências que seguem precisando de autorização explícita do responsável an
 - Sem UI de gestão de papéis/convite de membros ainda (papéis existem no banco, mas só via seed).
 - Sem teste automatizado do `requirePermission` (só validação manual via navegador).
 - Mapeamento papel→permissão é uma primeira tentativa baseada nas descrições de `docs/PRODUCT_VISION.md` seção 4 — não validado com uso real ainda (ex.: se `commercial` deveria poder `contracts.cancel`).
+
+## 12. Fase 2 (parte 1) — Limpeza de rotas mockadas e correção de navegação (concluída 17/07/2026)
+
+### Diagnóstico
+
+Auditoria de `src/app` encontrou três rotas internas que renderizavam dados 100% mockados (estado local com `useState`, sem nenhuma chamada a server action), órfãs — nenhum outro código as importava:
+
+- `/crm` (`src/app/crm/page.tsx`) — `KanbanBoard` mock de `src/components/crm/kanban-board.tsx`, dados fixos de `src/data/opportunities.ts`. Coexistia com `/crm/pipeline`, a versão real e persistida.
+- `/briefings` (`src/app/briefings/page.tsx`) — `BriefingInbox` mock de `src/components/briefings/briefing-inbox.tsx`, dados fixos de `src/data/briefings.ts`. Coexistia com `/crm/briefings/inbox`, a versão real.
+- `/orcamentos/novo` (`src/app/orcamentos/novo/page.tsx`) — `ProposalBuilder` mock de `src/components/proposals/proposal-builder.tsx` (subtotal hardcoded `2500`, nenhum import de `@/server`). Só era referenciada por um link dentro do próprio `BriefingInbox` mock — órfã assim que este é removido. Coexistia com `/crm/quotes/new`, a versão real com `QuoteBuilderForm` + server actions.
+
+**Bug real encontrado no caminho**: `app-shell.tsx` (usado por todas as telas internas reais) tinha o item de navegação "Briefings" apontando para `/briefings` — a rota mockada — em vez de `/crm/briefings/inbox`. Qualquer usuário clicando em "Briefings" no menu caía na versão fake.
+
+### O que foi feito
+
+- Removidas as três páginas mockadas e os componentes/dados que só elas usavam: `kanban-board.tsx` (versão mock, distinta de `components/crm/pipeline/kanban-board.tsx`, que é real e ficou intacta), `briefing-inbox.tsx`, `proposal-builder.tsx`, `src/data/opportunities.ts`, `src/data/briefings.ts`.
+- Preservados os demais arquivos de `src/components/briefings/` (`builder/question-editor.tsx`, `builder/template-builder.tsx`, `public-briefing-form.tsx`) — são usados pela rota real `/crm/briefings/templates/[id]`, confirmados por busca de import antes da remoção.
+- Corrigido `src/components/crm/app-shell.tsx`: item "Briefings" agora aponta para `/crm/briefings/inbox`.
+
+### Validação real
+
+- `npm run lint`: 28 erros (queda de 43 na baseline da Fase 0 — parte da dívida de a11y morreu junto com os componentes mock removidos), 0 relacionados a `app-shell.tsx`.
+- `npm run typecheck`: limpo (após limpar cache stale de `.next` que ainda referenciava os arquivos deletados).
+- `npm run test`: 2/2 passando.
+- `npm run build`: verde, **27 rotas** (30 → 27, as três mockadas confirmadas fora do manifesto de rotas).
+- `next dev` local (banco em `127.0.0.1:5432`, sem confirmar se é túnel de produção ou banco local — não investigado a fundo para evitar mexer em produção sem necessidade): confirmado ao vivo que `/crm`, `/briefings` e `/orcamentos/novo` retornam 404. Não foi feito login para testar a navegação autenticada ponta a ponta — evitado por não ter certeza se o banco conectado era produção e por não ter a senha do admin disponível de forma segura nesta sessão; a mudança é estrutural (remoção de rota + troca de uma string de `href`) e a validação por build + 404 ao vivo foi considerada suficiente.
+
+### Débitos que ficam para depois
+
+- O grosso da Fase 2 (entregas do roadmap: "componentes UI reutilizados", "shell responsivo e acessível", "identidade única") não foi tocado — `app-shell.tsx` e praticamente todas as telas continuam usando classes CSS globais bespoke (`globals.css`, ~1700 linhas: `.sidebar`, `.nav-link`, `.primary-button`, `.proposal-*`, etc.), não os componentes de `components/ui/*`. Isso é um trabalho maior, a ser fatiado em commits pequenos por tela, não tentado nesta sessão.
+- Links de nav ocultos (Tarefas/Financeiro/Relatórios/Configurações) continuam ocultos, sem decisão tomada sobre removê-los do array ou manter como placeholder para fases futuras.

@@ -25,7 +25,7 @@ import { authClient } from "@/lib/auth-client";
 const primary = [
   { href: "/dashboard", label: "Visão geral", key: "dashboard", icon: LayoutDashboard },
   { href: "/crm/pipeline", label: "Funil (Kanban)", key: "crm", icon: KanbanSquare },
-  { href: "/briefings", label: "Briefings", key: "briefings", icon: ClipboardList },
+  { href: "/crm/briefings/inbox", label: "Briefings", key: "briefings", icon: ClipboardList },
   { href: "/crm/contatos", label: "Contatos", key: "contacts", icon: Contact },
   { href: "/crm/empresas", label: "Empresas", key: "companies", icon: Building2 },
 ];

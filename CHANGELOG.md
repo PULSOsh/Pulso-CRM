@@ -71,6 +71,26 @@ Todas as mudanças relevantes devem ser registradas aqui.
 
 ---
 
+## [2026-07-17] — Fase 2 (parte 1): limpeza de rotas mockadas e correção de navegação
+
+### Removido
+
+- `/crm` (`src/app/crm/page.tsx`), `/briefings` (`src/app/briefings/page.tsx`) e `/orcamentos/novo` (`src/app/orcamentos/novo/page.tsx`) — rotas internas 100% mockadas, órfãs, coexistindo com as versões reais (`/crm/pipeline`, `/crm/briefings/inbox`, `/crm/quotes/new`).
+- Componentes e dados que só essas rotas usavam: `src/components/crm/kanban-board.tsx` (mock), `src/components/briefings/briefing-inbox.tsx`, `src/components/proposals/proposal-builder.tsx`, `src/data/opportunities.ts`, `src/data/briefings.ts`.
+
+### Corrigido
+
+- `src/components/crm/app-shell.tsx`: item de navegação "Briefings" apontava para a rota mockada `/briefings` em vez da real `/crm/briefings/inbox` — qualquer usuário clicando no menu caía na versão fake.
+
+### Testes
+
+- `tsc --noEmit`, `vitest run` (2/2): verdes.
+- `next build`: verde, 27 rotas (30 → 27).
+- `biome check .`: 28 erros (queda de 43, dívida de a11y dos componentes mock removidos foi junto).
+- `next dev` local: confirmado ao vivo que as três rotas removidas retornam 404.
+
+---
+
 Formato recomendado por alteração:
 
 ```text
