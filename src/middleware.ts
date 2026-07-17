@@ -16,8 +16,10 @@ export async function middleware(request: NextRequest) {
   }
 
   // Check session with Better Auth
+  const baseURL = process.env.NODE_ENV === "production" ? "http://127.0.0.1:3000" : request.nextUrl.origin;
+  
   const { data: session } = await betterFetch<Session>("/api/auth/get-session", {
-    baseURL: request.nextUrl.origin,
+    baseURL,
     headers: {
       cookie: request.headers.get("cookie") || "",
     },
