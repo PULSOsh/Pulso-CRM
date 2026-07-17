@@ -247,6 +247,7 @@ export function KanbanBoard({
     >
       <div className="flex justify-between items-center mb-4">
         <button
+          type="button"
           onClick={() => setIsModalOpen(true)}
           className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors shadow-sm"
         >
@@ -274,6 +275,7 @@ export function KanbanBoard({
                 <p className="text-slate-500 text-sm mt-1">Adicione um novo negócio ao funil.</p>
               </div>
               <button
+                type="button"
                 onClick={() => setIsModalOpen(false)}
                 className="text-slate-400 hover:text-slate-600"
               >
@@ -284,10 +286,14 @@ export function KanbanBoard({
             <div className="p-6 overflow-y-auto">
               <form id="oppForm" onSubmit={handleCreateOpportunity} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label
+                    htmlFor="opp-title"
+                    className="block text-sm font-medium text-slate-700 mb-1"
+                  >
                     Título do Negócio *
                   </label>
                   <input
+                    id="opp-title"
                     name="title"
                     required
                     className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
@@ -296,8 +302,14 @@ export function KanbanBoard({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Empresa</label>
+                  <label
+                    htmlFor="opp-companyId"
+                    className="block text-sm font-medium text-slate-700 mb-1"
+                  >
+                    Empresa
+                  </label>
                   <select
+                    id="opp-companyId"
                     name="companyId"
                     className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:border-orange-500 outline-none"
                   >
@@ -311,10 +323,14 @@ export function KanbanBoard({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label
+                    htmlFor="opp-contactId"
+                    className="block text-sm font-medium text-slate-700 mb-1"
+                  >
                     Contato Principal
                   </label>
                   <select
+                    id="opp-contactId"
                     name="contactId"
                     className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:border-orange-500 outline-none"
                   >
@@ -328,10 +344,14 @@ export function KanbanBoard({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label
+                    htmlFor="opp-stageId"
+                    className="block text-sm font-medium text-slate-700 mb-1"
+                  >
                     Etapa Inicial *
                   </label>
                   <select
+                    id="opp-stageId"
                     name="stageId"
                     required
                     className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:border-orange-500 outline-none"
@@ -345,10 +365,14 @@ export function KanbanBoard({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label
+                    htmlFor="opp-estimatedValue"
+                    className="block text-sm font-medium text-slate-700 mb-1"
+                  >
                     Valor Estimado (R$)
                   </label>
                   <input
+                    id="opp-estimatedValue"
                     name="estimatedValue"
                     type="number"
                     step="0.01"

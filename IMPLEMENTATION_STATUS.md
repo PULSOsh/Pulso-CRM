@@ -127,7 +127,7 @@ Nada foi apagado ou recriado. Nenhum dado de produção foi alterado nesta fase,
 
 ## 9. Fase atual
 
-**Fase 2 em andamento.** Parte 1 (limpeza de rotas mockadas) concluída — ver seção 12. Parte 1b (extração mecânica de inline styles do shell para Tailwind) concluída — ver seção 13. A migração real para `components/ui/*` (a parte grande da fase) ainda não foi iniciada.
+**Fase 2 em andamento.** Parte 1 (limpeza de rotas mockadas) concluída — ver seção 12. Parte 1b (extração mecânica de inline styles do shell para Tailwind) concluída — ver seção 13. Parte 1c (limpeza de lint de acessibilidade — labels sem controle, botões sem `type`) concluída — ver seção 14. A migração real para `components/ui/*` (a parte grande da fase) ainda não foi iniciada.
 
 ## 10. Próxima ação exata
 
@@ -212,3 +212,31 @@ Ao planejar a migração do shell para `components/ui/*`, identifiquei que essa 
 ### Débitos que ficam para depois
 
 - A migração real (trocar `.sidebar`/`.nav-link`/etc. por `components/ui/*`, não só limpar inline styles) continua pendente e é o próximo passo de fato da Fase 2 — precisa de verificação visual em tela logada, que não foi possível nesta sessão.
+
+## 14. Fase 2 (parte 1c) — Limpeza de lint de acessibilidade (concluída 17/07/2026)
+
+### O que foi feito
+
+Fechada a dívida de lint que já vinha registrada desde a Fase 0 (seção 7), separando o que era mecânico/seguro (sem risco visual) do que exige julgamento:
+
+- **`lint/a11y/noLabelWithoutControl` (16 ocorrências)**: `companies-client.tsx`, `contacts-client.tsx`, `pipeline/kanban-board.tsx` (a versão real, não a mock removida). Cada `<label>` ganhou `htmlFor` apontando pro `id` do `<input>`/`<select>` correspondente (ids com prefixo por formulário — `company-*`, `contact-*`, `opp-*` — únicos porque só um modal de cada fica montado por vez). Zero mudança visual: só atributos HTML de associação, nenhuma classe ou estrutura alterada.
+- **`lint/a11y/useButtonType` (4 ocorrências)**: `companies-client.tsx`, `contacts-client.tsx`, `pipeline/kanban-board.tsx` (×2) — botões sem `type` explícito ganharam `type="button"`. Nenhum estava de fato dentro de uma tag `<form>` (então não havia bug funcional de submit acidental), mas ficam explícitos por padrão de código.
+- **`lint/style/useNodejsImportProtocol` (1 ocorrência)**: `src/server/db/seed.ts` — `import crypto from "crypto"` → `import crypto from "node:crypto"`, com reordenação de imports feita pelo autofix do biome (`assist/source/organizeImports`).
+
+### Deixado de propósito para depois (exige julgamento, não é mecânico)
+
+- **`lint/suspicious/noExplicitAny` (4 ocorrências)**: `src/app/crm/quotes/new/quote-builder-form.tsx` (2), `src/components/crm/briefings/submission-details.tsx` (2). Corrigir direito exige entender a forma real do dado em cada ponto e não arrisco digitar um tipo errado sem isso.
+- **`lint/suspicious/noTsIgnore` (1 ocorrência)**: `src/server/auth.ts:9`. Marcado como `FIXABLE` pelo biome, mas o autofix provavelmente só apagaria o comentário `@ts-ignore` sem resolver o erro de tipo que ele está suprimindo — preciso investigar o que está sendo ignorado antes de mexer.
+
+### Validação real
+
+- `npm run lint`: **10 erros, 5 warnings** (baixou de 28-29 reais; os 5 erros e o 1 warning "FIXABLE" restantes são exatamente os dois itens acima deixados de propósito). Os outros ~9 itens que aparecem como `format` no `biome check` são drift de fim-de-linha CRLF/LF pré-existente neste checkout Windows (`core.autocrlf`), presente até em arquivos nunca tocados nesta sessão (`globals.css`, `middleware.ts`, `schema/relations.ts`, jsons de migration) — não é uma regressão introduzida aqui, e normalizar isso em massa é fora de escopo (afetaria arquivos não relacionados a esta fase).
+- `tsc --noEmit`: limpo.
+- `vitest run`: 2/2 passando.
+- `next build`: verde, 27 rotas.
+- Sem verificação visual em tela autenticada — mesma limitação da seção 13 (nenhuma mudança visual pretendida; risco residual é só nos itens de `htmlFor`/`id`, que são mudanças de acessibilidade, não de aparência).
+
+### Débitos que ficam para depois
+
+- `noExplicitAny` (4) e `noTsIgnore` (1) seguem pendentes, agora isolados e documentados (não mais misturados com o resto da dívida de lint).
+- CRLF/LF drift no checkout Windows não foi endereçado — não é claro se vale a pena mexer em `.gitattributes`/`core.autocrlf` (decisão a combinar com o responsável se incomodar no dia a dia).

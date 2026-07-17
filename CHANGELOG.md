@@ -104,6 +104,20 @@ Todas as mudanças relevantes devem ser registradas aqui.
 
 ---
 
+## [2026-07-17] — Fase 2 (parte 1c): limpeza de lint de acessibilidade
+
+### Corrigido
+
+- `companies-client.tsx`, `contacts-client.tsx`, `pipeline/kanban-board.tsx`: 16 labels de formulário sem `htmlFor`/`id` associados (`lint/a11y/noLabelWithoutControl`) e 4 botões sem `type="button"` explícito (`lint/a11y/useButtonType`). Sem mudança visual — só atributos HTML.
+- `src/server/db/seed.ts`: `import crypto from "crypto"` → `import crypto from "node:crypto"` (`lint/style/useNodejsImportProtocol`).
+
+### Testes
+
+- `tsc --noEmit`, `vitest run` (2/2), `next build` (27 rotas): verdes.
+- `npm run lint`: 28-29 → 10 erros / 5 warnings. Restante é `noExplicitAny` (4) e `noTsIgnore` (1), deixados de propósito por exigirem entender o tipo real dos dados antes de corrigir — não são mecânicos.
+
+---
+
 Formato recomendado por alteração:
 
 ```text

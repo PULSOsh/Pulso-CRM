@@ -67,6 +67,7 @@ export function CompaniesClient({ initialCompanies }: { initialCompanies: Compan
           <p className="text-slate-500 mt-1">Gerencie as empresas e clientes da sua carteira.</p>
         </div>
         <button
+          type="button"
           onClick={() => setIsModalOpen(true)}
           className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors w-full sm:w-auto justify-center"
         >
@@ -172,10 +173,14 @@ export function CompaniesClient({ initialCompanies }: { initialCompanies: Compan
             <div className="p-6 overflow-y-auto">
               <form id="companyForm" onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label
+                    htmlFor="company-tradeName"
+                    className="block text-sm font-medium text-slate-700 mb-1"
+                  >
                     Nome Fantasia *
                   </label>
                   <input
+                    id="company-tradeName"
                     name="tradeName"
                     required
                     className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
@@ -183,10 +188,14 @@ export function CompaniesClient({ initialCompanies }: { initialCompanies: Compan
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label
+                    htmlFor="company-documentNumber"
+                    className="block text-sm font-medium text-slate-700 mb-1"
+                  >
                     CNPJ / CPF
                   </label>
                   <input
+                    id="company-documentNumber"
                     name="documentNumber"
                     className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
                     placeholder="Apenas números"
@@ -194,8 +203,14 @@ export function CompaniesClient({ initialCompanies }: { initialCompanies: Compan
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
+                    <label
+                      htmlFor="company-email"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
+                      E-mail
+                    </label>
                     <input
+                      id="company-email"
                       name="email"
                       type="email"
                       className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
@@ -203,10 +218,14 @@ export function CompaniesClient({ initialCompanies }: { initialCompanies: Compan
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                    <label
+                      htmlFor="company-phone"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
                       Telefone
                     </label>
                     <input
+                      id="company-phone"
                       name="phone"
                       className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
                       placeholder="(11) 90000-0000"
@@ -214,8 +233,14 @@ export function CompaniesClient({ initialCompanies }: { initialCompanies: Compan
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Website</label>
+                  <label
+                    htmlFor="company-website"
+                    className="block text-sm font-medium text-slate-700 mb-1"
+                  >
+                    Website
+                  </label>
                   <input
+                    id="company-website"
                     name="website"
                     className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
                     placeholder="https://..."

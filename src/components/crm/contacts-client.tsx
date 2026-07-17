@@ -67,6 +67,7 @@ export function ContactsClient({ initialContacts }: { initialContacts: ContactTy
           <p className="text-slate-500 mt-1">Gerencie pessoas e leads da sua carteira.</p>
         </div>
         <button
+          type="button"
           onClick={() => setIsModalOpen(true)}
           className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors w-full sm:w-auto justify-center"
         >
@@ -175,26 +176,42 @@ export function ContactsClient({ initialContacts }: { initialContacts: ContactTy
               <form id="contactForm" onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Nome *</label>
+                    <label
+                      htmlFor="contact-firstName"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
+                      Nome *
+                    </label>
                     <input
+                      id="contact-firstName"
                       name="firstName"
                       required
                       className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                    <label
+                      htmlFor="contact-lastName"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
                       Sobrenome
                     </label>
                     <input
+                      id="contact-lastName"
                       name="lastName"
                       className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
+                  <label
+                    htmlFor="contact-email"
+                    className="block text-sm font-medium text-slate-700 mb-1"
+                  >
+                    E-mail
+                  </label>
                   <input
+                    id="contact-email"
                     name="email"
                     type="email"
                     className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
@@ -202,29 +219,41 @@ export function ContactsClient({ initialContacts }: { initialContacts: ContactTy
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                    <label
+                      htmlFor="contact-whatsapp"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
                       WhatsApp
                     </label>
                     <input
+                      id="contact-whatsapp"
                       name="whatsapp"
                       className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                    <label
+                      htmlFor="contact-phone"
+                      className="block text-sm font-medium text-slate-700 mb-1"
+                    >
                       Outro Telefone
                     </label>
                     <input
+                      id="contact-phone"
                       name="phone"
                       className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label
+                    htmlFor="contact-jobTitle"
+                    className="block text-sm font-medium text-slate-700 mb-1"
+                  >
                     Cargo / Ocupação
                   </label>
                   <input
+                    id="contact-jobTitle"
                     name="jobTitle"
                     className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
                   />
