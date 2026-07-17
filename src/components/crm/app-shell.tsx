@@ -87,44 +87,26 @@ export function AppShell({ active, eyebrow, title, children }: AppShellProps) {
         <button
           type="button"
           aria-label="Fechar menu"
-          className="mobile-overlay"
+          className="mobile-overlay fixed inset-0 z-40 cursor-pointer border-none bg-black/50"
           onClick={() => setIsMobileMenuOpen(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            backgroundColor: "rgba(0,0,0,0.5)",
-            zIndex: 40,
-            border: "none",
-            cursor: "pointer",
-          }}
         />
       )}
 
       <aside className={`sidebar ${isMobileMenuOpen ? "mobile-open" : ""}`}>
-        <div
-          className="sidebar-brand"
-          style={{ display: "flex", justifyContent: "space-between", width: "100%" }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <div className="sidebar-brand flex w-full justify-between">
+          <div className="flex items-center gap-2">
             <Image
               src="/brand/pulso_horizontal_signal_white.svg"
               alt="PULSO"
               width={120}
               height={30}
             />
-            <span style={{ fontSize: "14px", fontWeight: "bold" }}>CRM</span>
+            <span className="text-[14px] font-bold">CRM</span>
           </div>
           <button
             type="button"
-            className="mobile-close-btn"
+            className="mobile-close-btn cursor-pointer border-none bg-transparent p-1 text-white"
             onClick={() => setIsMobileMenuOpen(false)}
-            style={{
-              background: "transparent",
-              border: "none",
-              color: "white",
-              cursor: "pointer",
-              padding: "4px",
-            }}
           >
             <X size={20} />
           </button>
@@ -136,11 +118,8 @@ export function AppShell({ active, eyebrow, title, children }: AppShellProps) {
           <div className="nav-label">OPERAÇÃO</div>
           {group(operation)}
         </nav>
-        <div
-          className="sidebar-user"
-          style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
-        >
-          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+        <div className="sidebar-user flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <div className="avatar">
               {session?.user?.name?.substring(0, 2).toUpperCase() || "..."}
             </div>
@@ -153,12 +132,7 @@ export function AppShell({ active, eyebrow, title, children }: AppShellProps) {
             type="button"
             onClick={handleLogout}
             title="Sair"
-            style={{
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              color: "inherit",
-            }}
+            className="cursor-pointer border-none bg-transparent text-[inherit]"
           >
             <LogOut size={20} />
           </button>
@@ -166,17 +140,11 @@ export function AppShell({ active, eyebrow, title, children }: AppShellProps) {
       </aside>
       <main className="main-area">
         <header className="topbar">
-          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+          <div className="flex items-center gap-4">
             <button
               type="button"
-              className="mobile-menu-btn"
+              className="mobile-menu-btn cursor-pointer border-none bg-transparent p-1"
               onClick={() => setIsMobileMenuOpen(true)}
-              style={{
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                padding: "4px",
-              }}
             >
               <Menu size={24} className="text-slate-700" />
             </button>

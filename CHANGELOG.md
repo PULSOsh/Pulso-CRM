@@ -91,6 +91,19 @@ Todas as mudanças relevantes devem ser registradas aqui.
 
 ---
 
+## [2026-07-17] — Fase 2 (parte 1b): extração mecânica de inline styles do shell
+
+### Alterado
+
+- `src/components/crm/app-shell.tsx`: os 8 blocos de `style={{...}}` inline viraram classes Tailwind equivalentes (ex.: `gap: "12px"` → `gap-3`, `backgroundColor: "rgba(0,0,0,0.5)"` → `bg-black/50`), sem alterar layout, estrutura ou as classes CSS bespoke existentes (`.sidebar`, `.nav-link`, etc.). Mudança concebida para não ter diferença visual — a migração real do shell para `components/ui/*` continua pendente.
+
+### Testes
+
+- `tsc --noEmit`, `vitest run` (2/2), `next build` (27 rotas): verdes.
+- Sem verificação visual em tela autenticada nesta sessão (decisão explícita do responsável, ver `IMPLEMENTATION_STATUS.md` seção 13).
+
+---
+
 Formato recomendado por alteração:
 
 ```text

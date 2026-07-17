@@ -127,11 +127,11 @@ Nada foi apagado ou recriado. Nenhum dado de produção foi alterado nesta fase,
 
 ## 9. Fase atual
 
-**Fase 2 em andamento.** Parte 1 (limpeza de rotas mockadas) concluída nesta sessão — ver seção 12. Parte 2 (migração real do shell e formulários para `components/ui/*`) ainda não iniciada.
+**Fase 2 em andamento.** Parte 1 (limpeza de rotas mockadas) concluída — ver seção 12. Parte 1b (extração mecânica de inline styles do shell para Tailwind) concluída — ver seção 13. A migração real para `components/ui/*` (a parte grande da fase) ainda não foi iniciada.
 
 ## 10. Próxima ação exata
 
-Continuar Fase 2 (`docs/ROADMAP.md`): migrar o shell (`app-shell.tsx`, hoje CSS global bespoke em `globals.css` — classes como `.sidebar`, `.nav-link`, `.primary-button` — não usa `components/ui/*`) e os formulários principais para os componentes reais de `components/ui/*` (agora que o `@theme` funciona), em fatias pequenas por tela (ex.: primeiro o shell, depois um módulo por vez), rodando `npm run check` a cada mudança. Depois decidir o destino definitivo dos links de nav ocultos (Tarefas/Financeiro/Relatórios/Configurações) — hoje só ocultos, sem página real. Sem refatoração visual total em um único commit (regra explícita de `docs/DESIGN_SYSTEM.md` seção 6).
+Continuar Fase 2 (`docs/ROADMAP.md`): migrar o shell (`app-shell.tsx`, hoje ainda estruturado com as classes CSS bespoke de `globals.css` — `.sidebar`, `.nav-link`, `.primary-button` — não usa `components/ui/*`) e os formulários principais para os componentes reais de `components/ui/*` (agora que o `@theme` funciona), em fatias pequenas por tela, rodando `npm run check` a cada mudança. Essa migração estrutural exige verificação visual em tela autenticada (login real) antes do push — combinar com o responsável a forma de validar (ambiente de teste, ou confirmação dele após push) antes de tentar. Depois decidir o destino definitivo dos links de nav ocultos (Tarefas/Financeiro/Relatórios/Configurações) — hoje só ocultos, sem página real. Sem refatoração visual total em um único commit (regra explícita de `docs/DESIGN_SYSTEM.md` seção 6).
 
 Pendências que seguem precisando de autorização explícita do responsável antes de agir:
 - rotacionar a senha administrativa já semeada em produção;
@@ -189,3 +189,26 @@ Auditoria de `src/app` encontrou três rotas internas que renderizavam dados 100
 
 - O grosso da Fase 2 (entregas do roadmap: "componentes UI reutilizados", "shell responsivo e acessível", "identidade única") não foi tocado — `app-shell.tsx` e praticamente todas as telas continuam usando classes CSS globais bespoke (`globals.css`, ~1700 linhas: `.sidebar`, `.nav-link`, `.primary-button`, `.proposal-*`, etc.), não os componentes de `components/ui/*`. Isso é um trabalho maior, a ser fatiado em commits pequenos por tela, não tentado nesta sessão.
 - Links de nav ocultos (Tarefas/Financeiro/Relatórios/Configurações) continuam ocultos, sem decisão tomada sobre removê-los do array ou manter como placeholder para fases futuras.
+
+## 13. Fase 2 (parte 1b) — Extração mecânica de inline styles do shell (concluída 17/07/2026)
+
+### Contexto e escopo combinado com o responsável
+
+Ao planejar a migração do shell para `components/ui/*`, identifiquei que essa mudança afeta o layout de toda tela autenticada e que eu não tinha como validar visualmente em tela logada nesta sessão (sem Docker local para subir um Postgres de teste isolado, sem a senha do admin disponível de forma segura, e incerteza sobre se o `DATABASE_URL` local aponta para produção via túnel SSH). Perguntei ao responsável como proceder; ele escolheu explicitamente a opção mais conservadora: fazer **só a extração mecânica de inline styles para classes Tailwind equivalentes, sem tocar em layout, estrutura ou nas classes CSS bespoke existentes** — mudança concebida para ter zero diferença visual, verificável por build/typecheck sem precisar de login.
+
+### O que foi feito
+
+- `src/components/crm/app-shell.tsx`: todos os 8 blocos de `style={{...}}` (overlay mobile, wrapper da marca, wrapper do logo, label "CRM", botão de fechar mobile, wrapper do usuário, wrapper do avatar, botão de logout, botão de menu mobile, wrapper do eyebrow/título) foram substituídos por classes Tailwind utilitárias com os mesmos valores computados (ex.: `gap: "12px"` → `gap-3`, `padding: "4px"` → `p-1`, `backgroundColor: "rgba(0,0,0,0.5)"` → `bg-black/50`, `color: "inherit"` → `text-[inherit]` via valor arbitrário para preservar o comportamento exato). Nenhuma classe CSS bespoke (`.sidebar`, `.nav-link`, `.mobile-menu-btn`, etc.) foi alterada ou removida — só complementadas com as novas classes utilitárias nos mesmos elementos.
+- Nenhuma mudança de estrutura, hierarquia de elementos ou valores visuais pretendida.
+
+### Validação real
+
+- `tsc --noEmit`: limpo.
+- `vitest run`: 2/2 passando.
+- `next build`: verde, 27 rotas (sem mudança no manifesto de rotas, como esperado).
+- `biome check .`: contagem de erros oscilou entre 28 e 29 em execuções repetidas mesmo sem qualquer mudança no working tree — confirmado como truncamento não-determinístico do biome ao listar diagnósticos (`npx biome check src/components/crm/app-shell.tsx` isolado: 0 erros; diff de execuções antes/depois da mudança mostrou que as linhas divergentes são todas em arquivos nunca tocados nesta sessão).
+- **Não validado visualmente em tela autenticada** — decisão explícita do responsável (ver contexto acima). Risco residual: erro de digitação num valor Tailwind (ex.: token errado) não seria pego por build/typecheck/lint, só visualmente. Recomendo conferência visual rápida do shell (sidebar, botão mobile, avatar, logout) na próxima vez que alguém logar, antes ou depois do push — a critério do responsável.
+
+### Débitos que ficam para depois
+
+- A migração real (trocar `.sidebar`/`.nav-link`/etc. por `components/ui/*`, não só limpar inline styles) continua pendente e é o próximo passo de fato da Fase 2 — precisa de verificação visual em tela logada, que não foi possível nesta sessão.
