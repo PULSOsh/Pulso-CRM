@@ -14,6 +14,39 @@
   --warning: #b87716;
 }
 
+/*
+ * Bridges the Pulso brand tokens above into real Tailwind utilities
+ * (bg-pulso-signal, rounded-card, duration-base, ...). Without this block
+ * the classes used throughout src/components/ui/* don't exist and render
+ * with no styling at all - see docs/DESIGN_SYSTEM.md for the
+ * source values (radii, durations, color roles).
+ */
+@theme {
+  --color-pulso-paper: var(--paper);
+  --color-pulso-carbon: var(--carbon);
+  --color-pulso-carbon-soft: color-mix(in srgb, var(--carbon) 85%, white);
+  --color-pulso-signal: var(--signal);
+  --color-pulso-signal-strong: var(--signal-dark);
+  --color-pulso-signal-soft: var(--signal-soft);
+  --color-pulso-mineral: var(--mineral);
+  --color-pulso-neutral-soft: color-mix(in srgb, var(--carbon) 6%, white);
+  --color-pulso-border: var(--border);
+  --color-pulso-error: var(--danger);
+  --color-pulso-success: var(--success);
+
+  --radius-control: 8px;
+  --radius-card: 12px;
+  --radius-panel: 16px;
+  --radius-pill: 9999px;
+
+  --duration-base: 180ms;
+
+  --tracking-label: 0.08em;
+
+  --shadow-card: 0 12px 40px rgb(22 22 22 / 8%);
+  --shadow-float: 0 24px 64px rgb(22 22 22 / 16%);
+}
+
 * {
   box-sizing: border-box;
   border-color: var(--border);
