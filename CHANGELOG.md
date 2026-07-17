@@ -118,6 +118,21 @@ Todas as mudanças relevantes devem ser registradas aqui.
 
 ---
 
+## [2026-07-17] — Fase 2 (parte 1d): noExplicitAny e @ts-ignore reais corrigidos
+
+### Corrigido
+
+- `src/server/auth.ts`: `advanced.generateId` movido para `advanced.database.generateId` (local correto na versão instalada do `better-auth`, confirmado lendo o código-fonte da lib — mesmo caminho de execução, zero mudança de comportamento). `@ts-ignore` removido.
+- `src/app/crm/quotes/new/quote-builder-form.tsx`: props `opportunities`/`products` tipados a partir do retorno real das server actions (`Awaited<ReturnType<typeof getOpenOpportunities/getProducts>>`) em vez de `any[]`. `QuoteItemInput` local duplicada virou reexport do tipo já existente em `quotes.ts`.
+- `src/components/crm/briefings/submission-details.tsx`: prop `submission` tipada via `NonNullable<Awaited<ReturnType<typeof getBriefingSubmissionById>>>`. Exposto e corrigido um problema real que o `any` escondia: `submission.metadata` (coluna `jsonb` sem `$type<>()`) não tinha `.userAgent` tipado — resolvido com cast local pontual, sem tocar no schema compartilhado.
+
+### Testes
+
+- `tsc --noEmit`, `vitest run` (2/2), `next build` (27 rotas): verdes.
+- `npm run lint`: **0 erros/warnings de regra real** — zera toda a dívida de lint da baseline da Fase 0 (43 → 0). Restam só avisos de `format` (CRLF/LF do checkout Windows, pré-existente, fora de escopo).
+
+---
+
 Formato recomendado por alteração:
 
 ```text

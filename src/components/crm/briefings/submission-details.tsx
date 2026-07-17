@@ -15,9 +15,16 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { approveBriefingSubmission } from "@/server/actions/briefing-submissions";
+import {
+  approveBriefingSubmission,
+  type getBriefingSubmissionById,
+} from "@/server/actions/briefing-submissions";
 
-export function SubmissionDetails({ submission }: { submission: any }) {
+export function SubmissionDetails({
+  submission,
+}: {
+  submission: NonNullable<Awaited<ReturnType<typeof getBriefingSubmissionById>>>;
+}) {
   const router = useRouter();
   const [isApproving, setIsApproving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +43,7 @@ export function SubmissionDetails({ submission }: { submission: any }) {
   };
 
   const isLinked = submission.status === "linked";
+  const submissionUserAgent = (submission.metadata as { userAgent?: string })?.userAgent;
 
   return (
     <div className="max-w-6xl mx-auto flex gap-8 items-start">
@@ -62,7 +70,7 @@ export function SubmissionDetails({ submission }: { submission: any }) {
           </div>
 
           <div className="space-y-8">
-            {submission.answers.map((answer: any) => (
+            {submission.answers.map((answer) => (
               <div
                 key={answer.id}
                 className="border-b border-slate-100 pb-6 last:border-0 last:pb-0"
@@ -118,11 +126,8 @@ export function SubmissionDetails({ submission }: { submission: any }) {
             </div>
             <div>
               <p className="text-slate-500">IP / User Agent</p>
-              <p
-                className="text-xs font-mono text-slate-600 truncate"
-                title={submission.metadata?.userAgent}
-              >
-                {submission.metadata?.userAgent || "Desconhecido"}
+              <p className="text-xs font-mono text-slate-600 truncate" title={submissionUserAgent}>
+                {submissionUserAgent || "Desconhecido"}
               </p>
             </div>
           </div>

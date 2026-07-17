@@ -2,22 +2,16 @@
 
 import { Loader2, Plus, Save, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
-import { createQuote } from "@/server/actions/quotes";
-
-type QuoteItemInput = {
-  productId?: string;
-  description: string;
-  quantity: number;
-  unitPrice: number;
-  discount: number;
-};
+import type { getProducts } from "@/server/actions/products";
+import type { getOpenOpportunities } from "@/server/actions/quotes";
+import { createQuote, type QuoteItemInput } from "@/server/actions/quotes";
 
 export default function QuoteBuilderForm({
   opportunities,
   products,
 }: {
-  opportunities: any[];
-  products: any[];
+  opportunities: Awaited<ReturnType<typeof getOpenOpportunities>>;
+  products: Awaited<ReturnType<typeof getProducts>>;
 }) {
   const [isPending, startTransition] = useTransition();
   const [opportunityId, setOpportunityId] = useState("");

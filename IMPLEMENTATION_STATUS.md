@@ -127,7 +127,7 @@ Nada foi apagado ou recriado. Nenhum dado de produção foi alterado nesta fase,
 
 ## 9. Fase atual
 
-**Fase 2 em andamento.** Parte 1 (limpeza de rotas mockadas) concluída — ver seção 12. Parte 1b (extração mecânica de inline styles do shell para Tailwind) concluída — ver seção 13. Parte 1c (limpeza de lint de acessibilidade — labels sem controle, botões sem `type`) concluída — ver seção 14. A migração real para `components/ui/*` (a parte grande da fase) ainda não foi iniciada.
+**Fase 2 em andamento.** Parte 1 (limpeza de rotas mockadas) concluída — ver seção 12. Parte 1b (extração mecânica de inline styles do shell para Tailwind) concluída — ver seção 13. Parte 1c (limpeza de lint de acessibilidade — labels sem controle, botões sem `type`) concluída — ver seção 14. Parte 1d (`noExplicitAny` e `@ts-ignore` reais, deixados pendentes na 1c) concluída — ver seção 15. `npm run lint` está em **zero erros/warnings de regra real** (só resta drift de fim-de-linha CRLF/LF do checkout Windows, documentado como fora de escopo). A migração real para `components/ui/*` (a parte grande da fase) ainda não foi iniciada.
 
 ## 10. Próxima ação exata
 
@@ -240,3 +240,25 @@ Fechada a dívida de lint que já vinha registrada desde a Fase 0 (seção 7), s
 
 - `noExplicitAny` (4) e `noTsIgnore` (1) seguem pendentes, agora isolados e documentados (não mais misturados com o resto da dívida de lint).
 - CRLF/LF drift no checkout Windows não foi endereçado — não é claro se vale a pena mexer em `.gitattributes`/`core.autocrlf` (decisão a combinar com o responsável se incomodar no dia a dia).
+
+## 15. Fase 2 (parte 1d) — `noExplicitAny` e `@ts-ignore` reais (concluída 17/07/2026)
+
+### O que foi feito
+
+Investiguei os 5 itens deixados pendentes na parte 1c em vez de deixá-los como dívida permanente — todos tinham correção real, não só supressão de aviso:
+
+- **`src/server/auth.ts:9` (`@ts-ignore` em `advanced.generateId`)**: li o código-fonte do `better-auth@1.6.23` instalado (`node_modules/.pnpm/.../dist/context/create-context.mjs`) e confirmei que a opção `advanced.generateId` (nível raiz) é um caminho de compatibilidade retroativa que o resolvedor de contexto checa **antes** de `advanced.database.generateId`, que é o local atualmente tipado (`@better-auth/core`'s `init-options.d.mts`, `GenerateIdFn = (options: { model, size }) => string | false`). Movi `generateId` pra dentro de `advanced.database` — mesma função, mesmo caminho de execução no runtime (confirmado lendo `generateIdFunc` em `create-context.mjs`), zero mudança de comportamento, só corrige o local que a lib espera hoje.
+- **`quote-builder-form.tsx` (2× `any` nos props `opportunities`/`products`)**: tipados como `Awaited<ReturnType<typeof getOpenOpportunities>>` e `Awaited<ReturnType<typeof getProducts>>`, derivando o tipo real das server actions em vez de duplicar/adivinhar uma forma. De quebra, a `QuoteItemInput` local duplicada virou reexport do tipo já existente em `src/server/actions/quotes.ts`.
+- **`submission-details.tsx` (2× `any`: prop `submission` e callback `answer`)**: prop tipada como `NonNullable<Awaited<ReturnType<typeof getBriefingSubmissionById>>>` (o `null` já é eliminado pelo `notFound()` no caller antes de passar a prop). O `answers.map` deixou de precisar de anotação explícita. Isso expôs um problema real que o `any` escondia: `submission.metadata` é uma coluna `jsonb` sem `$type<>()` no schema (`briefings.ts`), então o Drizzle infere o tipo do valor default (`{}`) em vez de `unknown` — sem `.userAgent` tipado. Resolvido com um cast local pontual (`(submission.metadata as { userAgent?: string })?.userAgent`), sem tocar no schema compartilhado (mudar o schema afetaria outras colunas `metadata` iguais em `activities`, `contracts`, `proposals`, `notifications`, `consent` — fora de escopo aqui).
+
+### Validação real
+
+- `tsc --noEmit`: limpo.
+- `npm run lint`: **0 erros e 0 warnings de regra real** (`lint/*`, `assist/*`) — restam só os 10 avisos de `format` (drift CRLF/LF do checkout Windows, documentado na seção 14, não é uma regra de código).
+- `vitest run`: 2/2 passando.
+- `next build`: verde, 27 rotas.
+- Nenhuma mudança de comportamento pretendida em nenhum dos três pontos — validado por leitura do código-fonte da lib (caso do `auth.ts`) e por tipos derivados diretamente das server actions reais (não inventados) nos outros dois casos. Sem verificação visual em tela autenticada (mesma limitação das partes anteriores — essas mudanças não alteram JSX renderizado, só tipos e localização de uma opção de config).
+
+### Débitos que ficam para depois
+
+- Nenhum item de lint real conhecido restante. Próximo item de qualidade de código seria decidir se vale tipar as colunas `jsonb("metadata")` do schema com `.$type<>()` em vez de casts pontuais — não fizemos isso agora por afetar múltiplas tabelas fora do escopo desta sessão.

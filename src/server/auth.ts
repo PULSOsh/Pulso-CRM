@@ -6,8 +6,9 @@ import * as schema from "./db/schema";
 export const auth = betterAuth({
   trusted: true,
   advanced: {
-    // @ts-ignore
-    generateId: () => crypto.randomUUID(),
+    database: {
+      generateId: () => crypto.randomUUID(),
+    },
   },
   database: drizzleAdapter(db, {
     provider: "pg",
