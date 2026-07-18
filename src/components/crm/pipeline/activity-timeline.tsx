@@ -80,7 +80,9 @@ export function ActivityTimeline({
                   {TYPE_LABELS[activity.type] ?? activity.type}
                 </span>
                 <span>•</span>
-                <span>{format(new Date(activity.occurredAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>
+                <span>
+                  {format(new Date(activity.occurredAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                </span>
                 {activity.actor?.name && (
                   <>
                     <span>•</span>

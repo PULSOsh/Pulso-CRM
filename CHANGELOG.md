@@ -250,6 +250,48 @@ Um clique em fluxo com `window.alert()` travou a automação de navegador usada 
 
 ---
 
+## [2026-07-18] — Redesenho do Kanban/funil para bater com a referência visual aprovada
+
+### Contexto
+
+Depois do push da correção crítica de `params`, o responsável testou e reportou que "a tela de funil kanban não tá certa, tá diferente do proposto", com uma imagem de referência mostrando o layout esperado: abas de funil, barra de estatísticas, tags de produto nos cards, temperatura como dot+label, contagem de atividades/tarefas por card, subtotal de valor por coluna, badges de contagem no menu lateral, e busca/alertas no topo.
+
+Antes de construir, perguntei ao responsável sobre 4 pontos ambíguos do mockup (removeria "Briefings" do menu? implementaria "Restaurar demonstração"? construiria funil "Parcerias" real? o que representam os 2 ícones com número no card?) — todas as respostas foram pelas opções recomendadas: manter Briefings no menu, não implementar reset de demonstração (risco de perda de dado real), só o funil "Comercial" funcional por enquanto (aba "Parcerias" e "+" desabilitadas com tooltip "em breve"), e os dois ícones representam contagem de atividades e de tarefas abertas (dados já existentes desde os Grupos 3 e 5 da Fase 3).
+
+### Adicionado
+
+- `opportunitiesRelations` ganhou `activities`, `tasks` e `opportunityProducts` (many); nova relation `opportunityProductsRelations` (produto/oportunidade) — necessário pra Drizzle permitir contagens via `with:`.
+- `getPipelineWithOpportunities()` agora retorna, por oportunidade: `activitiesCount`, `openTasksCount` (status `todo`), `productName` (primeiro produto vinculado via `opportunity_products`, ou `null` se nenhum — não há UI ainda pra vincular produto, débito já registrado na seção 19). Por etapa: `valueTotal` (soma do valor estimado). No geral: `summary` (contagem de oportunidades abertas, valor do funil, previsão ponderada = valor × probabilidade da oportunidade ou da etapa).
+- Nova `src/server/actions/nav.ts`: `getNavBadgeCounts()` (oportunidades abertas, propostas aguardando resposta `sent`/`viewed`, tarefas pendentes do usuário atual) e `getOverdueAlerts()` (próximas ações e tarefas vencidas, para o sino de alertas).
+- Kanban card (`kanban-card.tsx`) redesenhado: tag de produto no topo, temperatura como dot colorido + label, preço com separador, próxima ação com ícone de urgência (alerta se vencida, seta se não), contagem de atividades/tarefas no rodapé. Cartão inteiro virou a alça de arrastar (o `PointerSensor` já tinha `activationConstraint` de 5px, então clique continua abrindo o link normalmente).
+- Coluna do Kanban (`kanban-column.tsx`): subtotal de valor exibido abaixo do cabeçalho.
+- Board do Kanban (`kanban-board.tsx`): abas "Comercial" (funcional) / "Parcerias" (desabilitada) / "+" (desabilitada); barra de estatísticas (contagem, valor do funil, previsão ponderada); filtros reais de temperatura e responsável + ordenação (ordem do funil, maior valor, próxima ação) — implementados como `<select>` simples em vez do botão+painel do mockup, pra não construir um painel de filtro inteiro sem necessidade comprovada.
+- Menu lateral (`app-shell.tsx`): badges de contagem reais em "Funil (Kanban)", "Orçamentos" e "Tarefas", buscados via `getNavBadgeCounts()`.
+- Topbar: busca restilizada com ícone de lupa e atalho visual "⌘ K" (só visual, sem o atalho de teclado real ainda); sino de alertas com contagem de pendências vencidas e dropdown listando as 5 mais urgentes de cada tipo, usando `getOverdueAlerts()`.
+
+### Não implementado (decisão do responsável)
+
+- Botão "Restaurar demonstração": risco de perda de dado real, fora das regras do CLAUDE.md — não construído.
+- Funil "Parcerias" e botão "+" de criar funil: schema já suporta múltiplos `pipelines`, mas nenhuma lógica de seleção/criação foi construída agora — abas ficam visíveis mas desabilitadas.
+- Alternador de tema claro/escuro do mockup: não há sistema de tokens dark no design system atual; construir um do zero era escopo maior que o pedido. Não implementado, registrado como débito.
+- Atalho de teclado real para "⌘ K" focar a busca: só o indicador visual foi implementado.
+
+### Testes
+
+- `tsc --noEmit`: limpo.
+- `biome check` nos arquivos alterados: limpo (após `--write` para formatação).
+- `vitest run`: 31/31 testes passando.
+- `next build` (build limpo, `.next` removido antes): sucesso.
+- Verificação visual: rota temporária `/dev-shell-preview` (sem sessão, deletada antes do commit) renderizando `KanbanBoard` com dados simulados batendo com os números do mockup (12 oportunidades, R$ 36.194, R$ 15.380). Conferido via árvore de acessibilidade (`read_page`) e extração de texto (`get_page_text`) — confirma estrutura, tags, temperatura, preços, próxima ação, iniciais do responsável e contagens todos presentes e corretos. A ferramenta de screenshot do navegador de testes deu timeout repetido por motivo de ambiente (não relacionado ao código — o único erro real encontrado no console foi um mismatch de hidratação de ids internos do `dnd-kit`, artefato conhecido e inofensivo do Fast Refresh em dev, pré-existente à este redesenho).
+
+### Débitos conhecidos
+
+- Produto vinculado à oportunidade continua sem UI de criação (só leitura, se já existir o vínculo) — tag de produto no card ficará vazia pra toda oportunidade real até essa UI existir.
+- Filtro/ordenação são só client-side sobre os dados já carregados (sem paginação nem busca no servidor) — aceitável pro volume atual.
+- Owner do card em `select` de filtro usa apenas nomes distintos presentes no funil carregado, não a lista completa de usuários da organização.
+
+---
+
 Formato recomendado por alteração:
 
 ```text

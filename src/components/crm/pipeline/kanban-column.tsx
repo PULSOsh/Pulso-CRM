@@ -9,6 +9,7 @@ export type PipelineStageColumnType = {
   name: string;
   color: string | null;
   opportunities: OpportunityCardType[];
+  valueTotal: number;
 };
 
 export function KanbanColumn({ column }: { column: PipelineStageColumnType }) {
@@ -24,16 +25,23 @@ export function KanbanColumn({ column }: { column: PipelineStageColumnType }) {
 
   return (
     <div className="flex flex-col w-80 shrink-0 bg-slate-50/50 rounded-xl border border-slate-200">
-      <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div
-            className="w-3 h-3 rounded-full"
-            style={{ backgroundColor: column.color || "#cbd5e1" }}
-          />
-          <h3 className="font-semibold text-slate-700 text-sm">{column.name}</h3>
+      <div className="p-4 border-b border-slate-200">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <div
+              className="w-3 h-3 rounded-full"
+              style={{ backgroundColor: column.color || "#cbd5e1" }}
+            />
+            <h3 className="font-semibold text-slate-700 text-sm">{column.name}</h3>
+          </div>
+          <span className="bg-slate-200 text-slate-600 text-xs font-medium px-2 py-0.5 rounded-full">
+            {column.opportunities.length}
+          </span>
         </div>
-        <span className="bg-slate-200 text-slate-600 text-xs font-medium px-2 py-0.5 rounded-full">
-          {column.opportunities.length}
+        <span className="text-xs text-slate-400">
+          {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+            column.valueTotal,
+          )}
         </span>
       </div>
 

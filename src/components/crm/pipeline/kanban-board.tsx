@@ -19,21 +19,66 @@ import { createOpportunity, moveOpportunity } from "@/server/actions/pipeline";
 import { KanbanCard, type OpportunityCardType } from "./kanban-card";
 import { KanbanColumn, type PipelineStageColumnType } from "./kanban-column";
 
+type SortOption = "position" | "value_desc" | "next_action";
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+
 export function KanbanBoard({
   initialStages,
   pipelineId,
   companies,
   contacts,
+  summary,
 }: {
   initialStages: PipelineStageColumnType[];
   pipelineId: string;
   companies: { id: string; name: string }[];
   contacts: { id: string; name: string }[];
+  summary: { openCount: number; pipelineValue: number; weightedForecast: number };
 }) {
   const [stages, setStages] = useState<PipelineStageColumnType[]>(initialStages);
   const [activeCard, setActiveCard] = useState<OpportunityCardType | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [temperatureFilter, setTemperatureFilter] = useState("all");
+  const [ownerFilter, setOwnerFilter] = useState("all");
+  const [sortBy, setSortBy] = useState<SortOption>("position");
+
+  const owners = useMemo(() => {
+    const names = new Set<string>();
+    for (const stage of stages) {
+      for (const opp of stage.opportunities) {
+        if (opp.owner?.name) names.add(opp.owner.name);
+      }
+    }
+    return Array.from(names).sort();
+  }, [stages]);
+
+  const visibleStages = useMemo(() => {
+    const sortOpportunities = (opps: OpportunityCardType[]) => {
+      if (sortBy === "value_desc") {
+        return [...opps].sort((a, b) => Number(b.estimatedValue) - Number(a.estimatedValue));
+      }
+      if (sortBy === "next_action") {
+        return [...opps].sort((a, b) => {
+          if (!a.nextActionAt) return 1;
+          if (!b.nextActionAt) return -1;
+          return new Date(a.nextActionAt).getTime() - new Date(b.nextActionAt).getTime();
+        });
+      }
+      return opps;
+    };
+
+    return stages.map((stage) => {
+      const filtered = stage.opportunities.filter((opp) => {
+        if (temperatureFilter !== "all" && opp.temperature !== temperatureFilter) return false;
+        if (ownerFilter !== "all" && opp.owner?.name !== ownerFilter) return false;
+        return true;
+      });
+      return { ...stage, opportunities: sortOpportunities(filtered) };
+    });
+  }, [stages, temperatureFilter, ownerFilter, sortBy]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -230,7 +275,11 @@ export function KanbanBoard({
             nextActionDescription: null,
             temperature: newOpp.temperature,
             owner: null,
+            productName: null,
+            activitiesCount: 0,
+            openTasksCount: 0,
           });
+          newStages[stageIndex].valueTotal += Number(newOpp.estimatedValue);
         }
         return newStages;
       });
@@ -251,7 +300,81 @@ export function KanbanBoard({
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}
     >
-      <div className="flex justify-between items-center mb-4">
+      <div className="mb-4 flex items-center gap-1 border-b border-slate-200 shrink-0">
+        <button
+          type="button"
+          className="px-4 py-2 text-sm font-medium border-b-2 border-orange-600 text-orange-600"
+        >
+          Comercial
+        </button>
+        <button
+          type="button"
+          disabled
+          title="Em breve"
+          className="px-4 py-2 text-sm font-medium text-slate-400 cursor-not-allowed"
+        >
+          Parcerias
+        </button>
+        <button
+          type="button"
+          disabled
+          title="Novo funil (em breve)"
+          className="px-3 py-2 text-sm font-medium text-slate-400 cursor-not-allowed"
+        >
+          +
+        </button>
+      </div>
+
+      <div className="mb-4 flex items-center gap-6 text-sm text-slate-600 shrink-0">
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+          {summary.openCount} oportunidades
+        </span>
+        <span>
+          Valor do funil{" "}
+          <strong className="text-slate-900">{formatCurrency(summary.pipelineValue)}</strong>
+        </span>
+        <span>
+          Previsão ponderada{" "}
+          <strong className="text-slate-900">{formatCurrency(summary.weightedForecast)}</strong>
+        </span>
+      </div>
+
+      <div className="flex justify-between items-center mb-4 gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <select
+            value={temperatureFilter}
+            onChange={(e) => setTemperatureFilter(e.target.value)}
+            className="text-sm px-3 py-2 border border-slate-300 rounded-md bg-white text-slate-700"
+          >
+            <option value="all">Todas temperaturas</option>
+            <option value="hot">Quente</option>
+            <option value="warm">Morna</option>
+            <option value="cold">Fria</option>
+          </select>
+          <select
+            value={ownerFilter}
+            onChange={(e) => setOwnerFilter(e.target.value)}
+            className="text-sm px-3 py-2 border border-slate-300 rounded-md bg-white text-slate-700"
+          >
+            <option value="all">Todos responsáveis</option>
+            {owners.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortOption)}
+            className="text-sm px-3 py-2 border border-slate-300 rounded-md bg-white text-slate-700"
+          >
+            <option value="position">Ordem do funil</option>
+            <option value="value_desc">Maior valor</option>
+            <option value="next_action">Próxima ação</option>
+          </select>
+        </div>
+
         <button
           type="button"
           onClick={() => setIsModalOpen(true)}
@@ -262,10 +385,10 @@ export function KanbanBoard({
         </button>
       </div>
 
-      <div className="flex gap-6 overflow-x-auto pb-8 h-[calc(100vh-240px)]">
-        {/* We use SortableContext here so columns themselves could be sortable if we wanted, 
+      <div className="flex gap-6 overflow-x-auto pb-8 h-[calc(100vh-300px)]">
+        {/* We use SortableContext here so columns themselves could be sortable if we wanted,
             but for now we just map through them. */}
-        {stages.map((stage) => (
+        {visibleStages.map((stage) => (
           <KanbanColumn key={stage.id} column={stage} />
         ))}
       </div>

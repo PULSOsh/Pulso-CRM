@@ -1,7 +1,9 @@
 "use client";
 
 import {
+  AlertTriangle,
   BarChart3,
+  Bell,
   Building2,
   CheckSquare,
   ClipboardList,
@@ -12,6 +14,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Search,
   Settings,
   WalletCards,
   X,
@@ -19,9 +22,10 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
+import { getNavBadgeCounts, getOverdueAlerts } from "@/server/actions/nav";
 
 const primary = [
   { href: "/dashboard", label: "Visão geral", key: "dashboard", icon: LayoutDashboard },
@@ -43,6 +47,24 @@ const operation = [
   { href: "#", label: "Relatórios", key: "reports", icon: BarChart3 },
   { href: "#", label: "Configurações", key: "settings", icon: Settings },
 ];
+
+type NavBadgeCounts = {
+  openOpportunities: number;
+  awaitingProposals: number;
+  myPendingTasks: number;
+};
+
+const BADGE_BY_KEY: Record<string, keyof NavBadgeCounts> = {
+  crm: "openOpportunities",
+  budgets: "awaitingProposals",
+  tasks: "myPendingTasks",
+};
+
+type OverdueAlerts = {
+  overdueNextActions: { id: string; title: string; nextActionDescription: string | null }[];
+  overdueTasks: { id: string; title: string }[];
+  total: number;
+};
 
 type ActiveKey =
   | "dashboard"
@@ -66,6 +88,19 @@ export function AppShell({ active, eyebrow, title, children }: AppShellProps) {
   const router = useRouter();
   const { data: session } = authClient.useSession();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [badgeCounts, setBadgeCounts] = useState<NavBadgeCounts | null>(null);
+  const [overdueAlerts, setOverdueAlerts] = useState<OverdueAlerts | null>(null);
+  const [isAlertsOpen, setIsAlertsOpen] = useState(false);
+
+  useEffect(() => {
+    if (!session) return;
+    getNavBadgeCounts()
+      .then(setBadgeCounts)
+      .catch(() => setBadgeCounts(null));
+    getOverdueAlerts()
+      .then(setOverdueAlerts)
+      .catch(() => setOverdueAlerts(null));
+  }, [session]);
 
   const handleLogout = async () => {
     await authClient.signOut();
@@ -75,12 +110,21 @@ export function AppShell({ active, eyebrow, title, children }: AppShellProps) {
   const group = (items: typeof primary) =>
     items
       .filter((item) => item.href !== "#")
-      .map(({ href, label, key, icon: Icon }) => (
-        <Link key={label} href={href} className={`nav-link ${key === active ? "active" : ""}`}>
-          <Icon aria-hidden="true" />
-          <span>{label}</span>
-        </Link>
-      ));
+      .map(({ href, label, key, icon: Icon }) => {
+        const badgeField = BADGE_BY_KEY[key];
+        const count = badgeField && badgeCounts ? badgeCounts[badgeField] : null;
+        return (
+          <Link key={label} href={href} className={`nav-link ${key === active ? "active" : ""}`}>
+            <Icon aria-hidden="true" />
+            <span>{label}</span>
+            {!!count && (
+              <span className="ml-auto bg-white/15 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded-full">
+                {count}
+              </span>
+            )}
+          </Link>
+        );
+      });
 
   return (
     <div className="app-layout">
@@ -158,8 +202,80 @@ export function AppShell({ active, eyebrow, title, children }: AppShellProps) {
               <h1>{title}</h1>
             </div>
           </div>
-          <div className="topbar-actions">
-            <input className="search" placeholder="Buscar clientes, briefings, propostas..." />
+          <div className="topbar-actions flex items-center gap-3">
+            <div className="relative hidden sm:block">
+              <Search
+                size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+              />
+              <input
+                className="search"
+                style={{ paddingLeft: 36, paddingRight: 56 }}
+                placeholder="Buscar clientes, briefings, propostas..."
+              />
+              <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 border border-slate-200 rounded px-1.5 py-0.5 pointer-events-none">
+                ⌘ K
+              </kbd>
+            </div>
+
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative text-slate-500 hover:bg-slate-100"
+                onClick={() => setIsAlertsOpen((v) => !v)}
+                title="Alertas"
+              >
+                <Bell size={20} />
+                {!!overdueAlerts?.total && (
+                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-semibold w-4 h-4 rounded-full flex items-center justify-center">
+                    {overdueAlerts.total}
+                  </span>
+                )}
+              </Button>
+
+              {isAlertsOpen && (
+                <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-lg shadow-lg z-50 overflow-hidden">
+                  <div className="p-3 border-b border-slate-100 font-semibold text-sm text-slate-700">
+                    Pendências vencidas
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {!overdueAlerts?.total && (
+                      <p className="p-4 text-sm text-slate-400">Nada vencido. Tudo em dia.</p>
+                    )}
+                    {overdueAlerts?.overdueNextActions.map((opp) => (
+                      <Link
+                        key={opp.id}
+                        href={`/crm/opportunities/${opp.id}`}
+                        className="flex items-start gap-2 p-3 hover:bg-slate-50 border-b border-slate-50 text-sm"
+                        onClick={() => setIsAlertsOpen(false)}
+                      >
+                        <AlertTriangle size={14} className="text-red-500 mt-0.5 shrink-0" />
+                        <span>
+                          <strong className="text-slate-800">{opp.title}</strong>
+                          <br />
+                          <span className="text-slate-500 text-xs">
+                            {opp.nextActionDescription || "Próxima ação vencida"}
+                          </span>
+                        </span>
+                      </Link>
+                    ))}
+                    {overdueAlerts?.overdueTasks.map((task) => (
+                      <Link
+                        key={task.id}
+                        href="/crm/tarefas"
+                        className="flex items-start gap-2 p-3 hover:bg-slate-50 border-b border-slate-50 text-sm"
+                        onClick={() => setIsAlertsOpen(false)}
+                      >
+                        <AlertTriangle size={14} className="text-red-500 mt-0.5 shrink-0" />
+                        <span className="text-slate-800">{task.title}</span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="avatar">
               {session?.user?.name?.substring(0, 2).toUpperCase() || "..."}
             </div>

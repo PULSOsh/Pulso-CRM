@@ -25,6 +25,7 @@ export default async function PipelinePage() {
     id: stage.id,
     name: stage.name,
     color: stage.color,
+    valueTotal: stage.valueTotal,
     opportunities: stage.opportunities.map((opp) => ({
       id: opp.id,
       title: opp.title,
@@ -37,24 +38,26 @@ export default async function PipelinePage() {
       nextActionDescription: opp.nextActionDescription,
       temperature: opp.temperature,
       owner: opp.owner,
+      productName: opp.productName,
+      activitiesCount: opp.activitiesCount,
+      openTasksCount: opp.openTasksCount,
     })),
   }));
 
   return (
     <div className="p-8 h-screen flex flex-col">
-      <div className="mb-8 flex items-center justify-between shrink-0">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <LayoutDashboard size={24} className="text-orange-600" />
-            {data.pipeline.name}
-          </h1>
-          <p className="text-slate-500 mt-1">Gerencie suas negociações arrastando os cards</p>
-        </div>
+      <div className="mb-4 shrink-0">
+        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+          <LayoutDashboard size={24} className="text-orange-600" />
+          {data.pipeline.name}
+        </h1>
+        <p className="text-slate-500 mt-1">Gerencie suas negociações arrastando os cards</p>
       </div>
 
       <KanbanBoard
         initialStages={mappedStages}
         pipelineId={data.pipeline.id}
+        summary={data.summary}
         companies={companies.map((c) => ({ id: c.id, name: c.tradeName }))}
         contacts={contacts.map((c) => ({
           id: c.id,

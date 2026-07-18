@@ -459,3 +459,34 @@ Bug estava ativo em produção **antes** desta correção — qualquer clique em
 
 - Nenhum novo introduzido por esta correção — é puramente a aplicação do padrão assíncrono já usado em outras partes do código.
 - Continua pendente: reportar ao responsável sobre o comentário "a tela de funil kanban tá diferente do proposto" — não investigado ainda se é sobre o Kanban em si ou sobre a experiência geral degradada pelo crash.
+
+## 21. Redesenho do Kanban/funil e do shell para bater com a referência visual (concluído 18/07/2026)
+
+### Contexto
+
+O responsável enviou uma imagem de referência do funil/Kanban esperado e disse "ele precisa ser assim". Antes de construir, perguntei sobre 4 pontos ambíguos (nav de Briefings, botão de resetar demonstração, funil "Parcerias" real, significado dos 2 ícones de contagem no card) — todas as respostas foram pelas opções recomendadas (ver detalhe no `CHANGELOG.md`).
+
+### O que foi feito
+
+- **Schema/relations**: `opportunitiesRelations` ganhou `activities`, `tasks`, `opportunityProducts` (many); nova `opportunityProductsRelations`. Só metadados TypeScript do Drizzle, sem migration (nenhuma coluna nova).
+- **Query do funil** (`getPipelineWithOpportunities`): agora agrega `activitiesCount`, `openTasksCount`, `productName` por oportunidade; `valueTotal` por etapa; `summary` (contagem, valor do funil, previsão ponderada) no nível do funil.
+- **Nova `src/server/actions/nav.ts`**: `getNavBadgeCounts()` e `getOverdueAlerts()`, para os badges do menu e o sino de alertas.
+- **UI**: `kanban-card.tsx` redesenhado (tag de produto, temperatura como dot+label, próxima ação com ícone de urgência, contagens de atividade/tarefa); `kanban-column.tsx` com subtotal de valor; `kanban-board.tsx` com abas Comercial/Parcerias/+ (só Comercial funcional), barra de estatísticas, filtros de temperatura/responsável e ordenação; `app-shell.tsx` com badges reais no menu e sino de alertas na topbar, busca restilizada.
+
+### Validação real
+
+- `tsc --noEmit`, `biome check` (nos arquivos alterados), `vitest run` (31/31), `next build`: todos limpos.
+- Verificação visual via rota temporária `/dev-shell-preview` (sem sessão, deletada antes do commit), dados simulados batendo com os números do mockup. Confirmado via árvore de acessibilidade e extração de texto que toda a estrutura renderiza corretamente (tabs, stats, tags, temperatura, preço, próxima ação, iniciais, contagens). A ferramenta de screenshot do navegador de testes falhou por timeout de ambiente (não relacionado ao código) — não consegui capturar uma imagem, mas a verificação textual/estrutural foi completa. Único erro real no console: mismatch de hidratação em ids internos do `dnd-kit` (artefato conhecido do Fast Refresh, pré-existente, inofensivo).
+
+### Decisões deliberadas (não é debito, é escopo combinado com o responsável)
+
+- Sem botão de "restaurar demonstração" (risco de perda de dado real).
+- Sem funil "Parcerias" real nem criação de novos funis (abas visíveis, desabilitadas com tooltip).
+- Sem alternador de tema claro/escuro (não há sistema de tokens dark ainda).
+- Filtros/ordenação do mockup (botões "Filtros"/"Ordenar") implementados como `<select>` simples, não como painel — mais rápido de construir, funcionalmente equivalente.
+
+### Débitos conhecidos
+
+- Tag de produto no card fica vazia em qualquer oportunidade real até existir UI de vincular produto (débito já registrado na seção 19, ainda não resolvido).
+- Filtro/ordenação são só client-side sobre os dados já carregados no funil (sem busca/paginação no servidor).
+- Atalho de teclado real pro "⌘ K" da busca não foi implementado, só o indicador visual.

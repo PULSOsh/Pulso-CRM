@@ -4,7 +4,13 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "../auth/require-permission";
 import { db } from "../db/connection";
-import { opportunities, opportunityStageHistory, pipelineStages, pipelines } from "../db/schema";
+import {
+  opportunities,
+  opportunityStageHistory,
+  pipelineStages,
+  pipelines,
+  tasks,
+} from "../db/schema";
 import { logActivity } from "../services/activity-log";
 
 export async function getPipelineWithOpportunities() {
@@ -78,7 +84,10 @@ export async function getPipelineWithOpportunities() {
   // touching any existing stage. Needed for loseOpportunity() to have a
   // stage to move the card into.
   const hasLostStage = await db.query.pipelineStages.findFirst({
-    where: and(eq(pipelineStages.pipelineId, defaultPipeline.id), eq(pipelineStages.name, "Perdido")),
+    where: and(
+      eq(pipelineStages.pipelineId, defaultPipeline.id),
+      eq(pipelineStages.name, "Perdido"),
+    ),
   });
   if (!hasLostStage) {
     const [lastStage] = await db.query.pipelineStages.findMany({
@@ -121,19 +130,59 @@ export async function getPipelineWithOpportunities() {
           name: true,
         },
       },
+      activities: {
+        columns: { id: true },
+      },
+      tasks: {
+        where: eq(tasks.status, "todo"),
+        columns: { id: true },
+      },
+      opportunityProducts: {
+        limit: 1,
+        with: {
+          product: {
+            columns: { name: true },
+          },
+        },
+      },
     },
     orderBy: [asc(opportunities.position)],
   });
 
-  // Group opportunities by stage
-  const stagesWithOpportunities = stages.map((stage) => ({
-    ...stage,
-    opportunities: openOpportunities.filter((opp) => opp.stageId === stage.id),
+  const opportunitiesWithCounts = openOpportunities.map((opp) => ({
+    ...opp,
+    activitiesCount: opp.activities.length,
+    openTasksCount: opp.tasks.length,
+    productName: opp.opportunityProducts[0]?.product?.name ?? null,
   }));
+
+  // Group opportunities by stage, with a value subtotal per stage
+  const stagesWithOpportunities = stages.map((stage) => {
+    const stageOpportunities = opportunitiesWithCounts.filter((opp) => opp.stageId === stage.id);
+    return {
+      ...stage,
+      opportunities: stageOpportunities,
+      valueTotal: stageOpportunities.reduce((sum, opp) => sum + Number(opp.estimatedValue), 0),
+    };
+  });
+
+  const summary = {
+    openCount: opportunitiesWithCounts.length,
+    pipelineValue: opportunitiesWithCounts.reduce(
+      (sum, opp) => sum + Number(opp.estimatedValue),
+      0,
+    ),
+    weightedForecast: opportunitiesWithCounts.reduce((sum, opp) => {
+      const stage = stages.find((s) => s.id === opp.stageId);
+      const probability = opp.probability ?? stage?.probability ?? 0;
+      return sum + (Number(opp.estimatedValue) * probability) / 100;
+    }, 0),
+  };
 
   return {
     pipeline: defaultPipeline,
     stages: stagesWithOpportunities,
+    summary,
   };
 }
 

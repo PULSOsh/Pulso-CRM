@@ -1,17 +1,14 @@
 import { relations } from "drizzle-orm";
 import { activities } from "./activities";
-import {
-  briefingSubmissionAnswers,
-  briefingSubmissions,
-  briefingTemplates,
-} from "./briefings";
+import { briefingSubmissionAnswers, briefingSubmissions, briefingTemplates } from "./briefings";
 import { companies } from "./companies";
 import { contacts } from "./contacts";
-import { opportunities } from "./opportunities";
+import { opportunities, opportunityProducts } from "./opportunities";
+import { products } from "./products";
 import { tasks } from "./tasks";
 import { users } from "./users";
 
-export const opportunitiesRelations = relations(opportunities, ({ one }) => ({
+export const opportunitiesRelations = relations(opportunities, ({ one, many }) => ({
   company: one(companies, {
     fields: [opportunities.companyId],
     references: [companies.id],
@@ -23,6 +20,20 @@ export const opportunitiesRelations = relations(opportunities, ({ one }) => ({
   owner: one(users, {
     fields: [opportunities.ownerUserId],
     references: [users.id],
+  }),
+  activities: many(activities),
+  tasks: many(tasks),
+  opportunityProducts: many(opportunityProducts),
+}));
+
+export const opportunityProductsRelations = relations(opportunityProducts, ({ one }) => ({
+  opportunity: one(opportunities, {
+    fields: [opportunityProducts.opportunityId],
+    references: [opportunities.id],
+  }),
+  product: one(products, {
+    fields: [opportunityProducts.productId],
+    references: [products.id],
   }),
 }));
 
