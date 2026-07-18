@@ -326,6 +326,34 @@ Depois de uma auditoria pedida pelo responsável ("me diz oq falta"), ficou clar
 
 ---
 
+## [2026-07-18] — Fase 0 concluída: publicToken de proposta corrigido + formulários restantes + protocolo de continuidade
+
+### Corrigido
+
+- **Bug real de negócio (Propostas)**: `createQuote` sempre gerou `publicToken` na criação (coluna `NOT NULL`/`defaultRandom`), e `getPublicProposal`/`approveProposal` nunca verificavam a flag `publicAccessEnabled` (existente no schema desde sempre, sempre `false` por padrão, nunca lida). Resultado real: qualquer proposta em rascunho era **totalmente visível e aprovável** em `/proposta/{token}` assim que criada, contrariando `docs/MODULE_SPECIFICATIONS.md` §7 ("link público só existe depois de publicar"). Corrigido replicando o padrão já usado e funcional em Contratos (`sendContract`/`getPublicContract`): `getPublicProposal` e `approveProposal` agora exigem `publicAccessEnabled === true`; nova action `publishQuote(id)` (permissão `proposals.publish`, já existia no catálogo, nunca usada) flipa `publicAccessEnabled` + `publishedAt` só quando `status === "draft"`. Nenhuma migration necessária — a coluna já existia, só não era lida. `src/app/crm/quotes/page.tsx` ganhou botão "Publicar" (form + Server Action) para propostas ainda não publicadas.
+- **Formulários restantes da Fase 0**: dos 24 arquivos que o CHANGELOG de 18/07 (Kanban crash) listava como auditados, 3 ainda tinham `<input>`/`<select>` cru fora do que é uma exceção legítima:
+  - `src/app/crm/quotes/new/quote-builder-form.tsx`: os 4 campos da tabela de itens (descrição, quantidade, valor unitário, desconto) ainda eram `<input>` cru — só os campos de topo (oportunidade, título) tinham sido migrados na sessão anterior. Trocados por `Input` com `className` de override (célula de tabela precisa de padding/altura menores que o padrão de formulário).
+  - `src/components/crm/contracts-client.tsx`: `<select>` do modal "Gerar Contrato" nunca tinha sido tocado (arquivo não constava na lista da migração anterior). Trocado por `Select`.
+  - `src/components/crm/projects-client.tsx`: mesmo caso, `<select>` do modal "Gerar Projeto". Trocado por `Select`.
+  - Confirmado por grep (`<input`/`<select` fora de `components/ui/`, excluindo os já documentados login/sign-modal/approve-modal/app-shell-busca): os únicos `<input>` restantes em `question-editor.tsx`, `project-details-client.tsx` e `question-renderer.tsx` são `type="radio"`/`type="checkbox"` — não há componente `Checkbox`/`Radio` em `components/ui/` ainda, então esses são exceção legítima, não dívida esquecida. Registrado como débito conhecido (não corrigido nesta sessão, fora de escopo).
+
+### Adicionado
+
+- Protocolo formal de continuidade multi-agente instalado neste repositório: `AI_CONTINUITY_PROTOCOL.md`, `CURRENT_HANDOFF.md`, `HISTORY.md`, `continuity/*` (decisões, comandos, problemas conhecidos, checklists de início/fim de sessão), `scripts/capture-handoff.sh` + `verify-continuity.sh`, `prompts/*` (troca entre Claude/Codex/Gemini), `checklists/*` (gate de fase, release, acessibilidade, segurança, módulo concluído). Origem: pacote externo `PULSO_CRM_CONTINUIDADE_TOTAL` (criado por outro agente em 18/07, nunca instalado) — só a camada de protocolo foi trazida; a camada de documentação de produto desse pacote (`docs/*`, `modules/*`, `runbooks/*`, `templates/*`) foi deliberadamente descartada por duplicar/contradizer a documentação já existente e mais atual neste repositório.
+- `.claude/launch.json` — configuração do dev server para o preview do Claude Code.
+
+### Testes
+
+- `tsc --noEmit`, `biome check` (arquivos alterados), `vitest run` (31/31), `rm -rf .next && next build` (27 rotas): todos limpos, executados duas vezes (após o fix do publicToken e após os formulários).
+- Verificação manual limitada: sem banco disponível nesta sessão (`DATABASE_URL` aponta para `127.0.0.1:5432`, sem túnel/Postgres local ativo — confirmado por erro real `ECONNREFUSED` ao navegar `/proposta/[token]`, não é regressão). Confirmado via navegador: `/crm/quotes` redireciona corretamente para `/login` sem sessão (sem crash). Fluxo completo de publicar→ver proposta pública não foi exercitado com dado real; recomenda-se confirmação do responsável logado antes do próximo passo.
+
+### Débitos conhecidos
+
+- Sem componente `Checkbox`/`Radio` em `components/ui/` — 3 arquivos mantêm `<input type="radio"|"checkbox">` nativo por não ter alternativa (não é regressão, é ausência de componente).
+- `publishQuote` não altera `status` (permanece `"draft"` após publicar) nem registra evento/atividade — versionamento completo, eventos (`proposal.published` etc.) e página de detalhe interna continuam sendo o escopo da Fase 2 (`STEP_BY_STEP_IMPLEMENTATION.md`), não desta correção pontual de Fase 0.
+
+---
+
 Formato recomendado por alteração:
 
 ```text

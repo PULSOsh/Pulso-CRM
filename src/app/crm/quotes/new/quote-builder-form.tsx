@@ -181,26 +181,26 @@ export default function QuoteBuilderForm({
                 items.map((item, index) => (
                   <tr key={index.toString() + item.description} className="bg-white">
                     <td className="px-6 py-3">
-                      <input
+                      <Input
                         type="text"
                         value={item.description}
                         onChange={(e) => handleItemChange(index, "description", e.target.value)}
-                        className="w-full px-3 py-1.5 rounded border border-transparent hover:border-slate-300 focus:border-orange-500 focus:outline-none transition-colors"
+                        className="min-h-0 rounded border border-transparent px-3 py-1.5 hover:border-slate-300 focus:border-orange-500 focus:ring-0"
                       />
                     </td>
                     <td className="px-6 py-3">
-                      <input
+                      <Input
                         type="number"
                         min="1"
                         value={item.quantity}
                         onChange={(e) =>
                           handleItemChange(index, "quantity", Number(e.target.value))
                         }
-                        className="w-full px-3 py-1.5 rounded border border-slate-200 focus:border-orange-500 focus:outline-none"
+                        className="min-h-0 rounded border border-slate-200 px-3 py-1.5 focus:border-orange-500 focus:ring-0"
                       />
                     </td>
                     <td className="px-6 py-3">
-                      <input
+                      <Input
                         type="number"
                         min="0"
                         step="0.01"
@@ -208,11 +208,11 @@ export default function QuoteBuilderForm({
                         onChange={(e) =>
                           handleItemChange(index, "unitPrice", Number(e.target.value))
                         }
-                        className="w-full px-3 py-1.5 rounded border border-slate-200 focus:border-orange-500 focus:outline-none"
+                        className="min-h-0 rounded border border-slate-200 px-3 py-1.5 focus:border-orange-500 focus:ring-0"
                       />
                     </td>
                     <td className="px-6 py-3">
-                      <input
+                      <Input
                         type="number"
                         min="0"
                         step="0.01"
@@ -220,7 +220,7 @@ export default function QuoteBuilderForm({
                         onChange={(e) =>
                           handleItemChange(index, "discount", Number(e.target.value))
                         }
-                        className="w-full px-3 py-1.5 rounded border border-slate-200 focus:border-orange-500 focus:outline-none text-red-600"
+                        className="min-h-0 rounded border border-slate-200 px-3 py-1.5 text-red-600 focus:border-orange-500 focus:ring-0"
                       />
                     </td>
                     <td className="px-6 py-3 text-right font-medium text-slate-900">

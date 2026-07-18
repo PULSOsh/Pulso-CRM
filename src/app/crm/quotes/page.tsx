@@ -4,7 +4,8 @@ import { FileText, Plus } from "lucide-react";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getQuotes } from "@/server/actions/quotes";
+import { Button } from "@/components/ui/button";
+import { getQuotes, publishQuote } from "@/server/actions/quotes";
 import { auth } from "@/server/auth";
 
 export default async function QuotesPage() {
@@ -100,8 +101,7 @@ export default async function QuotesPage() {
                       {format(new Date(quote.createdAt), "dd MMM yyyy", { locale: ptBR })}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      {/* For now we just preview, edit will be complex */}
-                      {quote.publicToken ? (
+                      {quote.publicAccessEnabled ? (
                         <Link
                           href={`/proposta/${quote.publicToken}`}
                           target="_blank"
@@ -109,6 +109,17 @@ export default async function QuotesPage() {
                         >
                           Ver Proposta
                         </Link>
+                      ) : quote.status === "draft" ? (
+                        <form
+                          action={async () => {
+                            "use server";
+                            await publishQuote(quote.id);
+                          }}
+                        >
+                          <Button type="submit" size="sm" variant="outline">
+                            Publicar
+                          </Button>
+                        </form>
                       ) : (
                         <span className="text-slate-400">Não publicada</span>
                       )}

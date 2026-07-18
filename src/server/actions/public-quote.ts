@@ -21,7 +21,11 @@ export async function getPublicProposal(token: string) {
     where: eq(proposals.publicToken, token),
   });
 
-  if (!proposal?.currentVersionId) {
+  if (!proposal?.publicAccessEnabled) {
+    return null;
+  }
+
+  if (!proposal.currentVersionId) {
     return null;
   }
 
@@ -74,7 +78,7 @@ export async function approveProposal(token: string, _signerData: { name: string
     where: eq(proposals.publicToken, token),
   });
 
-  if (proposal?.status !== "draft") {
+  if (!proposal?.publicAccessEnabled || proposal.status !== "draft") {
     return { success: false, error: "Proposta inválida ou já processada." };
   }
 

@@ -1,0 +1,21 @@
+# Checklist de módulo concluído
+
+- [ ] Rotas reais
+- [ ] Persistência real
+- [ ] Schemas de entrada/saída
+- [ ] Service e repository
+- [ ] Permissões server-side
+- [ ] Transações críticas
+- [ ] Histórico/timeline
+- [ ] Auditoria
+- [ ] Filtros e paginação
+- [ ] Estados de UI
+- [ ] Mobile-first
+- [ ] Teclado
+- [ ] Testes unitários
+- [ ] Testes de integração
+- [ ] E2E crítico
+- [ ] Sem mock final
+- [ ] Sem link morto
+- [ ] Sem segredo
+- [ ] Documentação atualizada

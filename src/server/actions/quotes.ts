@@ -177,3 +177,23 @@ export async function createQuote(data: {
   revalidatePath("/crm/quotes");
   return { success: true, proposalId };
 }
+
+export async function publishQuote(id: string) {
+  const { organizationId } = await requirePermission("proposals.publish");
+
+  const proposal = await db.query.proposals.findFirst({
+    where: and(eq(proposals.id, id), eq(proposals.organizationId, organizationId)),
+  });
+  if (!proposal) throw new Error("Proposta não encontrada");
+  if (proposal.status !== "draft") {
+    throw new Error("Apenas propostas em rascunho podem ser publicadas");
+  }
+
+  await db
+    .update(proposals)
+    .set({ publicAccessEnabled: true, publishedAt: new Date(), updatedAt: new Date() })
+    .where(eq(proposals.id, id));
+
+  revalidatePath("/crm/quotes");
+  return { success: true };
+}

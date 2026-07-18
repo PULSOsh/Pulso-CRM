@@ -64,7 +64,7 @@ O `BETTER_AUTH_SECRET` foi ajustado via CLI (`docker service update --env-add`),
 | Tarefas | **Funcional** | Criar, completar, ver vencidas, vínculo com oportunidade |
 | Briefings (interno + público) | **Funcional** | Inbox interna e formulário público (`/solicitar/[slug]`) funcionando |
 | Produtos | **Funcional** | CRUD completo, 15 produtos seedados preservados |
-| **Propostas** | **Parcial, com bug real conhecido** | `createQuote` já cria `publicToken` e o link fica acessível **antes** de qualquer etapa de publicação — contradiz `docs/MODULE_SPECIFICATIONS.md` §7, que exige "link público só existe depois de publicar". Não existe ação de publicar separada, nem página de detalhe interna (`/crm/quotes/[id]`), nem versionamento real (só 1 versão criada e nunca atualizada) |
+| **Propostas** | **Parcial, bug de publicação corrigido em 18/07 (seção 22)** | `publicAccessEnabled` (existia no schema, nunca lido) agora gateia `getPublicProposal`/`approveProposal`; `publishQuote` flipa a flag. Ainda faltam: página de detalhe interna (`/crm/quotes/[id]`), versionamento real (só 1 versão criada e nunca atualizada), eventos (`proposal.published` etc.) — escopo da Fase 2 em `STEP_BY_STEP_IMPLEMENTATION.md` |
 | Contratos | **Funcional** | Assinatura pública funciona de ponta a ponta (grava evidência, atualiza status, registra evento). Interface ainda fora do design system (Tailwind cru) |
 | Projetos | **Funcional** | CRUD real, conversão a partir de contrato assinado, etapas, checklist. UX tinha um beco sem saída (botão "Gerar Projeto" desabilitado sem explicação quando não há contrato assinado) — corrigido com uma dica visível |
 | Arquivos | **Ausente** | Schema pronto (`storedFiles`), zero código usando. Bloqueante: nenhuma UI de upload |
@@ -167,14 +167,46 @@ Fase 3 (parte 1): 10 grupos construídos, testados e commitados localmente nesta
 
 **Decisão registrada com o responsável em 17/07/2026**: os links ocultos de nav (Financeiro/Relatórios/Configurações) ficam como estão — array com `href: "#"`, filtrado da renderização (`app-shell.tsx`), documentado como placeholder pras fases futuras que constroem essas telas (Financeiro = Fase 8, Relatórios = Fase 10, Configurações = módulo de Workspace/Fase 1 pendente de UI). **"Tarefas" saiu dessa lista em 18/07/2026** — agora aponta pra `/crm/tarefas`, uma tela real (ver seção 18, Grupo 3). Não remover nem promover os demais sem que a tela real exista.
 
+## 22. Fase 0 concluída — publicToken de propostas + formulários restantes + continuidade (18/07/2026)
+
+### Contexto
+
+Sessão de continuidade: confirmado estado real do repositório (branch `main` = `origin/main`, working tree limpo, commit `386e854`), instalado o protocolo formal de continuidade multi-agente (ver `CURRENT_HANDOFF.md`/`HISTORY.md`/`continuity/`), e executados os 2 itens da Fase 0 do `STEP_BY_STEP_IMPLEMENTATION.md` na ordem descrita ali.
+
+### O que foi feito
+
+1. **Bug do `publicToken`** (`src/server/actions/quotes.ts`, `src/server/actions/public-quote.ts`, `src/app/crm/quotes/page.tsx`): investigado o código real (não só o texto da seção 4.1 anterior, que estava incorreto — dizia que a página pública "corretamente retorna 404 para rascunho", mas `getPublicProposal` não filtrava por status nenhum). Descoberto que o schema já tinha `publicAccessEnabled`/`publishedAt` (colunas nunca lidas) e que Contratos já usa exatamente esse padrão (`sendContract`/`getPublicContract`/`signContractPublic`) com sucesso em produção. Replicado o mesmo padrão para Propostas — sem migration, sem tocar schema. `publishQuote(id)` nova action, permissão `proposals.publish` (já existia no catálogo, nunca usada).
+2. **Formulários restantes**: `quote-builder-form.tsx` (4 inputs da tabela de itens), `contracts-client.tsx` e `projects-client.tsx` (1 `<select>` cada, nos modais "Gerar Contrato"/"Gerar Projeto" — nenhum dos dois arquivos constava na lista de migração da sessão anterior). Confirmado que os `<input>` restantes em `question-editor.tsx`, `project-details-client.tsx` e `question-renderer.tsx` são `radio`/`checkbox` sem componente `components/ui/` equivalente — exceção legítima, não dívida.
+
+### Validação real
+
+- `tsc --noEmit`, `biome check` (arquivos alterados), `vitest run` (31/31), `rm -rf .next && next build` (27 rotas): limpos, rodados duas vezes.
+- **Sem banco disponível nesta sessão** — `DATABASE_URL` aponta pra `127.0.0.1:5432`, sem túnel SSH nem Postgres local ativo (confirmado por `ECONNREFUSED` real ao navegar `/proposta/00000000-...` no preview local, não é bug do código). Confirmado via navegador: `/crm/quotes` sem sessão redireciona corretamente para `/login`, sem crash.
+- **Não verificado**: fluxo completo publicar → ver proposta pública → aprovar, com dado real. Fica pra confirmação do responsável logado (mesma limitação recorrente de sessões anteriores sem acesso seguro a credencial/túnel).
+
+### Débitos conhecidos
+
+- `Checkbox`/`Radio` não existem em `components/ui/` — 3 arquivos mantêm input nativo por não ter alternativa real.
+- `publishQuote` não muda `status` nem grava evento/atividade — fica pra Fase 2 (versionamento completo).
+- Ver `continuity/KNOWN_ISSUES.md` para o registro formal (KI-001/KI-002 marcados resolvidos, KI-003 segue aberto).
+
 ## 10. Próxima ação exata
 
-**Bloqueado em autorização do responsável, não em trabalho técnico**: nada da Fase 3 (seção 18) foi enviado ao GitHub nem ao banco — 11 commits estão só locais (`bc90224`, `a589ed8`, `6317388`, `bc6f24c`, `9789ade`, `4e62471`, `e23048f`, `989772d`, `8e5f534`, `db3df7f`, `a13de89`), além do de mobile `6324f7d` que já foi confirmado e enviado antes. Antes de continuar:
-1. Responsável precisa logar em produção (ou ambiente de teste) e confirmar que os 10 grupos funcionam de verdade — só foi possível verificar a "casca" (formulário renderiza, campos corretos, ação correta é chamada, permissão corretamente negada sem sessão) sem sessão real, não o fluxo de banco de ponta a ponta.
-2. Decidir se aplica a migration `0003_cynical_forgotten_one.sql` (fix da FK `tasks.project_id`) — pequena e aditiva, mas ainda precisa autorização explícita antes de tocar produção.
-3. Decidir quando dar push — meta combinada era "só commitar/subir quando tiver algo palpável pra uso"; os 10 grupos juntos formam essa fatia palpável, provavelmente já grande o bastante pra valer revisão antes de continuar acumulando mais commits locais.
+**Atualizado em 18/07/2026 (sessão de continuidade, seção 22)**: todos os commits até `386e854` (inclusive Fase 3 completa, fix de `params`/`searchParams`, redesign do Kanban e correção do crash de `activitiesRelations`) já estão em `origin/main` — confirmado por `git rev-list --left-right --count main...origin/main` = `0 0`. As pendências de push da seção 18 estão superadas; deixo o texto original abaixo só como histórico.
 
-Depois disso, retomar Fase 2 (`components/ui/*` de verdade nas telas de CRM, ver seção 16) ou continuar aprofundando a Fase 3 (produtos na oportunidade, diagnóstico/orçamento informado, filtros e busca no Kanban, visão 360° de contato/empresa, checklist de tarefa, calendário) — a decidir com o responsável.
+Trabalho desta sessão (fix do `publicToken` de propostas + formulários restantes + instalação do protocolo de continuidade) ainda está **só no working tree, sem commit** — ver `CURRENT_HANDOFF.md` para a lista de arquivos e validação. Antes de continuar:
+1. Commitar esta sessão (fix + docs) e decidir push com o responsável.
+2. Confirmar logado (ou com o responsável) que publicar uma proposta e depois visualizar `/proposta/{token}` funciona de ponta a ponta com dado real — não foi possível nesta sessão por falta de banco acessível localmente.
+3. Decidir se aplica a migration `0003_cynical_forgotten_one.sql` (fix da FK `tasks.project_id`) — segue pendente de autorização explícita.
+
+Depois disso, seguir `STEP_BY_STEP_IMPLEMENTATION.md` Fase 1 (Arquivos) — é o próximo módulo ausente e bloqueia Propostas/Aprovações/Projetos, que todos precisam mostrar/anexar arquivo.
+
+<details>
+<summary>Texto original desta seção (17-18/07, antes da confirmação de que tudo já estava pushed)</summary>
+
+Bloqueado em autorização do responsável, não em trabalho técnico: nada da Fase 3 (seção 18) foi enviado ao GitHub nem ao banco — 11 commits estavam só locais (`bc90224`, `a589ed8`, `6317388`, `bc6f24c`, `9789ade`, `4e62471`, `e23048f`, `989772d`, `8e5f534`, `db3df7f`, `a13de89`), além do de mobile `6324f7d` que já tinha sido confirmado e enviado antes. Antes de continuar: responsável precisava logar e confirmar os 10 grupos, decidir sobre a migration `0003`, e decidir quando dar push. Depois disso, retomar Fase 2 (`components/ui/*` de verdade nas telas de CRM, ver seção 16) ou continuar aprofundando a Fase 3 — a decidir com o responsável.
+
+</details>
 
 **Nota para sessões futuras**: `npm run dev` neste checkout demonstrou HMR (hot module reload) de CSS não-confiável durante a sessão de 17/07 — mudanças em `globals.css` às vezes não se propagavam pra aba aberta do navegador mesmo com o arquivo salvo. Sempre que for verificar uma mudança de CSS/layout via `next dev`, reiniciar o servidor com `.next` limpo antes de confiar no resultado.
 

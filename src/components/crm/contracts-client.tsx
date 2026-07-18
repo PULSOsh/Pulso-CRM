@@ -3,6 +3,7 @@
 import { FileSignature, Plus } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { Select } from "@/components/ui/select";
 import { createContractFromProposal } from "@/server/actions/contracts";
 
 type Contract = {
@@ -149,10 +150,9 @@ export function ContractsClient({
               </p>
             </div>
             <div className="p-6 space-y-4">
-              <select
+              <Select
                 value={selectedProposalId}
                 onChange={(e) => setSelectedProposalId(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
               >
                 <option value="">Selecione uma proposta aprovada...</option>
                 {availableProposals.map((p) => (
@@ -160,7 +160,7 @@ export function ContractsClient({
                     {p.code} - {p.title} (R$ {p.total})
                   </option>
                 ))}
-              </select>
+              </Select>
               {error && <p className="text-sm text-red-600">{error}</p>}
             </div>
             <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
