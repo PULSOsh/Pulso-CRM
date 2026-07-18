@@ -127,13 +127,15 @@ Nada foi apagado ou recriado. Nenhum dado de produção foi alterado nesta fase,
 
 ## 9. Fase atual
 
-**Fase 2 em andamento.** Parte 1 (limpeza de rotas mockadas) concluída — ver seção 12. Parte 1b (extração mecânica de inline styles do shell para Tailwind) concluída — ver seção 13. Parte 1c (limpeza de lint de acessibilidade — labels sem controle, botões sem `type`) concluída — ver seção 14. Parte 1d (`noExplicitAny` e `@ts-ignore` reais, deixados pendentes na 1c) concluída — ver seção 15. `npm run lint` está em **zero erros/warnings de regra real** (só resta drift de fim-de-linha CRLF/LF do checkout Windows, documentado como fora de escopo). Parte 2a (primeira fatia real de migração pra `components/ui/*` — os 3 botões de ícone do shell) concluída, **aguardando confirmação visual do responsável** — ver seção 16.
+**Fase 2 em andamento.** Parte 1 (limpeza de rotas mockadas) concluída — ver seção 12. Parte 1b (extração mecânica de inline styles do shell para Tailwind) concluída — ver seção 13. Parte 1c (limpeza de lint de acessibilidade — labels sem controle, botões sem `type`) concluída — ver seção 14. Parte 1d (`noExplicitAny` e `@ts-ignore` reais, deixados pendentes na 1c) concluída — ver seção 15. `npm run lint` está em **zero erros/warnings de regra real** (só resta drift de fim-de-linha CRLF/LF do checkout Windows, documentado como fora de escopo). Parte 2a (primeira fatia real de migração pra `components/ui/*` — os 3 botões de ícone do shell) concluída — ver seção 16. **Bug real de responsividade mobile encontrado e corrigido** (viewport meta tag nunca existiu + gaveta do menu mobile nunca funcionou de verdade) — ver seção 17, **pendente confirmação visual do responsável em aparelho real**.
 
 **Decisão registrada com o responsável em 17/07/2026**: os links ocultos de nav (Tarefas/Financeiro/Relatórios/Configurações) ficam como estão — array com `href: "#"`, filtrado da renderização (`app-shell.tsx`), documentado como placeholder pras fases futuras que constroem essas telas (Financeiro = Fase 8, Relatórios = Fase 10, Tarefas = Fase 3, Configurações = módulo de Workspace/Fase 1 pendente de UI). Não remover nem promover sem que a tela real exista.
 
 ## 10. Próxima ação exata
 
-Continuar Fase 2 (`docs/ROADMAP.md`) migrando `components/ui/*` de verdade, uma fatia pequena por vez, sempre com push seguido de confirmação visual do responsável logado em produção antes de seguir pra próxima fatia (modelo combinado em 17/07/2026, ver seção 16). Próximas fatias candidatas do shell: `Input` no campo de busca do topbar (adiado na parte 2a por risco de sobreposição de estilo com a classe `.search` existente — precisa reconciliar largura/altura/padding antes), depois as classes de layout bespoke (`.sidebar`, `.nav-link`, `.app-layout` e as duas media queries em 900px/768px) por Tailwind puro — essa é a parte mais arriscada porque envolve breakpoints que não são os padrão do Tailwind (900px não é `md`/`lg`), então precisa de teste visual em mobile E desktop, não só desktop. Depois seguir pros formulários principais (`companies-client.tsx`, `contacts-client.tsx`, `pipeline/kanban-board.tsx`, etc.), que hoje usam Tailwind cru com paleta `slate`/`orange` em vez dos tokens Pulso.
+Confirmar visualmente em aparelho real (ou emulador confiável) que o menu mobile abre corretamente após o push da seção 17, e decidir se a animação de abertura (removida por falta de confiança na verificação) deve ser reintroduzida. Depois, continuar Fase 2 (`docs/ROADMAP.md`) migrando `components/ui/*` de verdade, uma fatia pequena por vez, sempre com push seguido de confirmação visual do responsável antes de seguir pra próxima fatia (modelo combinado em 17/07/2026, ver seção 16). Próximas fatias candidatas do shell: `Input` no campo de busca do topbar (adiado na parte 2a por risco de sobreposição de estilo com a classe `.search` existente — precisa reconciliar largura/altura/padding antes), depois o restante das classes de layout bespoke (`.nav-link`, `.app-layout`) por Tailwind puro. Depois seguir pros formulários principais (`companies-client.tsx`, `contacts-client.tsx`, `pipeline/kanban-board.tsx`, etc.), que hoje usam Tailwind cru com paleta `slate`/`orange` em vez dos tokens Pulso.
+
+**Nota para sessões futuras**: `npm run dev` neste checkout demonstrou HMR (hot module reload) de CSS não-confiável durante esta sessão — mudanças em `globals.css` às vezes não se propagavam pra aba aberta do navegador mesmo com o arquivo salvo e o build servindo o conteúdo novo via `fetch()` direto. Sempre que for verificar uma mudança de CSS/layout via `next dev`, reiniciar o servidor com `.next` limpo antes de confiar no resultado, em vez de assumir que o HMR aplicou a mudança.
 
 Pendências que seguem precisando de autorização explícita do responsável antes de agir:
 - rotacionar a senha administrativa já semeada em produção;
@@ -306,3 +308,42 @@ Classes de visibilidade responsiva existentes (`mobile-close-btn`, `mobile-menu-
 O responsável reportou, ao conferir os botões: "o menu acaba mas tem muita tela branca pra baixo". Diagnóstico (sem precisar reproduzir localmente, só pela leitura do CSS): `.sidebar` em `globals.css` tinha `height: 100vh` fixo dentro de um grid (`.app-layout`) cuja altura de linha se ajusta ao conteúdo de `.main-area`. Em qualquer página cujo conteúdo passe de uma tela (comum: funil, listas, projetos), a linha do grid fica mais alta que 100vh, mas o `.sidebar` (com `height` fixo, não `min-height`) não acompanha — sobra área em branco (fundo `--paper`) abaixo do menu ao rolar até o fim da página. **Não foi causado pelas mudanças desta sessão** (nenhum commit anterior tocou `.sidebar`/`.app-layout`); só ficou visível porque o responsável rolou a página conferindo os botões.
 
 Corrigido trocando `height: 100vh` por `min-height: 100vh` na regra base de `.sidebar` (a media query de mobile, que usa `position:fixed`, manteve `height:100vh` sem alteração — ali é o comportamento correto). `tsc --noEmit`, `vitest run` (2/2) e `next build` (27 rotas) verdes; ainda pendente confirmação visual do responsável, igual às fatias anteriores.
+
+## 17. Bug real de responsividade mobile — nunca funcionou (corrigido 17/07/2026)
+
+### O que o responsável reportou
+
+Depois do fix da seção 16, testando no celular: o menu abria só numa faixa estreita da tela, sem os textos/logo visíveis, com muito espaço cinza/branco ao redor — visivelmente quebrado, não parecia "responsividade" nenhuma. Reação correta: perguntar em que eu estava gastando tempo, já que aquilo claramente não parecia testado.
+
+### Causa raiz real (achada por investigação, não por tentativa e erro)
+
+**`src/app/layout.tsx` nunca teve uma tag de viewport.** Next.js App Router não injeta `<meta name="viewport">` automaticamente — sem o export `viewport`, o navegador do celular renderiza a página numa "tela virtual" de ~980px de largura e encolhe tudo pra caber na tela física, deixando texto e ícones minúsculos e o layout inteiro fora de proporção. **Isso nunca funcionou, em nenhuma versão do site, antes desta sessão** — não foi introduzido por nenhuma mudança recente, só nunca tinha sido notado/testado num aparelho real. Corrigido com:
+
+```ts
+export const viewport: Viewport = { width: "device-width", initialScale: 1 };
+```
+
+Confirmado via `document.querySelector('meta[name="viewport"]')` e `window.innerWidth` batendo com a largura real do dispositivo (375px simulado), na página pública `/login` (não precisa de sessão pra verificar).
+
+### Segundo bug, real e independente, só alcançável depois do primeiro estar corrigido
+
+Com o viewport corrigido, o menu mobile (gaveta que abre pelo hambúrguer) ainda não abria de verdade: a régua de CSS `.sidebar` ficava sem `width` explícito na media query de 768px, encolhendo para caber só os ícones (~126px, não os 248-280px esperados), e simultaneamente as labels de texto ficavam ocultas por uma regra de 900px que também se aplica nessa largura (feita originalmente para um modo "trilho de ícones" de tablet, não para a gaveta mobile cheia). **Esse bug também é anterior a esta sessão** — nunca foi alcançável/visível antes porque, sem o viewport correto, o hambúrguer mobile nunca aparecia de verdade num aparelho real (o site sempre renderizava como desktop reduzido).
+
+Diagnosticado e corrigido criando uma rota de teste temporária e descartável (`src/app/dev-shell-preview`, nunca commitada) que renderiza o `AppShell` sem exigir login, permitindo testar o menu mobile de verdade via automação de navegador sem tocar em credenciais ou produção. Durante a investigação, encontrei e descartei uma pista falsa: o CSS parecia não aplicar mesmo com `!important`, o que se revelou ser cache de HMR do `next dev` desatualizado (resolvido reiniciando o servidor com `.next` limpo a cada teste) combinado com uma tentativa minha de corrigir usando `@layer overrides` posicionado incorretamente (Tailwind v4 varre todo CSS solto depois de `@import "tailwindcss"` para dentro de `@layer utilities`; **qualquer regra não-encamada sempre vence sobre qualquer regra encamada**, então meu `@layer overrides` — mesmo com `!important` — perdia para a regra "fechada" do `.sidebar`, que não estava em nenhuma layer). Corrigido removendo o `@layer` e deixando a regra solta, igual ao resto do arquivo.
+
+Correções aplicadas em `src/app/globals.css`, dentro do `@media (max-width: 768px)`:
+- `.sidebar` ganhou `width: 280px` explícito (antes encolhia pro conteúdo);
+- trocado de `transform: translateX(-100%)` / `.mobile-open { transform: translateX(0) }` para `left: -280px` / `.mobile-open { left: 0 }` (mecanismo mais simples, mesma ideia);
+- a regra de 900px que esconde `.sidebar-brand img`, `.sidebar-brand span`, `.nav-link span`, `.nav-label`, `.sidebar-user div:last-child` agora é revertida (`display: revert`) dentro do bloco de 768px — decisão de produto: a gaveta mobile cheia deve mostrar os textos, não só ícones (esse modo ícone-only fica só pra faixa 768-900px, tablet estreito com sidebar sempre visível).
+- **Removida a transição (`transition: left 0.3s`) do `.sidebar`** — não consegui confirmar com certeza que ela completa corretamente dentro do navegador automatizado usado pra testar (parecia nunca "assentar" no valor final mesmo esperando bem mais que os 0.3s, e não tive tempo de isolar se é uma limitação da ferramenta de automação ou um bug real). Prefiro abrir/fechar o menu instantaneamente, sem animação, a arriscar entregar algo que eu não consegui verificar de verdade. Se quiser a animação de volta, é uma reintrodução pequena e de baixo risco depois que alguém confirmar visualmente em um aparelho real que o `transition` funciona.
+
+### Validação real
+
+- Testado via automação de navegador (não confiei só em "deveria funcionar"): abri o menu mobile numa viewport de 375×812px, medi via `getComputedStyle`/`getBoundingClientRect` que o menu abre para `left: 0`, largura 280px, com logo e labels de texto visíveis; fechei e confirmei que volta para `left: -280px` e o overlay desaparece. Testado também em viewport desktop que o fix da seção 16 (altura do menu acompanhando conteúdo maior que a tela) continua funcionando.
+- `tsc --noEmit`: limpo. `npm run lint`: 0 erros/warnings de regra real. `vitest run`: 2/2. `next build`: verde, 27 rotas (a rota de teste `dev-shell-preview` foi deletada antes do build/commit, nunca fez parte do código enviado).
+- Viewport meta tag confirmado via DOM real numa página pública (`/login`), sem precisar de sessão.
+
+### Débitos que ficam para depois
+
+- Animação de abertura/fechamento do menu mobile foi removida por falta de confiança na verificação — pode ser reintroduzida com teste visual real (aparelho físico ou navegador confiável) quando for prioridade.
+- O modo "trilho de ícones" (768-900px, tablet estreito) preserva o comportamento antigo — não testado nesta sessão por falta de um dispositivo/viewport de teste nessa faixa específica.

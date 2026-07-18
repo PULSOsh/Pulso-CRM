@@ -159,6 +159,21 @@ Todas as mudanças relevantes devem ser registradas aqui.
 
 ---
 
+## [2026-07-17] — fix: responsividade mobile nunca funcionou de verdade
+
+### Corrigido
+
+- `src/app/layout.tsx`: **faltava a tag de viewport** (`<meta name="viewport">`). Sem ela, celulares renderizavam a página numa tela virtual de ~980px e encolhiam tudo pra caber, deixando o site inteiro minúsculo e desproporcional em qualquer aparelho — não só o menu. Adicionado `export const viewport: Viewport = { width: "device-width", initialScale: 1 }`. Bug pré-existente, nunca causado por nenhuma mudança desta sessão.
+- `src/app/globals.css`: o menu mobile (gaveta aberta pelo hambúrguer) nunca abria de verdade — `.sidebar` não tinha `width` explícito na media query de 768px (encolhia pro conteúdo, ~126px) e as labels de texto ficavam ocultas por uma regra pensada pro modo "trilho de ícones" de tablet (768-900px), que também se aplica em telas de celular. Corrigido: `width: 280px` explícito, troca de `transform: translateX` por `left` (mais simples de depurar), e `display: revert` pras labels dentro do breakpoint mobile. Também pré-existente, só nunca foi alcançável/visível antes por causa do bug do viewport acima (sem ele, o hambúrguer mobile nunca aparecia de verdade num aparelho real).
+- Removida a transição de abertura do menu mobile (`transition: left 0.3s`) — não consegui confirmar com certeza que ela completa corretamente na ferramenta de automação usada pra testar; prefiro abrir/fechar instantâneo, sem animação, a arriscar entregar algo não verificado. Reintrodução é de baixo risco quando alguém confirmar visualmente em aparelho real.
+
+### Testes
+
+- Verificado via automação de navegador numa viewport de 375×812px: menu abre pra `left:0`, largura 280px, logo e labels visíveis; fecha corretamente. Viewport meta tag confirmado via DOM real na página pública `/login` (sem precisar de sessão).
+- `tsc --noEmit`, `vitest run` (2/2), `next build` (27 rotas), `npm run lint` (0 erros reais): verdes.
+
+---
+
 Formato recomendado por alteração:
 
 ```text

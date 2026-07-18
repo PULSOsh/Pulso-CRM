@@ -1691,14 +1691,21 @@ textarea:focus-visible {
   .mobile-menu-btn { display: block; }
   .mobile-close-btn { display: block; }
   .sidebar {
-    transform: translateX(-100%);
+    width: 280px;
+    left: -280px;
     position: fixed;
     z-index: 50;
     height: 100vh;
-    transition: transform 0.3s ease;
+  }
+  .sidebar-brand img,
+  .sidebar-brand span,
+  .nav-link span,
+  .nav-label,
+  .sidebar-user div:last-child {
+    display: revert;
   }
   .sidebar.mobile-open {
-    transform: translateX(0);
+    left: 0;
   }
   .main-area {
     margin-left: 0 !important;
