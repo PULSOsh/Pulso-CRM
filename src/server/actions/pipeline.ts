@@ -149,26 +149,28 @@ export async function moveOpportunity(
 
   const oldStageId = opp.stageId;
 
-  // 1. Update Opportunity
-  await db
-    .update(opportunities)
-    .set({
-      stageId: newStageId,
-      position: newPosition.toString(),
-      updatedAt: new Date(),
-    })
-    .where(eq(opportunities.id, opportunityId));
+  await db.transaction(async (tx) => {
+    // 1. Update Opportunity
+    await tx
+      .update(opportunities)
+      .set({
+        stageId: newStageId,
+        position: newPosition.toString(),
+        updatedAt: new Date(),
+      })
+      .where(eq(opportunities.id, opportunityId));
 
-  // 2. Log History if Stage changed
-  if (oldStageId !== newStageId) {
-    await db.insert(opportunityStageHistory).values({
-      opportunityId,
-      fromStageId: oldStageId,
-      toStageId: newStageId,
-      movedBy: userId,
-      reason: "Arrastado pelo Kanban",
-    });
-  }
+    // 2. Log History if Stage changed
+    if (oldStageId !== newStageId) {
+      await tx.insert(opportunityStageHistory).values({
+        opportunityId,
+        fromStageId: oldStageId,
+        toStageId: newStageId,
+        movedBy: userId,
+        reason: "Arrastado pelo Kanban",
+      });
+    }
+  });
 
   revalidatePath("/crm/pipeline");
   return { success: true };
