@@ -1,8 +1,8 @@
 "use client";
 
-import { Building2, Globe, MapPin, Plus, Search } from "lucide-react";
+import { Building2, Globe, MapPin, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { createCompany } from "@/server/actions/companies";
+import { createCompany, deleteCompany, updateCompany } from "@/server/actions/companies";
 
 type Company = {
   id: string;
@@ -20,12 +20,23 @@ type Company = {
 export function CompaniesClient({ initialCompanies }: { initialCompanies: Company[] }) {
   const [companies, setCompanies] = useState(initialCompanies);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
 
   const filtered = companies.filter((c) =>
     c.tradeName.toLowerCase().includes(search.toLowerCase()),
   );
+
+  function openCreateModal() {
+    setEditingCompany(null);
+    setIsModalOpen(true);
+  }
+
+  function openEditModal(company: Company) {
+    setEditingCompany(company);
+    setIsModalOpen(true);
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -38,21 +49,52 @@ export function CompaniesClient({ initialCompanies }: { initialCompanies: Compan
     const website = formData.get("website") as string;
 
     try {
-      const newCompany = await createCompany({
-        tradeName,
-        documentNumber,
-        email,
-        phone,
-        website,
-      });
-      setCompanies([newCompany, ...companies]);
+      if (editingCompany) {
+        await updateCompany(editingCompany.id, {
+          tradeName,
+          documentNumber,
+          email,
+          phone,
+          website,
+        });
+        setCompanies(
+          companies.map((c) =>
+            c.id === editingCompany.id
+              ? { ...c, tradeName, documentNumber, email, phone, website }
+              : c,
+          ),
+        );
+      } else {
+        const newCompany = await createCompany({
+          tradeName,
+          documentNumber,
+          email,
+          phone,
+          website,
+        });
+        setCompanies([newCompany, ...companies]);
+      }
       setIsModalOpen(false);
+      setEditingCompany(null);
       (e.target as HTMLFormElement).reset();
     } catch (err) {
       console.error(err);
-      alert("Erro ao criar empresa.");
+      alert(editingCompany ? "Erro ao salvar empresa." : "Erro ao criar empresa.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleDelete(company: Company) {
+    if (!window.confirm(`Excluir a empresa "${company.tradeName}"?`)) {
+      return;
+    }
+    try {
+      await deleteCompany(company.id);
+      setCompanies(companies.filter((c) => c.id !== company.id));
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao excluir empresa.");
     }
   }
 
@@ -68,7 +110,7 @@ export function CompaniesClient({ initialCompanies }: { initialCompanies: Compan
         </div>
         <button
           type="button"
-          onClick={() => setIsModalOpen(true)}
+          onClick={openCreateModal}
           className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors w-full sm:w-auto justify-center"
         >
           <Plus size={20} />
@@ -99,12 +141,13 @@ export function CompaniesClient({ initialCompanies }: { initialCompanies: Compan
                 <th className="p-4 font-medium">Contato</th>
                 <th className="p-4 font-medium">Localização</th>
                 <th className="p-4 font-medium text-right">Data de Cadastro</th>
+                <th className="p-4 font-medium text-right">Ações</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-slate-500">
+                  <td colSpan={6} className="p-8 text-center text-slate-500">
                     Nenhuma empresa encontrada.
                   </td>
                 </tr>
@@ -152,6 +195,26 @@ export function CompaniesClient({ initialCompanies }: { initialCompanies: Compan
                     <td className="p-4 text-slate-500 text-right text-sm">
                       {new Date(company.createdAt).toLocaleDateString("pt-BR")}
                     </td>
+                    <td className="p-4 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(company)}
+                          title="Editar"
+                          className="p-2 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-md transition-colors"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(company)}
+                          title="Excluir"
+                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
@@ -164,14 +227,23 @@ export function CompaniesClient({ initialCompanies }: { initialCompanies: Compan
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-6 border-b border-slate-100">
-              <h2 className="text-xl font-bold text-slate-900">Nova Empresa</h2>
+              <h2 className="text-xl font-bold text-slate-900">
+                {editingCompany ? "Editar Empresa" : "Nova Empresa"}
+              </h2>
               <p className="text-slate-500 text-sm mt-1">
-                Preencha os dados da organização parceira.
+                {editingCompany
+                  ? "Atualize os dados desta organização."
+                  : "Preencha os dados da organização parceira."}
               </p>
             </div>
 
             <div className="p-6 overflow-y-auto">
-              <form id="companyForm" onSubmit={handleSubmit} className="space-y-4">
+              <form
+                id="companyForm"
+                key={editingCompany?.id ?? "new"}
+                onSubmit={handleSubmit}
+                className="space-y-4"
+              >
                 <div>
                   <label
                     htmlFor="company-tradeName"
@@ -183,6 +255,7 @@ export function CompaniesClient({ initialCompanies }: { initialCompanies: Compan
                     id="company-tradeName"
                     name="tradeName"
                     required
+                    defaultValue={editingCompany?.tradeName}
                     className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
                     placeholder="Ex: Pulso Cloud"
                   />
@@ -197,6 +270,7 @@ export function CompaniesClient({ initialCompanies }: { initialCompanies: Compan
                   <input
                     id="company-documentNumber"
                     name="documentNumber"
+                    defaultValue={editingCompany?.documentNumber ?? undefined}
                     className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
                     placeholder="Apenas números"
                   />
@@ -213,6 +287,7 @@ export function CompaniesClient({ initialCompanies }: { initialCompanies: Compan
                       id="company-email"
                       name="email"
                       type="email"
+                      defaultValue={editingCompany?.email ?? undefined}
                       className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
                       placeholder="contato@..."
                     />
@@ -227,6 +302,7 @@ export function CompaniesClient({ initialCompanies }: { initialCompanies: Compan
                     <input
                       id="company-phone"
                       name="phone"
+                      defaultValue={editingCompany?.phone ?? undefined}
                       className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
                       placeholder="(11) 90000-0000"
                     />
@@ -242,6 +318,7 @@ export function CompaniesClient({ initialCompanies }: { initialCompanies: Compan
                   <input
                     id="company-website"
                     name="website"
+                    defaultValue={editingCompany?.website ?? undefined}
                     className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
                     placeholder="https://..."
                   />
@@ -252,7 +329,10 @@ export function CompaniesClient({ initialCompanies }: { initialCompanies: Compan
             <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 shrink-0">
               <button
                 type="button"
-                onClick={() => setIsModalOpen(false)}
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setEditingCompany(null);
+                }}
                 className="px-4 py-2 text-slate-700 hover:bg-slate-200 rounded-md transition-colors"
                 disabled={loading}
               >

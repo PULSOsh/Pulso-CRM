@@ -1,16 +1,17 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "../auth/require-permission";
 import { db } from "../db/connection";
 import { companies } from "../db/schema";
+import { updateCompanySchema } from "./companies.schemas";
 
 export async function getCompanies() {
   const { organizationId } = await requirePermission("companies.read");
 
   return await db.query.companies.findMany({
-    where: eq(companies.organizationId, organizationId),
+    where: and(eq(companies.organizationId, organizationId), isNull(companies.deletedAt)),
     orderBy: (companies, { desc }) => [desc(companies.createdAt)],
   });
 }
@@ -40,4 +41,43 @@ export async function createCompany(data: {
 
   revalidatePath("/crm/empresas");
   return company;
+}
+
+export async function updateCompany(companyId: string, input: unknown) {
+  const { organizationId } = await requirePermission("companies.update");
+  const parsed = updateCompanySchema.parse(input);
+
+  const [updated] = await db
+    .update(companies)
+    .set({
+      tradeName: parsed.tradeName,
+      legalName: parsed.legalName,
+      documentNumber: parsed.documentNumber,
+      email: parsed.email,
+      phone: parsed.phone,
+      website: parsed.website,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(companies.id, companyId), eq(companies.organizationId, organizationId)))
+    .returning({ id: companies.id });
+
+  if (!updated) throw new Error("Empresa não encontrada.");
+
+  revalidatePath("/crm/empresas");
+  return { success: true };
+}
+
+export async function deleteCompany(companyId: string) {
+  const { organizationId } = await requirePermission("companies.delete");
+
+  const [updated] = await db
+    .update(companies)
+    .set({ deletedAt: new Date() })
+    .where(and(eq(companies.id, companyId), eq(companies.organizationId, organizationId)))
+    .returning({ id: companies.id });
+
+  if (!updated) throw new Error("Empresa não encontrada.");
+
+  revalidatePath("/crm/empresas");
+  return { success: true };
 }

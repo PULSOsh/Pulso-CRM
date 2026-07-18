@@ -1,8 +1,8 @@
 "use client";
 
-import { Briefcase, Contact, Mail, Phone, Plus, Search } from "lucide-react";
+import { Briefcase, Contact, Mail, Pencil, Phone, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { createContact } from "@/server/actions/contacts";
+import { createContact, deleteContact, updateContact } from "@/server/actions/contacts";
 
 type ContactType = {
   id: string;
@@ -18,12 +18,23 @@ type ContactType = {
 export function ContactsClient({ initialContacts }: { initialContacts: ContactType[] }) {
   const [contacts, setContacts] = useState(initialContacts);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingContact, setEditingContact] = useState<ContactType | null>(null);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
 
   const filtered = contacts.filter((c) =>
     `${c.firstName} ${c.lastName || ""}`.toLowerCase().includes(search.toLowerCase()),
   );
+
+  function openCreateModal() {
+    setEditingContact(null);
+    setIsModalOpen(true);
+  }
+
+  function openEditModal(contact: ContactType) {
+    setEditingContact(contact);
+    setIsModalOpen(true);
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -37,22 +48,54 @@ export function ContactsClient({ initialContacts }: { initialContacts: ContactTy
     const jobTitle = formData.get("jobTitle") as string;
 
     try {
-      const newContact = await createContact({
-        firstName,
-        lastName,
-        email,
-        phone,
-        whatsapp,
-        jobTitle,
-      });
-      setContacts([newContact, ...contacts]);
+      if (editingContact) {
+        await updateContact(editingContact.id, {
+          firstName,
+          lastName,
+          email,
+          phone,
+          whatsapp,
+          jobTitle,
+        });
+        setContacts(
+          contacts.map((c) =>
+            c.id === editingContact.id
+              ? { ...c, firstName, lastName, email, phone, whatsapp, jobTitle }
+              : c,
+          ),
+        );
+      } else {
+        const newContact = await createContact({
+          firstName,
+          lastName,
+          email,
+          phone,
+          whatsapp,
+          jobTitle,
+        });
+        setContacts([newContact, ...contacts]);
+      }
       setIsModalOpen(false);
+      setEditingContact(null);
       (e.target as HTMLFormElement).reset();
     } catch (err) {
       console.error(err);
-      alert("Erro ao criar contato.");
+      alert(editingContact ? "Erro ao salvar contato." : "Erro ao criar contato.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleDelete(contact: ContactType) {
+    if (!window.confirm(`Excluir o contato "${contact.firstName} ${contact.lastName ?? ""}"?`)) {
+      return;
+    }
+    try {
+      await deleteContact(contact.id);
+      setContacts(contacts.filter((c) => c.id !== contact.id));
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao excluir contato.");
     }
   }
 
@@ -68,7 +111,7 @@ export function ContactsClient({ initialContacts }: { initialContacts: ContactTy
         </div>
         <button
           type="button"
-          onClick={() => setIsModalOpen(true)}
+          onClick={openCreateModal}
           className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors w-full sm:w-auto justify-center"
         >
           <Plus size={20} />
@@ -99,12 +142,13 @@ export function ContactsClient({ initialContacts }: { initialContacts: ContactTy
                 <th className="p-4 font-medium">E-mail</th>
                 <th className="p-4 font-medium">WhatsApp / Telefone</th>
                 <th className="p-4 font-medium text-right">Data de Cadastro</th>
+                <th className="p-4 font-medium text-right">Ações</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-slate-500">
+                  <td colSpan={6} className="p-8 text-center text-slate-500">
                     Nenhum contato encontrado.
                   </td>
                 </tr>
@@ -156,6 +200,26 @@ export function ContactsClient({ initialContacts }: { initialContacts: ContactTy
                     <td className="p-4 text-slate-500 text-right text-sm">
                       {new Date(contact.createdAt).toLocaleDateString("pt-BR")}
                     </td>
+                    <td className="p-4 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(contact)}
+                          title="Editar"
+                          className="p-2 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-md transition-colors"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(contact)}
+                          title="Excluir"
+                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
@@ -168,12 +232,21 @@ export function ContactsClient({ initialContacts }: { initialContacts: ContactTy
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-6 border-b border-slate-100">
-              <h2 className="text-xl font-bold text-slate-900">Novo Contato</h2>
-              <p className="text-slate-500 text-sm mt-1">Cadastre uma nova pessoa.</p>
+              <h2 className="text-xl font-bold text-slate-900">
+                {editingContact ? "Editar Contato" : "Novo Contato"}
+              </h2>
+              <p className="text-slate-500 text-sm mt-1">
+                {editingContact ? "Atualize os dados desta pessoa." : "Cadastre uma nova pessoa."}
+              </p>
             </div>
 
             <div className="p-6 overflow-y-auto">
-              <form id="contactForm" onSubmit={handleSubmit} className="space-y-4">
+              <form
+                id="contactForm"
+                key={editingContact?.id ?? "new"}
+                onSubmit={handleSubmit}
+                className="space-y-4"
+              >
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label
@@ -186,6 +259,7 @@ export function ContactsClient({ initialContacts }: { initialContacts: ContactTy
                       id="contact-firstName"
                       name="firstName"
                       required
+                      defaultValue={editingContact?.firstName}
                       className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
                     />
                   </div>
@@ -199,6 +273,7 @@ export function ContactsClient({ initialContacts }: { initialContacts: ContactTy
                     <input
                       id="contact-lastName"
                       name="lastName"
+                      defaultValue={editingContact?.lastName ?? undefined}
                       className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
                     />
                   </div>
@@ -214,6 +289,7 @@ export function ContactsClient({ initialContacts }: { initialContacts: ContactTy
                     id="contact-email"
                     name="email"
                     type="email"
+                    defaultValue={editingContact?.email ?? undefined}
                     className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
                   />
                 </div>
@@ -228,6 +304,7 @@ export function ContactsClient({ initialContacts }: { initialContacts: ContactTy
                     <input
                       id="contact-whatsapp"
                       name="whatsapp"
+                      defaultValue={editingContact?.whatsapp ?? undefined}
                       className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
                     />
                   </div>
@@ -241,6 +318,7 @@ export function ContactsClient({ initialContacts }: { initialContacts: ContactTy
                     <input
                       id="contact-phone"
                       name="phone"
+                      defaultValue={editingContact?.phone ?? undefined}
                       className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
                     />
                   </div>
@@ -255,6 +333,7 @@ export function ContactsClient({ initialContacts }: { initialContacts: ContactTy
                   <input
                     id="contact-jobTitle"
                     name="jobTitle"
+                    defaultValue={editingContact?.jobTitle ?? undefined}
                     className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
                   />
                 </div>
@@ -264,7 +343,10 @@ export function ContactsClient({ initialContacts }: { initialContacts: ContactTy
             <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 shrink-0">
               <button
                 type="button"
-                onClick={() => setIsModalOpen(false)}
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setEditingContact(null);
+                }}
                 className="px-4 py-2 text-slate-700 hover:bg-slate-200 rounded-md transition-colors"
                 disabled={loading}
               >
