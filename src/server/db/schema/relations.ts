@@ -42,6 +42,10 @@ export const activitiesRelations = relations(activities, ({ one }) => ({
     fields: [activities.actorUserId],
     references: [users.id],
   }),
+  opportunity: one(opportunities, {
+    fields: [activities.opportunityId],
+    references: [opportunities.id],
+  }),
 }));
 
 export const tasksRelations = relations(tasks, ({ one }) => ({
