@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ApprovalsPanel } from "@/components/crm/approvals-panel";
 import { Select } from "@/components/ui/select";
 import { toggleChecklistItem, updateProjectStage } from "@/server/actions/projects";
 
@@ -26,7 +27,17 @@ type Project = {
   checklist: ChecklistItem[];
 };
 
-export function ProjectDetailsClient({ project, stages }: { project: Project; stages: Stage[] }) {
+type Approval = Parameters<typeof ApprovalsPanel>[0]["initialApprovals"][number];
+
+export function ProjectDetailsClient({
+  project,
+  stages,
+  approvals,
+}: {
+  project: Project;
+  stages: Stage[];
+  approvals: Approval[];
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -96,6 +107,11 @@ export function ProjectDetailsClient({ project, stages }: { project: Project; st
             <li className="text-slate-500 text-sm">Nenhum item de checklist.</li>
           )}
         </ul>
+      </div>
+
+      <div className="bg-white border border-slate-200 rounded-xl p-6">
+        <h2 className="font-semibold text-slate-900 mb-4">Aprovações</h2>
+        <ApprovalsPanel projectId={project.id} initialApprovals={approvals} />
       </div>
     </div>
   );

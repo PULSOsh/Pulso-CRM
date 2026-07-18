@@ -68,7 +68,7 @@ O `BETTER_AUTH_SECRET` foi ajustado via CLI (`docker service update --env-add`),
 | Contratos | **Funcional** | Assinatura pública funciona de ponta a ponta (grava evidência, atualiza status, registra evento). Interface ainda fora do design system (Tailwind cru) |
 | Projetos | **Funcional** | CRUD real, conversão a partir de contrato assinado, etapas, checklist. UX tinha um beco sem saída (botão "Gerar Projeto" desabilitado sem explicação quando não há contrato assinado) — corrigido com uma dica visível |
 | Arquivos | **Funcional (base), 18/07/2026** | Upload/download real via S3-compatível (URL assinada), `FileUpload` em `components/ui/`, `FilesPanel` genérico por `entityType`/`entityId`, exclusão lógica (remove vínculo, preserva objeto no storage). Wired em Oportunidade; demais entidades (proposta/contrato/projeto/aprovação) reusam a mesma action ao ganhar tela de detalhe. Sem credenciais S3 reais neste ambiente — não testado ponta a ponta com upload real |
-| Aprovações | **Ausente como feature própria** | Schema e permissões existem (`approvals`, `approvals.read/create/decide`), zero código usando. Hoje "aprovação" só existe embutida no aceite de proposta/contrato |
+| Aprovações | **Funcional, Fase 3 concluída 18/07** | Solicitar aprovação a partir de um projeto, página pública (`/aprovacao/[token]`) com aprovar/aprovar com observação/solicitar ajuste, evidências (nome/e-mail/IP/user-agent/comentário em `evidence` jsonb), rejeição cria tarefa automaticamente vinculada ao projeto, arquivos públicos opcionais |
 | Financeiro / Recebíveis | **Ausente** | Schema pronto (`receivables`, `installments`), zero código usando |
 | Custos e lucratividade | **Ausente** | Não iniciado, é o módulo confidencial restrito ao fundador |
 | Dashboard | **Mock total** | Métricas e data hardcoded, zero query real ao banco |
@@ -235,6 +235,28 @@ Sessão de continuidade: confirmado estado real do repositório (branch `main` =
 - `proposalResponses` (registro formal de aceite com hash/IP/user-agent) continua não implementado — já era um débito anotado no código original (`_snapshotHash` mockado), não introduzido nem resolvido nesta fase.
 - Sem PDF do snapshot (item do roadmap original, fora do escopo combinado desta fase).
 - "Enviar" (copiar link/WhatsApp) continua sem ação dedicada no servidor — é uma ação client-side (copiar/abrir link), não precisa de endpoint.
+
+## 25. Fase 3 — Aprovações (concluída 18/07/2026)
+
+### O que foi feito
+
+- `src/server/actions/approvals.ts`: `createApprovalRequest`/`getApprovalsForProject`/`cancelApprovalRequest` — o schema (`approvals`, `projects.ts`) e as permissões (`approvals.read/create/decide`) já existiam desde a fundação, zero código usando.
+- `src/server/actions/public-approval.ts`: `getPublicApproval`/`decideApproval` (aprovar, aprovar com observação, solicitar ajuste), sem sessão, gateado só pelo token (aprovações não têm estado de rascunho como propostas — já nascem prontas pra compartilhar, então não precisam do gate `publicAccessEnabled`).
+- `src/app/aprovacao/[token]/page.tsx` + `decide-modal.tsx`: página pública nova, paleta escura consistente com `/proposta`/`/contrato`. **Erro exibido inline, não `alert()`** — lição já registrada em sessões anteriores sobre `alert()`/`confirm()` travarem automação de teste; novas telas evitam.
+- Rejeição cria `task` real vinculada ao `projectId` (usa a FK que só ganhou `.references()` na correção da migration `0003`), atribuída ao `ownerUserId` do projeto.
+- Evidências completas no campo `evidence` (jsonb, já existia): nome, e-mail, comentário, IP, user-agent, data/hora.
+- `getPublicFilesForEntity`/`uploadFile` (Fase 1) estendidos pra aceitar `entityType: "approval"` além de `proposal`/`contract`.
+- Painel "Aprovações" na tela de detalhe de projeto (`project-details-client.tsx`): solicitar, listar status, link público, cancelar pendente.
+
+### Validação real
+
+- `tsc --noEmit`, `biome check`, `vitest run` (39/39), `next build` (29 rotas, +1 pela nova `/aprovacao/[token]`): limpos.
+- Sem banco disponível — fluxo completo (solicitar → decidir → tarefa criada em caso de ajuste) não exercitado com dado real.
+
+### Débitos conhecidos
+
+- "Comentar" isolado (sem decisão) da lista de ações da spec não foi implementado — só comentário atrelado a uma decisão (`decisionNotes`). Avaliar se vale a pena como ação separada quando houver uso real.
+- Sem prazo/expiração automática (`expired` é um status válido no schema, mas nada transiciona pra ele ainda — mesma lacuna que parcelas vencidas vão ter até a Fase 4/7 com jobs).
 
 ## 10. Próxima ação exata
 

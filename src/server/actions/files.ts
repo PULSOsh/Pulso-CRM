@@ -38,10 +38,11 @@ export async function uploadFile(
 
   await uploadObject(objectKey, buffer, file.type);
 
-  // Only proposal/contract attachments can be marked public (shown on the
-  // matching public page); everything else stays private regardless of the
-  // form field, since there is no public page that would ever read it.
-  const canBePublic = entityType === "proposal" || entityType === "contract";
+  // Only proposal/contract/approval attachments can be marked public (shown
+  // on the matching public page); everything else stays private regardless
+  // of the form field, since there is no public page that would ever read it.
+  const canBePublic =
+    entityType === "proposal" || entityType === "contract" || entityType === "approval";
   const isPrivate = !(canBePublic && formData.get("isPublic") === "true");
 
   const fileId = crypto.randomUUID();
@@ -136,7 +137,7 @@ export async function deleteFile(attachmentId: string) {
  */
 export async function getPublicFilesForEntity(
   organizationId: string,
-  entityType: "proposal" | "contract",
+  entityType: "proposal" | "contract" | "approval",
   entityId: string,
 ) {
   const rows = await db.query.attachments.findMany({

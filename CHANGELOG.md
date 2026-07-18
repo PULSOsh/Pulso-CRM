@@ -397,6 +397,22 @@ Depois de uma auditoria pedida pelo responsável ("me diz oq falta"), ficou clar
 
 ---
 
+## [2026-07-18] — Fase 3: Aprovações (portal público, evidências, rejeição cria tarefa)
+
+### Adicionado
+
+- `src/server/actions/approvals.ts` + `public-approval.ts`: solicitar aprovação a partir de um projeto, portal público (`/aprovacao/[token]`) com aprovar/aprovar com observação/solicitar ajuste, evidências completas (nome/e-mail/comentário/IP/user-agent).
+- Rejeição cria `task` real vinculada ao projeto e ao seu responsável.
+- `entityType: "approval"` habilitado em `uploadFile`/`getPublicFilesForEntity` (Fase 1) — anexos públicos na página de aprovação.
+- Painel "Aprovações" na tela de detalhe de projeto.
+
+### Testes
+
+- `tsc --noEmit`, `biome check`, `vitest run` (39/39), `next build` (29 rotas): limpos.
+- Sem banco disponível — fluxo completo não exercitado com dado real.
+
+---
+
 Formato recomendado por alteração:
 
 ```text
