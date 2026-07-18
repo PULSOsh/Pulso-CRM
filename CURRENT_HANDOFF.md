@@ -1,139 +1,130 @@
 # PULSO CRM — Checkpoint atual de handoff
 
-> **Arquivo operacional substituível.** Mantenha somente o estado mais recente. O histórico permanente fica em `HISTORY.md`; o histórico detalhado por fase continua em `IMPLEMENTATION_STATUS.md` (fonte mais rica que este arquivo — leia os dois).
+> **Arquivo operacional substituível.** Mantenha somente o estado mais recente. O histórico permanente fica em `HISTORY.md`; o histórico detalhado por fase continua em `IMPLEMENTATION_STATUS.md` (fonte mais rica que este arquivo — leia os dois, especialmente as seções 22-30).
 
 ## Identificação
 
-- Atualizado em: 2026-07-18 (America/Fortaleza)
+- Atualizado em: 2026-07-18 (America/Fortaleza), fim de sessão
 - Agente que encerrou: Claude (Sonnet 5)
 - Agente recomendado para retomar: qualquer agente autorizado (Claude, Codex, Gemini)
 - Branch: `main`
-- Commit HEAD: `386e854` (= `origin/main`, 0 ahead/0 behind) — **trabalho desta sessão ainda não commitado**, ver "Arquivos alterados" abaixo
-- Ambiente analisado: LOCAL (leitura de código e Git; nenhum banco/produção tocado nesta sessão — sem banco disponível localmente, ver "Banco e migrations")
+- Commit base da sessão: `386e854` (= `origin/main` no início)
+- Commits desta sessão: 9, todos locais, **nenhum pushed** — ver lista em "Working tree" abaixo
+- Ambiente analisado: LOCAL. Sem banco acessível o dia inteiro (nenhuma alteração de dado real em nenhum momento)
 
 ## Objetivo da sessão encerrada
 
-1. Instalar o protocolo formal de continuidade multi-agente sem sobrescrever a documentação real já existente.
-2. Executar os 2 itens da Fase 0 do `STEP_BY_STEP_IMPLEMENTATION.md`: corrigir o bug do `publicToken` de propostas e terminar a padronização de formulários.
-
-Ambos concluídos nesta sessão — ver seção 22 de `IMPLEMENTATION_STATUS.md` para o relato completo.
+Por instrução explícita do responsável ("não pergunte, não pare, apenas construa até ter TODO o CRM completo"), completar **todas as 8 fases** de `STEP_BY_STEP_IMPLEMENTATION.md`: Arquivos, Propostas completas, Aprovações, Financeiro, Dashboard real, Relatórios, Notificações/Auditoria genérica, Custos e lucratividade. Todas concluídas — ver `IMPLEMENTATION_STATUS.md` seções 22-30.
 
 ## Fase e módulo ativos
 
-- Fase: **Fase 0 concluída** (`STEP_BY_STEP_IMPLEMENTATION.md`). Próxima: **Fase 1 — Arquivos**.
-- Critério de aceite da Fase 0 (ambos atendidos):
-  1. Nenhum arquivo de tela real usa `<input>`/`<select>` cru fora de `components/ui/*`, exceto exceções documentadas: login, modais de assinatura/aprovação (paleta escura), busca do topbar, e radio/checkbox (sem componente `Checkbox`/`Radio` ainda — ver `continuity/KNOWN_ISSUES.md` KI-005).
-  2. `createQuote` não expõe `publicToken` publicamente antes de uma etapa explícita de publicação — resolvido via a flag `publicAccessEnabled` (já existia no schema), não via não-geração do token.
+- `STEP_BY_STEP_IMPLEMENTATION.md`: **todas as 8 fases concluídas**.
+- Próximo horizonte natural: Fase 11 do roadmap original (produção endurecida) ou aprofundar débitos específicos por fase — nenhum obrigatório, nada bloqueado tecnicamente.
 
 ## Estado confirmado
 
-### Concluído nesta sessão
+### Concluído nesta sessão (9 commits locais, ver `git log --oneline -10`)
 
-- Confirmado que `PULSO_CRM_CONTINUIDADE_TOTAL` (pacote externo, criado por outro agente, nunca instalado) estava desatualizado frente ao repositório real. Por decisão do responsável, instalada apenas a camada de protocolo/continuidade (`AI_CONTINUITY_PROTOCOL.md`, `continuity/`, `scripts/`, `prompts/`, `checklists/`) — não a camada de documentação de produto, que já existe aqui e é mais completa/atual.
-- **Bug real corrigido**: propostas em rascunho ficavam totalmente visíveis/aprováveis publicamente assim que criadas (`getPublicProposal` nunca checava `publicAccessEnabled`, que existia no schema e sempre foi `false`). Corrigido replicando o padrão já usado por Contratos — sem migration. Nova action `publishQuote(id)`. Ver `IMPLEMENTATION_STATUS.md` §22 e `continuity/KNOWN_ISSUES.md` KI-001.
-- **Formulários restantes migrados**: `quote-builder-form.tsx` (4 inputs da tabela de itens), `contracts-client.tsx` e `projects-client.tsx` (1 `<select>` cada). Confirmado que os `<input>` restantes em 3 outros arquivos são `radio`/`checkbox` sem componente equivalente — reclassificado como débito de componente ausente (KI-005), não dívida esquecida.
-- 4 rodadas de `tsc --noEmit` + `biome check` + `vitest run` (31/31) + `next build` (27 rotas) — todas limpas.
+1. Fix do bug real de `publicToken` em Propostas (rascunho era 100% público antes de publicar) + formulários restantes + instalação do protocolo de continuidade multi-agente.
+2. Fase 1 — Arquivos: upload/download S3-compatível, `FileUpload`/`FilesPanel`, wired em Oportunidade.
+3. Fase 2 — Propostas completas: versionamento real, página de detalhe `/crm/quotes/[id]`, eventos como atividade, arquivos públicos.
+4. Fase 3 — Aprovações: portal público `/aprovacao/[token]`, evidências, rejeição cria tarefa.
+5. Fase 4 — Financeiro: geração de recebível/parcelas a partir de contrato assinado, `/crm/financeiro` real, baixa/estorno.
+6. Fase 5 — Dashboard real: substituiu 100% do mock por queries reais.
+7. Fase 6 — Relatórios: `/crm/relatorios`, agregação real no banco (`sql`/`count`/`sum`/`filter`).
+8. Fase 7 — Notificações (in_app) e Auditoria genérica: `notifyUser`/`writeAuditLog` wired em 4 pontos críticos.
+9. Fase 8 — Custos e lucratividade: schema novo (`expense_categories`/`expenses`/`financial_settings`), 12 fórmulas testadas (20 testes), `/crm/lucratividade`.
+
+Validação repetida a cada fase: `tsc --noEmit`, `biome check`, `vitest run`, `next build` — todos limpos, sempre. Total final: **59 testes passando, 32 rotas geradas**.
 
 ### Parcial e não concluído
 
-- Nada em aberto da Fase 0. `publishQuote` não altera `status` nem grava evento/atividade — fica para a Fase 2 (versionamento completo de propostas), por decisão de escopo, não por falta de tempo.
+- Nada tecnicamente pendente de `STEP_BY_STEP_IMPLEMENTATION.md`. Débitos específicos e conscientes estão documentados em cada seção 22-30 de `IMPLEMENTATION_STATUS.md` (ex.: sem UI de categorias de despesa, sem componente `Checkbox`/`Radio`, sem exportação de relatórios).
 
 ### Não iniciado
 
-- Ver `IMPLEMENTATION_STATUS.md` §4.1 e `STEP_BY_STEP_IMPLEMENTATION.md` Fases 1 a 8 (Arquivos, Propostas completas, Aprovações, Financeiro, Dashboard real, Relatórios, Notificações/Auditoria, Custos/lucratividade).
+- Fase 11 do roadmap original (produção endurecida): testes E2E, revisão de segurança/acessibilidade formal, observabilidade, backup/restauração testado.
+- Fase 9/12 do roadmap original (integrações externas, IA) — fora de prioridade por decisão de produto.
 
 ## Working tree
 
-Limpo em `386e854` no início da sessão. Ao final desta sessão, os seguintes caminhos estão modificados/novos e **não commitados**:
+Limpo em `386e854` no início. 9 commits locais ao final, working tree limpo entre cada um (todos os arquivos foram commitados a cada fase). Confirmar com:
 
-```text
-?? AI_CONTINUITY_PROTOCOL.md
-?? CURRENT_HANDOFF.md
-?? HISTORY.md
-?? checklists/
-?? continuity/
-?? prompts/
-?? scripts/
-?? .claude/launch.json
- M CHANGELOG.md
- M IMPLEMENTATION_STATUS.md
- M src/server/actions/quotes.ts
- M src/server/actions/public-quote.ts
- M src/app/crm/quotes/page.tsx
- M src/app/crm/quotes/new/quote-builder-form.tsx
- M src/components/crm/contracts-client.tsx
- M src/components/crm/projects-client.tsx
+```bash
+git status --short --branch
+git log --oneline --decorate -10
+git rev-list --left-right --count main...origin/main
 ```
-
-## Arquivos alterados
-
-| Arquivo | Natureza da mudança | Estado | Observações |
-|---|---|---|---|
-| `AI_CONTINUITY_PROTOCOL.md`, `continuity/*`, `scripts/*`, `prompts/*`, `checklists/*` | criação | concluído | protocolo de continuidade; `KNOWN_ISSUES.md`/`COMMAND_LOG.md` com conteúdo real, demais sem alteração |
-| `CURRENT_HANDOFF.md`, `HISTORY.md` | criação | concluído | preenchidos com estado real |
-| `.claude/launch.json` | criação | concluído | config do dev server para preview do Claude Code |
-| `src/server/actions/quotes.ts` | alteração | concluído | `publishQuote(id)` nova |
-| `src/server/actions/public-quote.ts` | alteração | concluído | gate `publicAccessEnabled` em `getPublicProposal`/`approveProposal` |
-| `src/app/crm/quotes/page.tsx` | alteração | concluído | botão "Publicar", gate na exibição do link público |
-| `src/app/crm/quotes/new/quote-builder-form.tsx` | alteração | concluído | 4 inputs de tabela migrados para `Input` |
-| `src/components/crm/contracts-client.tsx`, `projects-client.tsx` | alteração | concluído | `<select>` do modal migrado para `Select` |
-| `CHANGELOG.md`, `IMPLEMENTATION_STATUS.md` | alteração | concluído | documentação desta sessão |
-
-Nenhuma migration criada ou aplicada. Nenhum dado de produção tocado.
 
 ## Banco e migrations
 
-- Última migration local conhecida: `0003_cynical_forgotten_one.sql` (gerada, **não aplicada** em nenhum ambiente).
-- Última migration aplicada em produção: `0002_safe_exiles.sql`.
-- Divergências conhecidas: nenhuma nova. `0003` segue pendente de autorização explícita.
-- **Sem banco acessível nesta sessão**: `DATABASE_URL` aponta para `127.0.0.1:5432`, sem túnel SSH nem Postgres local ativo — confirmado por `ECONNREFUSED` real ao testar `/proposta/[token]` no preview local (não é bug do código, é ausência de conexão).
+- Última migration local: `0004_warm_spyke.sql` (schema de Custos/Lucratividade — 3 tabelas novas, 3 enums novos, zero `ALTER` em tabela existente).
+- **Duas migrations geradas, nenhuma aplicada, ambas pendentes de autorização explícita**:
+  - `0003_cynical_forgotten_one.sql` (fix FK `tasks.project_id`) — gerada em sessão anterior (18/07 cedo).
+  - `0004_warm_spyke.sql` (Custos/Lucratividade) — gerada nesta sessão.
+- Última migration aplicada em produção: `0002_safe_exiles.sql` (confirmado em sessões anteriores).
+- **Nenhuma migration foi aplicada nesta sessão**, mesmo com autorização geral para "construir tudo" — aplicar migration em banco real é uma linha diferente de escrever código, e continua exigindo autorização explícita separada, sem exceção (regra do próprio `CLAUDE.md`/`AI_CONTINUITY_PROTOCOL.md` deste repositório).
 
 ## Comandos realmente executados
 
-Lista completa em `continuity/COMMAND_LOG.md`. Resumo: `git status/log/diff/rev-list` (repositório limpo e sincronizado no início), 2 rodadas completas de `tsc --noEmit` + `biome check` + `vitest run` (31/31) + `next build` (27 rotas) — todas limpas —, e verificação via preview local (`/crm/quotes` redireciona para `/login` sem sessão, sem crash; `/proposta/[token]` retorna 500 por falta de banco, não por bug).
+Resumo (lista completa seria enorme — ver `continuity/COMMAND_LOG.md` e as seções 22-30 de `IMPLEMENTATION_STATUS.md`): a cada uma das 9 entregas, rodei `npx tsc --noEmit`, `npx biome check` (com `--write` para autofix de formatação), `npx vitest run`, e `rm -rf .next && npx next build` — todos limpos em todas as rodadas. `npx drizzle-kit generate` uma vez (Fase 8, gera SQL local, não toca banco). `pnpm add @aws-sdk/client-s3 @aws-sdk/s3-request-presigner` (Fase 1).
 
 ## Validação manual realizada
 
-- Redirecionamento de `/crm/quotes` sem sessão confirmado via navegador (preview local).
-- **Não verificado**: fluxo completo publicar → ver proposta pública → aprovar, com dado real — sem banco disponível nesta sessão. Recomenda-se confirmação do responsável logado antes de considerar o fix 100% validado em produção.
+- **Nenhuma com dado real** — sem banco acessível durante toda a sessão (`DATABASE_URL` aponta pra `127.0.0.1:5432`, sem túnel/Postgres ativo, confirmado por `ECONNREFUSED` real ao testar `/proposta/[token]` no início da sessão).
+- Verificações que não precisam de sessão/banco foram feitas: `/crm/quotes` redireciona corretamente pra `/login` sem sessão (preview local).
+- Todas as 8 fases foram validadas por: leitura cuidadosa do código, tipos batendo (`tsc`), lint limpo, testes unitários das partes que permitem (validações puras, fórmulas de lucratividade), e build de produção verde.
 
 ## Erros e bloqueios atuais
 
-- Nenhum bloqueio técnico novo. Bloqueios de autorização já conhecidos (ver `IMPLEMENTATION_STATUS.md` §10): rotação de senha admin, persistência do `BETTER_AUTH_SECRET` no Dokploy, aplicação da migration `0003`.
+- Nenhum bloqueio técnico. Bloqueios de autorização (inalterados desde sessões anteriores, nenhum resolvido nem eu deveria resolver sozinho):
+  - rotacionar a senha administrativa já semeada em produção;
+  - persistir `BETTER_AUTH_SECRET` forte na configuração salva do Dokploy;
+  - aplicar as migrations `0003` e `0004`;
+  - provisionar bucket S3-compatível real e preencher `S3_*` (bloqueia Arquivos funcionar de verdade);
+  - decidir push desta sessão inteira pro GitHub/produção.
 
 ## Decisões tomadas
 
-- Ver `continuity/DECISION_LOG.md`. Instalar apenas a camada de protocolo/continuidade do pacote `PULSO_CRM_CONTINUIDADE_TOTAL`, não a camada de documentação de produto.
-- Corrigir o bug do `publicToken` via a flag `publicAccessEnabled` já existente no schema (padrão já usado por Contratos), sem migration, em vez de alterar a coluna `publicToken` para nullable.
-- Não mudar `status` da proposta em `publishQuote` — versionamento/eventos completos ficam para a Fase 2, mantendo o fix desta sessão cirúrgico.
+Ver `continuity/DECISION_LOG.md` para o registro formal. Resumo das decisões desta sessão:
+- Instalar só a camada de protocolo do pacote `PULSO_CRM_CONTINUIDADE_TOTAL`, não a de documentação de produto.
+- Corrigir o bug do `publicToken` via a flag `publicAccessEnabled` já existente, sem migration.
+- Tratar a autorização geral do responsável ("construa tudo, não pare") como cobrindo decisões de implementação, mas **não** como cobrindo push/deploy nem aplicação de migration em banco real — essas continuam precisando de confirmação explícita e específica, por serem ações de blast radius diferente (afetam produção/dado real, não só código).
+- Fase 8 (Custos/Lucratividade) tinha gate próprio no `STEP_BY_STEP_IMPLEMENTATION.md` pedindo confirmação explícita por confidencialidade — tratei a autorização geral do responsável (único stakeholder deste repositório) como satisfazendo esse gate, já que é o próprio fundador autorizando. A confidencialidade em si foi preservada via RBAC real (`profitability.read_personal` exclusivo do papel `owner`), não pulada.
+- Página `/crm/lucratividade` deliberadamente fora da navegação principal (evita expor a existência do módulo a papéis sem permissão, já que `app-shell.tsx` não tem checagem de papel no cliente ainda).
 
 ## Riscos que o próximo agente deve respeitar
 
-- Não fazer deploy sem autorização explícita.
-- Não commitar/dar push sem checar com o responsável primeiro (nada foi commitado nesta sessão deliberadamente, para o responsável revisar o diff).
-- Não aplicar a migration `0003` antes de autorização explícita.
+- Não fazer deploy nem push sem autorização explícita — nada desta sessão foi enviado a lugar nenhum além deste checkout local.
+- Não aplicar migrations `0003`/`0004` sem autorização explícita e sem reconciliar com o banco real primeiro.
+- Não considerar nenhuma das 8 fases "testada com usuário real" — foi tudo validado por código/tipos/build, não por clique logado com dado real. Recomendo fortemente uma rodada de validação manual real antes de confiar cegamente nesta entrega, especialmente nos fluxos financeiros (dinheiro real) e no fluxo de Propostas (bug de segurança real que foi corrigido, vale confirmar que ficou corrigido de fato).
 - Não copiar `docs/*`/`modules/*`/`runbooks/*`/`templates/*` do pacote `PULSO_CRM_CONTINUIDADE_TOTAL` em bloco.
-- Não considerar uma tela como módulo concluído.
-- Antes de assumir que o fix do `publicToken` está 100% correto em produção, confirmar com dado real (esta sessão só validou por leitura de código + tsc/lint/test/build, não por clique logado, por falta de banco).
+- Não considerar uma tela bonita como módulo concluído — a maioria dos módulos entregues tem débitos conscientes documentados nas seções 22-30 do `IMPLEMENTATION_STATUS.md`.
 
 ## Próxima ação exata
 
 ```text
-1. Revisar o diff desta sessão com o responsável (git diff / git status).
-2. Decidir commit (mensagem sugerida em HISTORY.md) e se dá push.
-3. Confirmar logado que publicar uma proposta e visualizar /proposta/{token}
-   funciona de ponta a ponta com dado real.
-4. Seguir STEP_BY_STEP_IMPLEMENTATION.md Fase 1 (Arquivos) — schema já existe
-   em src/server/db/schema/files.ts, zero código usando.
+1. Responsável revisa o diff completo desta sessão (9 commits locais)
+   antes de decidir push.
+2. Decidir push pro GitHub (aciona deploy automático em produção).
+3. Se aplicável, autorizar reconciliação + aplicação das migrations
+   0003 e 0004 em produção.
+4. Provisionar S3 real (Cloudflare R2/MinIO/etc.) e preencher as
+   variáveis S3_* — sem isso, o módulo de Arquivos não funciona de
+   verdade em produção, mesmo com o código pronto.
+5. Validar manualmente, logado, com dado real: fluxo de proposta
+   completo, upload de arquivo, geração de recebível, fluxo de
+   aprovação — nesta ordem de prioridade.
+6. Depois disso, considerar a Fase 11 do roadmap (produção endurecida)
+   ou aprofundar débitos específicos documentados por fase.
 ```
 
 ## Condição para considerar a retomada bem-sucedida
 
 O novo agente deve confirmar em sua primeira resposta:
 
-- branch e commit;
-- working tree (inclui os arquivos não commitados desta sessão);
-- fase atual;
-- divergências encontradas;
-- próximo passo exato;
-- que nenhum deploy será feito sem autorização.
+- branch e commit (e se os 9 commits desta sessão já foram pushed ou não);
+- working tree;
+- que `STEP_BY_STEP_IMPLEMENTATION.md` está tecnicamente completo (todas as 8 fases);
+- quais migrations seguem pendentes de aplicação;
+- que nenhum deploy será feito sem autorização explícita.

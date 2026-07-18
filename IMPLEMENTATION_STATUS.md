@@ -367,14 +367,17 @@ O documento original desta fase dizia "Não iniciar sem confirmação explícita
 
 ## 10. Próxima ação exata
 
-**Atualizado em 18/07/2026 (sessão de continuidade, seção 22)**: todos os commits até `386e854` (inclusive Fase 3 completa, fix de `params`/`searchParams`, redesign do Kanban e correção do crash de `activitiesRelations`) já estão em `origin/main` — confirmado por `git rev-list --left-right --count main...origin/main` = `0 0`. As pendências de push da seção 18 estão superadas; deixo o texto original abaixo só como histórico.
+**Atualizado em 18/07/2026, fim da sessão que completou `STEP_BY_STEP_IMPLEMENTATION.md` inteiro (Fases 0 a 8, seções 22-30).** Todo módulo que estava ausente no início desta sessão (Arquivos, Propostas completas, Aprovações, Financeiro, Dashboard real, Relatórios, Notificações, Auditoria genérica, Custos e lucratividade) agora tem implementação real, com `tsc`/`biome`/`vitest`/`build` verdes a cada fase. Ver `CHANGELOG.md` e `HISTORY.md` para o detalhe cronológico completo; cada seção 22-30 deste arquivo documenta uma fase.
 
-Trabalho desta sessão (fix do `publicToken` de propostas + formulários restantes + instalação do protocolo de continuidade) ainda está **só no working tree, sem commit** — ver `CURRENT_HANDOFF.md` para a lista de arquivos e validação. Antes de continuar:
-1. Commitar esta sessão (fix + docs) e decidir push com o responsável.
-2. Confirmar logado (ou com o responsável) que publicar uma proposta e depois visualizar `/proposta/{token}` funciona de ponta a ponta com dado real — não foi possível nesta sessão por falta de banco acessível localmente.
-3. Decidir se aplica a migration `0003_cynical_forgotten_one.sql` (fix da FK `tasks.project_id`) — segue pendente de autorização explícita.
+**Estado do Git ao final desta sessão**: 9 commits locais nesta sessão (Fase 0 até Fase 8), branch `main`. Confirmar com `git log --oneline -10` e `git status --short --branch` no início da próxima sessão antes de assumir que este texto ainda reflete a realidade.
 
-Depois disso, seguir `STEP_BY_STEP_IMPLEMENTATION.md` Fase 1 (Arquivos) — é o próximo módulo ausente e bloqueia Propostas/Aprovações/Projetos, que todos precisam mostrar/anexar arquivo.
+Antes de continuar para qualquer trabalho novo:
+1. **Decidir push com o responsável** — nada desta sessão foi enviado ao GitHub/produção.
+2. **Migrations pendentes de autorização explícita, nesta ordem**: `0003_cynical_forgotten_one.sql` (fix FK `tasks.project_id`, gerada em 18/07 cedo) e `0004_warm_spyke.sql` (schema de Custos/Lucratividade, gerada no fim desta sessão). Nenhuma foi aplicada em nenhum ambiente. Reconciliar com o banco real antes de aplicar qualquer uma.
+3. **Validar com dado real** — nenhuma das 8 fases desta sessão foi exercitada contra um banco de verdade (sem acesso a banco neste ambiente o dia inteiro). Prioridade de validação manual, nesta ordem, quando houver acesso: (a) fluxo completo de proposta (criar → publicar → nova versão → aceitar), (b) upload/download de arquivo real (precisa credenciais `S3_*`, ainda não configuradas em lugar nenhum), (c) geração de recebível → baixa → estorno, (d) fluxo de aprovação (solicitar → decidir → tarefa criada em rejeição).
+4. Provisionar bucket S3-compatível real e preencher `S3_*` — bloqueia o módulo de Arquivos (e por extensão, anexos públicos de Propostas/Aprovações) funcionar de verdade em produção.
+
+Depois disso, `STEP_BY_STEP_IMPLEMENTATION.md` está tecnicamente completo — próximo passo natural é a Fase 11 do roadmap original (produção endurecida: testes E2E, revisão de segurança/acessibilidade, observabilidade, backup/restauração) quando o responsável priorizar isso, ou aprofundar débitos conhecidos específicos de cada fase (ver seções 22-30).
 
 <details>
 <summary>Texto original desta seção (17-18/07, antes da confirmação de que tudo já estava pushed)</summary>
