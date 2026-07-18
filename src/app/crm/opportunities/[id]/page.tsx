@@ -12,7 +12,16 @@ import { getOpportunityActivities } from "@/server/actions/activities";
 import { getActiveOrganizationId } from "@/server/actions/organization";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db/connection";
-import { companies, contacts, opportunities, pipelineStages } from "@/server/db/schema";
+import {
+  briefingSubmissions,
+  companies,
+  contacts,
+  contracts,
+  opportunities,
+  pipelineStages,
+  projects,
+  proposals,
+} from "@/server/db/schema";
 
 export default async function OpportunityDetailsPage({ params }: { params: { id: string } }) {
   const session = await auth.api.getSession({
@@ -48,6 +57,36 @@ export default async function OpportunityDetailsPage({ params }: { params: { id:
     ...a,
     occurredAt: a.occurredAt.toISOString(),
   }));
+
+  // Reverse links that already exist in the schema but were never surfaced
+  // anywhere on this page - if a briefing/proposal/contract/project was
+  // created from this opportunity, show it here instead of leaving the
+  // relationship invisible.
+  const [linkedBriefing, linkedProposal, linkedContract, linkedProject] = await Promise.all([
+    db.query.briefingSubmissions.findFirst({
+      where: and(
+        eq(briefingSubmissions.opportunityId, opp.id),
+        eq(briefingSubmissions.organizationId, orgId),
+      ),
+      orderBy: (t, { desc }) => [desc(t.createdAt)],
+      columns: { id: true, protocol: true, status: true },
+    }),
+    db.query.proposals.findFirst({
+      where: and(eq(proposals.opportunityId, opp.id), eq(proposals.organizationId, orgId)),
+      orderBy: (t, { desc }) => [desc(t.createdAt)],
+      columns: { id: true, title: true, status: true },
+    }),
+    db.query.contracts.findFirst({
+      where: and(eq(contracts.opportunityId, opp.id), eq(contracts.organizationId, orgId)),
+      orderBy: (t, { desc }) => [desc(t.createdAt)],
+      columns: { id: true, code: true, status: true },
+    }),
+    db.query.projects.findFirst({
+      where: and(eq(projects.opportunityId, opp.id), eq(projects.organizationId, orgId)),
+      orderBy: (t, { desc }) => [desc(t.createdAt)],
+      columns: { id: true, name: true, status: true },
+    }),
+  ]);
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8">
@@ -140,6 +179,47 @@ export default async function OpportunityDetailsPage({ params }: { params: { id:
               <p className="text-slate-500 text-sm mt-1">
                 CNPJ: {company.documentNumber || "Não informado"}
               </p>
+            </div>
+          )}
+
+          {(linkedBriefing || linkedProposal || linkedContract || linkedProject) && (
+            <div className="bg-white border border-slate-200 rounded-xl p-6">
+              <h3 className="font-semibold mb-4">Vínculos</h3>
+              <div className="space-y-3 text-sm">
+                {linkedBriefing && (
+                  <Link
+                    href={`/crm/briefings/inbox/${linkedBriefing.id}`}
+                    className="flex items-center justify-between hover:text-orange-600"
+                  >
+                    <span>Briefing #{linkedBriefing.protocol}</span>
+                    <span className="text-slate-400 capitalize">{linkedBriefing.status}</span>
+                  </Link>
+                )}
+                {linkedProposal && (
+                  <div className="flex items-center justify-between">
+                    <span>Proposta: {linkedProposal.title}</span>
+                    <span className="text-slate-400 capitalize">{linkedProposal.status}</span>
+                  </div>
+                )}
+                {linkedContract && (
+                  <Link
+                    href={`/crm/contratos/${linkedContract.id}`}
+                    className="flex items-center justify-between hover:text-orange-600"
+                  >
+                    <span>Contrato {linkedContract.code}</span>
+                    <span className="text-slate-400 capitalize">{linkedContract.status}</span>
+                  </Link>
+                )}
+                {linkedProject && (
+                  <Link
+                    href={`/crm/projetos/${linkedProject.id}`}
+                    className="flex items-center justify-between hover:text-orange-600"
+                  >
+                    <span>Projeto: {linkedProject.name}</span>
+                    <span className="text-slate-400 capitalize">{linkedProject.status}</span>
+                  </Link>
+                )}
+              </div>
             </div>
           )}
         </div>
