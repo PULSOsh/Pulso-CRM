@@ -38,7 +38,7 @@ const commercial = [
 
 const operation = [
   { href: "/crm/projetos", label: "Projetos", key: "projects", icon: KanbanSquare },
-  { href: "#", label: "Tarefas", key: "tasks", icon: CheckSquare },
+  { href: "/crm/tarefas", label: "Tarefas", key: "tasks", icon: CheckSquare },
   { href: "#", label: "Financeiro", key: "finance", icon: WalletCards },
   { href: "#", label: "Relatórios", key: "reports", icon: BarChart3 },
   { href: "#", label: "Configurações", key: "settings", icon: Settings },
@@ -52,7 +52,8 @@ type ActiveKey =
   | "contacts"
   | "companies"
   | "contracts"
-  | "projects";
+  | "projects"
+  | "tasks";
 
 type AppShellProps = {
   active: ActiveKey;

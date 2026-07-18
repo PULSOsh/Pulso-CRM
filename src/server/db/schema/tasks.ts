@@ -4,6 +4,7 @@ import { contacts } from "./contacts";
 import { taskPriorityEnum, taskStatusEnum } from "./enums";
 import { opportunities } from "./opportunities";
 import { organizations } from "./organizations";
+import { projects } from "./projects";
 import { users } from "./users";
 
 export const tasks = pgTable(
@@ -20,7 +21,7 @@ export const tasks = pgTable(
     }),
     companyId: uuid("company_id").references(() => companies.id, { onDelete: "cascade" }),
     contactId: uuid("contact_id").references(() => contacts.id, { onDelete: "cascade" }),
-    projectId: uuid("project_id"),
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "set null" }),
     title: varchar("title", { length: 220 }).notNull(),
     description: text("description"),
     status: taskStatusEnum("status").notNull().default("todo"),

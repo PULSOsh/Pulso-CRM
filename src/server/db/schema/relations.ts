@@ -7,6 +7,7 @@ import {
 import { companies } from "./companies";
 import { contacts } from "./contacts";
 import { opportunities } from "./opportunities";
+import { tasks } from "./tasks";
 
 export const opportunitiesRelations = relations(opportunities, ({ one }) => ({
   company: one(companies, {
@@ -16,6 +17,13 @@ export const opportunitiesRelations = relations(opportunities, ({ one }) => ({
   primaryContact: one(contacts, {
     fields: [opportunities.primaryContactId],
     references: [contacts.id],
+  }),
+}));
+
+export const tasksRelations = relations(tasks, ({ one }) => ({
+  opportunity: one(opportunities, {
+    fields: [tasks.opportunityId],
+    references: [opportunities.id],
   }),
 }));
 
