@@ -1,11 +1,12 @@
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { and, eq } from "drizzle-orm";
-import { ArrowLeft, Building2, CheckCircle2, User, XCircle } from "lucide-react";
+import { ArrowLeft, Building2, User } from "lucide-react";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { NextActionForm } from "@/components/crm/pipeline/next-action-form";
+import { WinLoseButtons } from "@/components/crm/pipeline/win-lose-buttons";
 import { getActiveOrganizationId } from "@/server/actions/organization";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db/connection";
@@ -38,12 +39,6 @@ export default async function OpportunityDetailsPage({ params }: { params: { id:
 
   const stage = await db.query.pipelineStages.findFirst({
     where: eq(pipelineStages.id, opp.stageId),
-  });
-
-  // Also try to find a linked briefing submission
-  const _linkedBriefing = await db.query.briefingSubmissions.findFirst({
-    where: eq(opportunities.id, params.id), // Note: briefingSubmissions has opportunityId, wait...
-    // Let's just fetch it normally
   });
 
   return (
@@ -99,21 +94,8 @@ export default async function OpportunityDetailsPage({ params }: { params: { id:
           </div>
 
           <div className="bg-white border border-slate-200 rounded-xl p-8">
-            <h2 className="font-semibold text-lg mb-4">Ações (Em breve)</h2>
-            <div className="flex gap-4">
-              <button
-                type="button"
-                className="flex-1 bg-green-50 text-green-700 border border-green-200 py-3 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-green-100 transition-colors"
-              >
-                <CheckCircle2 size={20} /> Ganho
-              </button>
-              <button
-                type="button"
-                className="flex-1 bg-red-50 text-red-700 border border-red-200 py-3 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-red-100 transition-colors"
-              >
-                <XCircle size={20} /> Perdido
-              </button>
-            </div>
+            <h2 className="font-semibold text-lg mb-4">Ações</h2>
+            <WinLoseButtons opportunityId={opp.id} status={opp.status} />
           </div>
         </div>
 

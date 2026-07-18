@@ -62,7 +62,36 @@ export async function getPipelineWithOpportunities() {
         isWon: true,
         probability: 100,
       },
+      {
+        pipelineId: defaultPipeline.id,
+        name: "Perdido",
+        position: 6,
+        color: "#ef4444",
+        probability: 0,
+      },
     ]);
+  }
+
+  // Backfill: pipelines created before the "Perdido" stage existed (or before
+  // this idempotent check was added) won't have it - add it once, without
+  // touching any existing stage. Needed for loseOpportunity() to have a
+  // stage to move the card into.
+  const hasLostStage = await db.query.pipelineStages.findFirst({
+    where: and(eq(pipelineStages.pipelineId, defaultPipeline.id), eq(pipelineStages.name, "Perdido")),
+  });
+  if (!hasLostStage) {
+    const [lastStage] = await db.query.pipelineStages.findMany({
+      where: eq(pipelineStages.pipelineId, defaultPipeline.id),
+      orderBy: [desc(pipelineStages.position)],
+      limit: 1,
+    });
+    await db.insert(pipelineStages).values({
+      pipelineId: defaultPipeline.id,
+      name: "Perdido",
+      position: (lastStage?.position ?? 0) + 1,
+      color: "#ef4444",
+      probability: 0,
+    });
   }
 
   // Fetch stages ordered by position
