@@ -202,6 +202,33 @@ Todas as mudanças relevantes devem ser registradas aqui.
 
 ---
 
+## [2026-07-18] — Fase 3 (parte 1, continuação): 6 fatias além dos 4 grupos originais
+
+### Adicionado
+
+- `moveOpportunity` (Kanban) agora usa transação, igual ganho/perda.
+- Linha do tempo de atividades: auto-registrada em próxima ação/ganho/perda/mudança de etapa/tarefa vinculada, mais nota manual.
+- Contato vinculado a empresa (`company_contacts`, morta desde sempre).
+- Restaurar contato/empresa excluído (permissões já existiam, sem ação).
+- Painel de vínculos (briefing/proposta/contrato/projeto) na tela de oportunidade.
+- Temperatura e responsável visíveis no card do Kanban.
+
+### Testes
+
+- `tsc --noEmit`, `npm run lint`, `vitest run` (31 testes), `next build`: verdes em cada fatia.
+- Mesma técnica de rota de preview temporária (sem sessão, deletada antes do commit) pra confirmar a fiação de cada ação nova.
+
+### Nota de metodologia
+
+Um clique em fluxo com `window.alert()` travou a automação de navegador usada pra verificar (nativo, não um bug do app) — recuperado apertando Enter. Registrado como lição pra preferir estado de erro inline em vez de `alert()`/`confirm()` em telas novas, quando possível.
+
+### Pendências
+
+- 11 commits locais no total (Fase 3 completa), nada enviado ao GitHub.
+- Migration da FK de `tasks.project_id` ainda não aplicada.
+
+---
+
 Formato recomendado por alteração:
 
 ```text

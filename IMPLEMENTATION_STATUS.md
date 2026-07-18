@@ -131,18 +131,18 @@ Nada foi apagado ou recriado. Nenhum dado de produção foi alterado nesta fase,
 
 Fase 2: Parte 1 (limpeza de rotas mockadas) concluída — ver seção 12. Parte 1b (extração mecânica de inline styles do shell para Tailwind) concluída — ver seção 13. Parte 1c (limpeza de lint de acessibilidade) concluída — ver seção 14. Parte 1d (`noExplicitAny`/`@ts-ignore` reais) concluída — ver seção 15. `npm run lint` em **zero erros/warnings de regra real**. Parte 2a (3 botões de ícone do shell usando `components/ui/*`) concluída — ver seção 16. Bug real de responsividade mobile corrigido (viewport + gaveta do menu) — ver seção 17, **pendente confirmação visual do responsável em aparelho real**.
 
-Fase 3 (parte 1, 4 grupos): próxima ação em oportunidades, ganho/perda funcionando, tarefas básicas, e edição/exclusão de contatos e empresas — todos construídos, testados e commitados localmente. Ver seção 18 para detalhes completos, débitos conhecidos e o que ainda falta confirmar.
+Fase 3 (parte 1): 10 grupos construídos, testados e commitados localmente nesta sessão (17-18/07/2026) — próxima ação, ganho/perda, tarefas básicas, edição/exclusão de contatos e empresas, transação em `moveOpportunity`, linha do tempo de atividades, contato vinculado a empresa, restaurar excluído, vínculos (briefing/proposta/contrato/projeto) na oportunidade, e temperatura/responsável no card do Kanban. Ver seção 18 para detalhes completos por grupo, débitos conhecidos e o que ainda falta confirmar.
 
 **Decisão registrada com o responsável em 17/07/2026**: os links ocultos de nav (Financeiro/Relatórios/Configurações) ficam como estão — array com `href: "#"`, filtrado da renderização (`app-shell.tsx`), documentado como placeholder pras fases futuras que constroem essas telas (Financeiro = Fase 8, Relatórios = Fase 10, Configurações = módulo de Workspace/Fase 1 pendente de UI). **"Tarefas" saiu dessa lista em 18/07/2026** — agora aponta pra `/crm/tarefas`, uma tela real (ver seção 18, Grupo 3). Não remover nem promover os demais sem que a tela real exista.
 
 ## 10. Próxima ação exata
 
-**Bloqueado em autorização do responsável, não em trabalho técnico**: nada da Fase 3 (seção 18) foi enviado ao GitHub nem ao banco — 5 commits estão só locais (`bc90224`, `a589ed8`, `6317388`, `bc6f24c`, mais o de mobile `6324f7d` que já foi confirmado e enviado antes). Antes de continuar:
-1. Responsável precisa logar em produção (ou ambiente de teste) e confirmar que os 4 grupos funcionam de verdade — só foi possível verificar a "casca" (formulário renderiza, campos corretos, ação correta é chamada) sem sessão real, não o fluxo de banco de ponta a ponta.
+**Bloqueado em autorização do responsável, não em trabalho técnico**: nada da Fase 3 (seção 18) foi enviado ao GitHub nem ao banco — 11 commits estão só locais (`bc90224`, `a589ed8`, `6317388`, `bc6f24c`, `9789ade`, `4e62471`, `e23048f`, `989772d`, `8e5f534`, `db3df7f`, `a13de89`), além do de mobile `6324f7d` que já foi confirmado e enviado antes. Antes de continuar:
+1. Responsável precisa logar em produção (ou ambiente de teste) e confirmar que os 10 grupos funcionam de verdade — só foi possível verificar a "casca" (formulário renderiza, campos corretos, ação correta é chamada, permissão corretamente negada sem sessão) sem sessão real, não o fluxo de banco de ponta a ponta.
 2. Decidir se aplica a migration `0003_cynical_forgotten_one.sql` (fix da FK `tasks.project_id`) — pequena e aditiva, mas ainda precisa autorização explícita antes de tocar produção.
-3. Decidir quando dar push — meta combinada era "só commitar/subir quando tiver algo palpável pra uso"; os 4 grupos juntos formam essa fatia palpável.
+3. Decidir quando dar push — meta combinada era "só commitar/subir quando tiver algo palpável pra uso"; os 10 grupos juntos formam essa fatia palpável, provavelmente já grande o bastante pra valer revisão antes de continuar acumulando mais commits locais.
 
-Depois disso, retomar Fase 2 (`components/ui/*` de verdade nas telas de CRM, ver seção 16) ou continuar aprofundando a Fase 3 (checklist de tarefa, calendário, visão 360° de contato/empresa, restore) — a decidir com o responsável.
+Depois disso, retomar Fase 2 (`components/ui/*` de verdade nas telas de CRM, ver seção 16) ou continuar aprofundando a Fase 3 (produtos na oportunidade, diagnóstico/orçamento informado, filtros e busca no Kanban, visão 360° de contato/empresa, checklist de tarefa, calendário) — a decidir com o responsável.
 
 **Nota para sessões futuras**: `npm run dev` neste checkout demonstrou HMR (hot module reload) de CSS não-confiável durante a sessão de 17/07 — mudanças em `globals.css` às vezes não se propagavam pra aba aberta do navegador mesmo com o arquivo salvo. Sempre que for verificar uma mudança de CSS/layout via `next dev`, reiniciar o servidor com `.next` limpo antes de confiar no resultado.
 
@@ -402,3 +402,25 @@ Maior peça nova. Corrigido de passagem um bug real de integridade encontrado na
 - Coluna "quem completou a tarefa": só existe `completedAt` (quando), não quem — precisaria de nova coluna, fora do escopo.
 - Migration `0003_cynical_forgotten_one.sql`: gerada, não aplicada em nenhum ambiente.
 - Nenhum dos 4 commits desta fase foi enviado ao GitHub — aguardando o responsável confirmar visualmente antes do push, conforme combinado.
+
+## 19. Fase 3 (parte 1, continuação) — Grupos 6-10 (concluído 18/07/2026, commits locais)
+
+Depois dos 4 grupos da seção 18, o responsável pediu pra continuar construindo até ter algo usável de verdade. Mais 6 fatias, mesmo padrão de validação (schema Zod testado quando aplicável, `tsc`/`lint`/`vitest`/`build` verdes, rota de preview temporária sem sessão pra confirmar a fiação, deletada antes do commit):
+
+- **Grupo 6** (`4e62471`): `moveOpportunity` (arrastar no Kanban) agora usa `db.transaction` — mesmo débito que `winOpportunity`/`loseOpportunity` já tinham corrigido, replicado aqui.
+- **Grupo 5** (`e23048f`, na verdade construído entre os grupos 4 e 6 — numeração de tarefa não é ordem cronológica exata): linha do tempo de atividades. `src/server/services/activity-log.ts` — helper puro, deliberadamente fora de um arquivo `"use server"` pra não virar endpoint client-callable sem guarda. Escreve automaticamente em: próxima ação definida, ganho, perda, mudança de etapa (incluindo nome da etapa destino), tarefa criada vinculada a uma oportunidade. Mais `addNote` manual. Tudo isso fecha o "histórico confiável" do `docs/PRODUCT_VISION.md` que era só schema antes.
+- **Grupo 7** (`989772d`): contato vinculado a empresa — `company_contacts` existia desde sempre, nunca usada. Modelo simplificado (1 empresa "principal" por contato via `isPrimary`, não múltiplas) — `getContacts()` reescrito com `leftJoin` em vez de relations do Drizzle (many-to-many com filtro `isPrimary` não mapeava bem no `with:`).
+- **Grupo 8** (`8e5f534`): restaurar contato/empresa excluído — as permissões `contacts.restore`/`companies.restore` já existiam desde a Fase 1, sem ação nenhuma. Toggle "Ver excluídos" com carregamento sob demanda.
+- **Grupo 9** (`db3df7f`): painel "Vínculos" na tela de detalhe da oportunidade, mostrando briefing/proposta/contrato/projeto já ligados (FKs reversos que existiam sem nunca serem consultados). Só mostra o que existir; briefing e contrato linkam pra rota interna real, projeto idem, proposta é só texto (não existe rota de detalhe interna pra proposta ainda, só `/crm/quotes` e `/crm/quotes/new`).
+- **Grupo 10** (`a13de89`): temperatura e responsável no card do Kanban — ambos já existiam no banco (`temperature` com default `"warm"`, `ownerUserId` sempre setado no create) mas nunca apareciam em lugar nenhum. Adicionado seletor de temperatura no formulário de criar oportunidade, badge colorido + iniciais do responsável no card.
+
+### Achado de metodologia registrado
+
+Durante o Grupo 8, clicar em "Ver excluídos" sem sessão ativa disparou um `alert()` nativo do navegador (padrão de tratamento de erro já usado no resto do arquivo, não introduzido agora) que **travou a automação do navegador usada pra verificar** — recuperado apertando Enter, que dispensou o diálogo. Confirma a mesma coisa que os outros testes (ação chega em `requirePermission()` e rejeita sem sessão), mas registra pra sessões futuras: evitar clicar em botões que passam por `alert()`/`confirm()` nativos ao testar via automação — usar estado de erro inline (como nos formulários de oportunidade) sempre que possível for uma escolha mais segura pra telas novas.
+
+### Débitos conhecidos desta continuação
+
+- Owner do card fica `null` na atualização otimista local ao criar uma oportunidade (só aparece depois de recarregar/revalidar) — o nome do usuário atual não estava disponível nas props do componente; não valia adicionar um fetch só pra isso.
+- Proposta ainda não tem rota de detalhe interna — só é mostrada como texto no painel de vínculos, sem link.
+- `createContact`/`createCompany` continuam sem validação Zod (só `update*` valida) — gap pré-existente, não introduzido nem expandido nesta sessão.
+- Produto vinculado à oportunidade (`opportunity_products`), diagnóstico, orçamento informado, valor negociado, probabilidade e previsão de fechamento continuam sem UI — registrados na auditoria original, não abordados nesta rodada.
