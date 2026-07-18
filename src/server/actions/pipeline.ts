@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requirePermission } from "../auth/require-permission";
 import { db } from "../db/connection";
 import { opportunities, opportunityStageHistory, pipelineStages, pipelines } from "../db/schema";
+import { logActivity } from "../services/activity-log";
 
 export async function getPipelineWithOpportunities() {
   const { organizationId } = await requirePermission("opportunities.read");
@@ -169,6 +170,22 @@ export async function moveOpportunity(
         movedBy: userId,
         reason: "Arrastado pelo Kanban",
       });
+
+      const newStage = await tx.query.pipelineStages.findFirst({
+        where: eq(pipelineStages.id, newStageId),
+        columns: { name: true },
+      });
+
+      await logActivity(
+        {
+          organizationId,
+          actorUserId: userId,
+          type: "stage_change",
+          title: newStage ? `Movido para "${newStage.name}"` : "Etapa alterada",
+          opportunityId,
+        },
+        tx,
+      );
     }
   });
 

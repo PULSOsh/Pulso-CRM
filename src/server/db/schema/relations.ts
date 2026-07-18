@@ -1,4 +1,5 @@
 import { relations } from "drizzle-orm";
+import { activities } from "./activities";
 import {
   briefingSubmissionAnswers,
   briefingSubmissions,
@@ -8,6 +9,7 @@ import { companies } from "./companies";
 import { contacts } from "./contacts";
 import { opportunities } from "./opportunities";
 import { tasks } from "./tasks";
+import { users } from "./users";
 
 export const opportunitiesRelations = relations(opportunities, ({ one }) => ({
   company: one(companies, {
@@ -17,6 +19,13 @@ export const opportunitiesRelations = relations(opportunities, ({ one }) => ({
   primaryContact: one(contacts, {
     fields: [opportunities.primaryContactId],
     references: [contacts.id],
+  }),
+}));
+
+export const activitiesRelations = relations(activities, ({ one }) => ({
+  actor: one(users, {
+    fields: [activities.actorUserId],
+    references: [users.id],
   }),
 }));
 

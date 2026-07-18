@@ -5,8 +5,10 @@ import { ArrowLeft, Building2, User } from "lucide-react";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { ActivityTimeline } from "@/components/crm/pipeline/activity-timeline";
 import { NextActionForm } from "@/components/crm/pipeline/next-action-form";
 import { WinLoseButtons } from "@/components/crm/pipeline/win-lose-buttons";
+import { getOpportunityActivities } from "@/server/actions/activities";
 import { getActiveOrganizationId } from "@/server/actions/organization";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db/connection";
@@ -40,6 +42,12 @@ export default async function OpportunityDetailsPage({ params }: { params: { id:
   const stage = await db.query.pipelineStages.findFirst({
     where: eq(pipelineStages.id, opp.stageId),
   });
+
+  const activities = await getOpportunityActivities(opp.id);
+  const serializedActivities = activities.map((a) => ({
+    ...a,
+    occurredAt: a.occurredAt.toISOString(),
+  }));
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8">
@@ -96,6 +104,11 @@ export default async function OpportunityDetailsPage({ params }: { params: { id:
           <div className="bg-white border border-slate-200 rounded-xl p-8">
             <h2 className="font-semibold text-lg mb-4">Ações</h2>
             <WinLoseButtons opportunityId={opp.id} status={opp.status} />
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-xl p-8">
+            <h2 className="font-semibold text-lg mb-4">Linha do tempo</h2>
+            <ActivityTimeline opportunityId={opp.id} activities={serializedActivities} />
           </div>
         </div>
 

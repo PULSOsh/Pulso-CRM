@@ -5,13 +5,14 @@ import { revalidatePath } from "next/cache";
 import { requirePermission } from "../auth/require-permission";
 import { db } from "../db/connection";
 import { opportunities, opportunityStageHistory, pipelineStages } from "../db/schema";
+import { logActivity } from "../services/activity-log";
 import { loseOpportunitySchema, nextActionSchema } from "./opportunities.schemas";
 
 export async function updateNextAction(
   opportunityId: string,
   input: { nextActionAt: string | null; nextActionDescription: string | null },
 ) {
-  const { organizationId } = await requirePermission("opportunities.update");
+  const { organizationId, userId } = await requirePermission("opportunities.update");
   const parsed = nextActionSchema.parse(input);
 
   const [updated] = await db
@@ -27,6 +28,15 @@ export async function updateNextAction(
     .returning({ id: opportunities.id });
 
   if (!updated) throw new Error("Oportunidade não encontrada.");
+
+  await logActivity({
+    organizationId,
+    actorUserId: userId,
+    type: "system",
+    title: parsed.nextActionAt ? "Próxima ação definida" : "Próxima ação removida",
+    body: parsed.nextActionDescription ?? undefined,
+    opportunityId,
+  });
 
   revalidatePath(`/crm/opportunities/${opportunityId}`);
   revalidatePath("/crm/pipeline");
@@ -71,6 +81,17 @@ export async function winOpportunity(opportunityId: string) {
         reason: "Marcado como Ganho",
       });
     }
+
+    await logActivity(
+      {
+        organizationId,
+        actorUserId: userId,
+        type: "stage_change",
+        title: "Oportunidade ganha",
+        opportunityId,
+      },
+      tx,
+    );
   });
 
   revalidatePath(`/crm/opportunities/${opportunityId}`);
@@ -118,6 +139,18 @@ export async function loseOpportunity(opportunityId: string, input: { lostReason
         reason: parsed.lostReason,
       });
     }
+
+    await logActivity(
+      {
+        organizationId,
+        actorUserId: userId,
+        type: "stage_change",
+        title: "Oportunidade perdida",
+        body: parsed.lostReason,
+        opportunityId,
+      },
+      tx,
+    );
   });
 
   revalidatePath(`/crm/opportunities/${opportunityId}`);

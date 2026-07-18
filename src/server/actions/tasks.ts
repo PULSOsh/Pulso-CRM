@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requirePermission } from "../auth/require-permission";
 import { db } from "../db/connection";
 import { tasks } from "../db/schema";
+import { logActivity } from "../services/activity-log";
 import { createTaskSchema } from "./tasks.schemas";
 
 export async function createTask(input: unknown) {
@@ -26,6 +27,16 @@ export async function createTask(input: unknown) {
       contactId: parsed.contactId,
     })
     .returning();
+
+  if (parsed.opportunityId) {
+    await logActivity({
+      organizationId,
+      actorUserId: userId,
+      type: "task",
+      title: `Tarefa criada: ${parsed.title}`,
+      opportunityId: parsed.opportunityId,
+    });
+  }
 
   revalidatePath("/crm/tarefas");
   return task;
