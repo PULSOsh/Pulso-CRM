@@ -15,6 +15,20 @@ export type OpportunityCardType = {
   stageId: string;
   nextActionAt: string | null;
   nextActionDescription: string | null;
+  temperature: string | null;
+  owner: { name: string } | null;
+};
+
+const TEMPERATURE_STYLES: Record<string, string> = {
+  hot: "bg-red-100 text-red-700",
+  warm: "bg-amber-100 text-amber-700",
+  cold: "bg-blue-100 text-blue-700",
+};
+
+const TEMPERATURE_LABELS: Record<string, string> = {
+  hot: "Quente",
+  warm: "Morno",
+  cold: "Frio",
 };
 
 export function KanbanCard({ opportunity }: { opportunity: OpportunityCardType }) {
@@ -81,6 +95,25 @@ export function KanbanCard({ opportunity }: { opportunity: OpportunityCardType }
               currency: "BRL",
             }).format(Number(opportunity.estimatedValue))}
           </span>
+          <div className="flex items-center gap-2">
+            {opportunity.temperature && (
+              <span
+                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                  TEMPERATURE_STYLES[opportunity.temperature] ?? "bg-slate-100 text-slate-600"
+                }`}
+              >
+                {TEMPERATURE_LABELS[opportunity.temperature] ?? opportunity.temperature}
+              </span>
+            )}
+            {opportunity.owner?.name && (
+              <span
+                title={opportunity.owner.name}
+                className="w-6 h-6 rounded-full bg-slate-800 text-white text-[10px] font-bold flex items-center justify-center shrink-0"
+              >
+                {opportunity.owner.name.substring(0, 2).toUpperCase()}
+              </span>
+            )}
+          </div>
         </div>
 
         {opportunity.nextActionDescription && (

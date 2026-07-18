@@ -35,6 +35,8 @@ export default async function PipelinePage() {
       stageId: opp.stageId,
       nextActionAt: opp.nextActionAt ? opp.nextActionAt.toISOString() : null,
       nextActionDescription: opp.nextActionDescription,
+      temperature: opp.temperature,
+      owner: opp.owner,
     })),
   }));
 

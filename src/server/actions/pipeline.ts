@@ -116,6 +116,11 @@ export async function getPipelineWithOpportunities() {
           lastName: true,
         },
       },
+      owner: {
+        columns: {
+          name: true,
+        },
+      },
     },
     orderBy: [asc(opportunities.position)],
   });
@@ -200,6 +205,7 @@ export async function createOpportunity(data: {
   primaryContactId?: string;
   stageId: string;
   estimatedValue?: string;
+  temperature?: string;
 }) {
   const { organizationId, userId } = await requirePermission("opportunities.create");
 
@@ -220,6 +226,7 @@ export async function createOpportunity(data: {
       primaryContactId: data.primaryContactId,
       stageId: data.stageId,
       estimatedValue: data.estimatedValue,
+      temperature: data.temperature || "warm",
       ownerUserId: userId,
       position: nextPosition.toString(),
     })

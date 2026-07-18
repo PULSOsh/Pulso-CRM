@@ -20,6 +20,10 @@ export const opportunitiesRelations = relations(opportunities, ({ one }) => ({
     fields: [opportunities.primaryContactId],
     references: [contacts.id],
   }),
+  owner: one(users, {
+    fields: [opportunities.ownerUserId],
+    references: [users.id],
+  }),
 }));
 
 export const activitiesRelations = relations(activities, ({ one }) => ({

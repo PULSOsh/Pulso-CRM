@@ -190,6 +190,7 @@ export function KanbanBoard({
     const contactId = formData.get("contactId") as string;
     const stageId = formData.get("stageId") as string;
     const estimatedValueStr = formData.get("estimatedValue") as string;
+    const temperature = formData.get("temperature") as string;
 
     try {
       const newOpp = await createOpportunity({
@@ -199,6 +200,7 @@ export function KanbanBoard({
         primaryContactId: contactId || undefined,
         stageId,
         estimatedValue: estimatedValueStr ? estimatedValueStr : undefined,
+        temperature: temperature || undefined,
       });
 
       // Optimistically add to UI
@@ -226,6 +228,8 @@ export function KanbanBoard({
             stageId: newOpp.stageId,
             nextActionAt: null,
             nextActionDescription: null,
+            temperature: newOpp.temperature,
+            owner: null,
           });
         }
         return newStages;
@@ -381,6 +385,25 @@ export function KanbanBoard({
                     className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
                     placeholder="0.00"
                   />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="opp-temperature"
+                    className="block text-sm font-medium text-slate-700 mb-1"
+                  >
+                    Temperatura
+                  </label>
+                  <select
+                    id="opp-temperature"
+                    name="temperature"
+                    defaultValue="warm"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:border-orange-500 outline-none"
+                  >
+                    <option value="hot">Quente</option>
+                    <option value="warm">Morno</option>
+                    <option value="cold">Frio</option>
+                  </select>
                 </div>
               </form>
             </div>
