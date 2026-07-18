@@ -413,6 +413,21 @@ Depois de uma auditoria pedida pelo responsável ("me diz oq falta"), ficou clar
 
 ---
 
+## [2026-07-18] — Fase 4: Financeiro/Recebíveis (geração, baixa, estorno)
+
+### Adicionado
+
+- `src/server/actions/finance.ts`: geração de recebível+parcelas a partir de contrato assinado (transação, validação de soma em centavos), baixa de parcela (fecha o recebível quando quitado), estorno (evento inverso), verificação sob demanda de parcelas vencidas.
+- `/crm/financeiro`: rota real substituindo o link morto do menu (indicadores, lista, baixa/estorno inline).
+- Contrato assinado ganha ação "Gerar recebível".
+
+### Testes
+
+- `tsc --noEmit`, `biome check`, `vitest run` (39/39), `next build` (30 rotas): limpos.
+- Sem banco disponível — não exercitado com dado real.
+
+---
+
 Formato recomendado por alteração:
 
 ```text

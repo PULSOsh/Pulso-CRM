@@ -69,7 +69,7 @@ O `BETTER_AUTH_SECRET` foi ajustado via CLI (`docker service update --env-add`),
 | Projetos | **Funcional** | CRUD real, conversão a partir de contrato assinado, etapas, checklist. UX tinha um beco sem saída (botão "Gerar Projeto" desabilitado sem explicação quando não há contrato assinado) — corrigido com uma dica visível |
 | Arquivos | **Funcional (base), 18/07/2026** | Upload/download real via S3-compatível (URL assinada), `FileUpload` em `components/ui/`, `FilesPanel` genérico por `entityType`/`entityId`, exclusão lógica (remove vínculo, preserva objeto no storage). Wired em Oportunidade; demais entidades (proposta/contrato/projeto/aprovação) reusam a mesma action ao ganhar tela de detalhe. Sem credenciais S3 reais neste ambiente — não testado ponta a ponta com upload real |
 | Aprovações | **Funcional, Fase 3 concluída 18/07** | Solicitar aprovação a partir de um projeto, página pública (`/aprovacao/[token]`) com aprovar/aprovar com observação/solicitar ajuste, evidências (nome/e-mail/IP/user-agent/comentário em `evidence` jsonb), rejeição cria tarefa automaticamente vinculada ao projeto, arquivos públicos opcionais |
-| Financeiro / Recebíveis | **Ausente** | Schema pronto (`receivables`, `installments`), zero código usando |
+| Financeiro / Recebíveis | **Funcional, Fase 4 concluída 18/07** | Geração de recebível + parcelas a partir de contrato assinado, `/crm/financeiro` real (link desoculto no menu), baixa e estorno, indicadores em aberto/vencido/recebido, `refreshOverdueInstallments` sob demanda |
 | Custos e lucratividade | **Ausente** | Não iniciado, é o módulo confidencial restrito ao fundador |
 | Dashboard | **Mock total** | Métricas e data hardcoded, zero query real ao banco |
 | Relatórios | **Link morto** | Nem aparece renderizado no menu (item filtrado por ter `href="#"`) |
@@ -257,6 +257,25 @@ Sessão de continuidade: confirmado estado real do repositório (branch `main` =
 
 - "Comentar" isolado (sem decisão) da lista de ações da spec não foi implementado — só comentário atrelado a uma decisão (`decisionNotes`). Avaliar se vale a pena como ação separada quando houver uso real.
 - Sem prazo/expiração automática (`expired` é um status válido no schema, mas nada transiciona pra ele ainda — mesma lacuna que parcelas vencidas vão ter até a Fase 4/7 com jobs).
+
+## 26. Fase 4 — Financeiro/Recebíveis (concluída 18/07/2026)
+
+### O que foi feito
+
+- `src/server/actions/finance.ts`: `createReceivableFromContract` (transação, só a partir de contrato `signed`, bloqueia duplicidade por projeto/oportunidade, valida soma em centavos inteiros — nunca float), `getReceivableForContract`, `getReceivables`, `markInstallmentPaid` (fecha o recebível automaticamente quando a última parcela é baixada), `reverseInstallmentPayment` (estorno como evento inverso: volta status pra `pending`/`overdue` conforme a data, reabre o recebível, preserva o motivo em `notes`), `refreshOverdueInstallments` (verificação sob demanda, mesmo padrão de `getOverdueTasks`/`getOverdueAlerts` — sem job agendado ainda, isso é Fase 7).
+- `/crm/financeiro` (rota real, substituindo o link morto `href="#"` do menu — `app-shell.tsx` `ActiveKey` ganhou `"finance"`): indicadores (em aberto/vencido/recebido), lista de recebíveis com parcelas, dar baixa e estornar inline (sem `window.prompt`/`confirm`).
+- Contrato assinado ganha seção "Gerar recebível" (`generate-receivable-form.tsx`) — plano de parcelas com valor+vencimento livres (o total da proposta aceita é sugerido como valor inicial da 1ª parcela, mas o usuário decide o parcelamento; não há campo estruturado de "condição de pagamento" em nenhum lugar do sistema hoje pra auto-derivar isso).
+
+### Validação real
+
+- `tsc --noEmit`, `biome check`, `vitest run` (39/39), `next build` (30 rotas, +1 pela nova `/crm/financeiro`): limpos.
+- Sem banco disponível — geração de recebível, baixa e estorno não exercitados com dado real.
+
+### Débitos conhecidos
+
+- `financialAccounts` (contas de recebimento) tem schema pronto mas nenhuma UI de cadastro — `installments.accountId` fica `null` por enquanto; `paymentMethod` é texto livre.
+- Estorno não mantém um ledger append-only separado (mutação in-place da parcela, motivo concatenado em `notes`) — suficiente para o volume atual (banco de produção praticamente vazio), mas vale revisar se `docs/ARCHITECTURE_AND_STANDARDS.md` exigir trilha de auditoria mais forte quando a Fase 7 (auditoria genérica) for implementada.
+- Sem geração automática de parcelas a partir de "condição comercial" estruturada (proposta/contrato não têm esse campo hoje) — entrada manual por enquanto.
 
 ## 10. Próxima ação exata
 

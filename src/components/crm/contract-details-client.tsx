@@ -2,7 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { GenerateReceivableForm } from "@/components/crm/finance/generate-receivable-form";
 import { cancelContract, sendContract } from "@/server/actions/contracts";
+import type { getReceivableForContract } from "@/server/actions/finance";
 
 type Contract = {
   id: string;
@@ -22,7 +24,15 @@ const statusLabels: Record<string, string> = {
   ended: "Encerrado",
 };
 
-export function ContractDetailsClient({ contract }: { contract: Contract }) {
+export function ContractDetailsClient({
+  contract,
+  receivable,
+  suggestedTotal,
+}: {
+  contract: Contract;
+  receivable: Awaited<ReturnType<typeof getReceivableForContract>>;
+  suggestedTotal: number | null;
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -118,6 +128,14 @@ export function ContractDetailsClient({ contract }: { contract: Contract }) {
       <div className="bg-white border border-slate-200 rounded-xl p-6 whitespace-pre-wrap text-slate-700 text-sm leading-relaxed">
         {contract.content}
       </div>
+
+      {contract.status === "signed" && (
+        <GenerateReceivableForm
+          contractId={contract.id}
+          existing={receivable}
+          suggestedTotal={suggestedTotal}
+        />
+      )}
     </div>
   );
 }
