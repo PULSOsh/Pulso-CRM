@@ -354,6 +354,28 @@ Depois de uma auditoria pedida pelo responsável ("me diz oq falta"), ficou clar
 
 ---
 
+## [2026-07-18] — Fase 1: módulo de Arquivos (upload/download S3-compatível)
+
+### Adicionado
+
+- `src/server/storage/s3.ts`: cliente S3 (`@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner`, instalados nesta sessão), URLs assinadas para download, sem exposição de URL pública direta.
+- `src/server/actions/files.ts` + `files.validation.ts`: upload autenticado (`requirePermission("files.upload")`), allowlist de MIME, limite de tamanho (`MAX_UPLOAD_SIZE_MB`), checksum SHA-256, chave de objeto imprevisível prefixada por organização/entidade, exclusão lógica.
+- `src/components/ui/file-upload.tsx`, `src/components/crm/files-panel.tsx`: componente de upload no design system + painel reutilizável (lista, upload, download, exclusão com confirmação inline).
+- Painel "Arquivos" na tela de detalhe de Oportunidade. Action genérica por `entityType`/`entityId` já suporta as demais entidades listadas em `docs/MODULE_SPECIFICATIONS.md` §10.
+- `storedFilesRelations`/`attachmentsRelations` em `src/server/db/schema/relations.ts` (faltavam).
+
+### Testes
+
+- `tsc --noEmit`, `biome check`, `vitest run` (39/39, 8 novos em `files.validation.test.ts`), `next build` (27 rotas): limpos.
+- Sem credenciais S3 reais neste ambiente — upload/download real não verificado ponta a ponta, só por leitura de código + tipos + build.
+
+### Débitos conhecidos
+
+- Provisionar bucket S3-compatível real e preencher `S3_*` em produção (decisão de infraestrutura, fora do escopo de um agente).
+- Limpeza de arquivos órfãos (`purgeOrphanedFile`) ainda manual, sem job agendado.
+
+---
+
 Formato recomendado por alteração:
 
 ```text

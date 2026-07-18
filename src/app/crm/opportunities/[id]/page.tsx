@@ -5,10 +5,12 @@ import { ArrowLeft, Building2, User } from "lucide-react";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { FilesPanel } from "@/components/crm/files-panel";
 import { ActivityTimeline } from "@/components/crm/pipeline/activity-timeline";
 import { NextActionForm } from "@/components/crm/pipeline/next-action-form";
 import { WinLoseButtons } from "@/components/crm/pipeline/win-lose-buttons";
 import { getOpportunityActivities } from "@/server/actions/activities";
+import { getFilesForEntity } from "@/server/actions/files";
 import { getActiveOrganizationId } from "@/server/actions/organization";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db/connection";
@@ -58,6 +60,7 @@ export default async function OpportunityDetailsPage({
   });
 
   const activities = await getOpportunityActivities(opp.id);
+  const files = await getFilesForEntity("opportunity", opp.id);
   const serializedActivities = activities.map((a) => ({
     ...a,
     occurredAt: a.occurredAt.toISOString(),
@@ -153,6 +156,11 @@ export default async function OpportunityDetailsPage({
           <div className="bg-white border border-slate-200 rounded-xl p-8">
             <h2 className="font-semibold text-lg mb-4">Linha do tempo</h2>
             <ActivityTimeline opportunityId={opp.id} activities={serializedActivities} />
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-xl p-8">
+            <h2 className="font-semibold text-lg mb-4">Arquivos</h2>
+            <FilesPanel entityType="opportunity" entityId={opp.id} initialFiles={files} />
           </div>
         </div>
 

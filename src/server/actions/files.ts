@@ -1,0 +1,143 @@
+"use server";
+
+import crypto from "node:crypto";
+import { and, desc, eq } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
+import { ATTACHABLE_ENTITY_TYPES, type AttachableEntityType } from "../attachable-entity-types";
+import { requirePermission } from "../auth/require-permission";
+import { db } from "../db/connection";
+import { attachments, storedFiles } from "../db/schema";
+import { deleteObject, getSignedDownloadUrl, uploadObject } from "../storage/s3";
+import { exceedsMaxUploadSize, isAllowedMimeType, sanitizeFileName } from "./files.validation";
+
+export async function uploadFile(
+  entityType: AttachableEntityType,
+  entityId: string,
+  formData: FormData,
+) {
+  const { organizationId, userId } = await requirePermission("files.upload");
+
+  if (!ATTACHABLE_ENTITY_TYPES.includes(entityType)) {
+    throw new Error("Tipo de entidade inválido.");
+  }
+
+  const file = formData.get("file");
+  if (!(file instanceof File)) {
+    throw new Error("Nenhum arquivo enviado.");
+  }
+  if (!isAllowedMimeType(file.type)) {
+    throw new Error(`Tipo de arquivo não permitido: ${file.type || "desconhecido"}.`);
+  }
+  if (exceedsMaxUploadSize(file.size, process.env.MAX_UPLOAD_SIZE_MB)) {
+    throw new Error(`Arquivo excede o limite de ${process.env.MAX_UPLOAD_SIZE_MB || "20"}MB.`);
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const checksum = crypto.createHash("sha256").update(buffer).digest("hex");
+  const objectKey = `${organizationId}/${entityType}/${entityId}/${crypto.randomUUID()}-${sanitizeFileName(file.name)}`;
+
+  await uploadObject(objectKey, buffer, file.type);
+
+  const fileId = crypto.randomUUID();
+  await db.transaction(async (tx) => {
+    await tx.insert(storedFiles).values({
+      id: fileId,
+      organizationId,
+      uploadedBy: userId,
+      storageProvider: "s3",
+      bucket: process.env.S3_BUCKET,
+      objectKey,
+      originalName: file.name,
+      mimeType: file.type,
+      sizeBytes: file.size,
+      checksumSha256: checksum,
+      isPrivate: true,
+    });
+
+    await tx.insert(attachments).values({
+      organizationId,
+      fileId,
+      entityType,
+      entityId,
+    });
+  });
+
+  revalidatePath("/crm");
+  return { success: true, fileId };
+}
+
+export async function getFilesForEntity(entityType: AttachableEntityType, entityId: string) {
+  const { organizationId } = await requirePermission("files.read");
+
+  const rows = await db.query.attachments.findMany({
+    where: and(
+      eq(attachments.organizationId, organizationId),
+      eq(attachments.entityType, entityType),
+      eq(attachments.entityId, entityId),
+    ),
+    orderBy: [desc(attachments.createdAt)],
+    with: { file: true },
+  });
+
+  return rows
+    .filter((row) => row.file)
+    .map((row) => ({
+      attachmentId: row.id,
+      fileId: row.file.id,
+      originalName: row.file.originalName,
+      mimeType: row.file.mimeType,
+      sizeBytes: row.file.sizeBytes,
+      createdAt: row.file.createdAt,
+      label: row.label,
+    }));
+}
+
+export async function getFileDownloadUrl(fileId: string) {
+  const { organizationId } = await requirePermission("files.read");
+
+  const file = await db.query.storedFiles.findFirst({
+    where: and(eq(storedFiles.id, fileId), eq(storedFiles.organizationId, organizationId)),
+  });
+  if (!file) throw new Error("Arquivo não encontrado.");
+
+  return getSignedDownloadUrl(file.objectKey);
+}
+
+export async function deleteFile(attachmentId: string) {
+  const { organizationId } = await requirePermission("files.delete");
+
+  const attachment = await db.query.attachments.findFirst({
+    where: and(eq(attachments.id, attachmentId), eq(attachments.organizationId, organizationId)),
+  });
+  if (!attachment) throw new Error("Anexo não encontrado.");
+
+  // Exclusão lógica: remove só o vínculo (attachment). O objeto no storage e
+  // o registro em storedFiles permanecem intactos - não apagamos o arquivo
+  // físico sem uma confirmação/rotina de limpeza de órfãos separada
+  // (docs/MODULE_SPECIFICATIONS.md §10: "exclusão lógica" + "limpeza de órfãos").
+  await db.delete(attachments).where(eq(attachments.id, attachmentId));
+
+  revalidatePath("/crm");
+  return { success: true };
+}
+
+export async function purgeOrphanedFile(fileId: string) {
+  const { organizationId } = await requirePermission("files.delete");
+
+  const file = await db.query.storedFiles.findFirst({
+    where: and(eq(storedFiles.id, fileId), eq(storedFiles.organizationId, organizationId)),
+  });
+  if (!file) throw new Error("Arquivo não encontrado.");
+
+  const stillAttached = await db.query.attachments.findFirst({
+    where: eq(attachments.fileId, fileId),
+  });
+  if (stillAttached) {
+    throw new Error("Arquivo ainda está vinculado a um registro; remova o vínculo primeiro.");
+  }
+
+  await deleteObject(file.objectKey);
+  await db.delete(storedFiles).where(eq(storedFiles.id, fileId));
+
+  return { success: true };
+}

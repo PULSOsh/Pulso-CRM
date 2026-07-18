@@ -67,7 +67,7 @@ O `BETTER_AUTH_SECRET` foi ajustado via CLI (`docker service update --env-add`),
 | **Propostas** | **Parcial, bug de publicação corrigido em 18/07 (seção 22)** | `publicAccessEnabled` (existia no schema, nunca lido) agora gateia `getPublicProposal`/`approveProposal`; `publishQuote` flipa a flag. Ainda faltam: página de detalhe interna (`/crm/quotes/[id]`), versionamento real (só 1 versão criada e nunca atualizada), eventos (`proposal.published` etc.) — escopo da Fase 2 em `STEP_BY_STEP_IMPLEMENTATION.md` |
 | Contratos | **Funcional** | Assinatura pública funciona de ponta a ponta (grava evidência, atualiza status, registra evento). Interface ainda fora do design system (Tailwind cru) |
 | Projetos | **Funcional** | CRUD real, conversão a partir de contrato assinado, etapas, checklist. UX tinha um beco sem saída (botão "Gerar Projeto" desabilitado sem explicação quando não há contrato assinado) — corrigido com uma dica visível |
-| Arquivos | **Ausente** | Schema pronto (`storedFiles`), zero código usando. Bloqueante: nenhuma UI de upload |
+| Arquivos | **Funcional (base), 18/07/2026** | Upload/download real via S3-compatível (URL assinada), `FileUpload` em `components/ui/`, `FilesPanel` genérico por `entityType`/`entityId`, exclusão lógica (remove vínculo, preserva objeto no storage). Wired em Oportunidade; demais entidades (proposta/contrato/projeto/aprovação) reusam a mesma action ao ganhar tela de detalhe. Sem credenciais S3 reais neste ambiente — não testado ponta a ponta com upload real |
 | Aprovações | **Ausente como feature própria** | Schema e permissões existem (`approvals`, `approvals.read/create/decide`), zero código usando. Hoje "aprovação" só existe embutida no aceite de proposta/contrato |
 | Financeiro / Recebíveis | **Ausente** | Schema pronto (`receivables`, `installments`), zero código usando |
 | Custos e lucratividade | **Ausente** | Não iniciado, é o módulo confidencial restrito ao fundador |
@@ -189,6 +189,30 @@ Sessão de continuidade: confirmado estado real do repositório (branch `main` =
 - `Checkbox`/`Radio` não existem em `components/ui/` — 3 arquivos mantêm input nativo por não ter alternativa real.
 - `publishQuote` não muda `status` nem grava evento/atividade — fica pra Fase 2 (versionamento completo).
 - Ver `continuity/KNOWN_ISSUES.md` para o registro formal (KI-001/KI-002 marcados resolvidos, KI-003 segue aberto).
+
+## 23. Fase 1 — Arquivos (concluída 18/07/2026)
+
+### O que foi feito
+
+- `pnpm add @aws-sdk/client-s3 @aws-sdk/s3-request-presigner` — cliente S3 já documentado no stack (`docs/ARCHITECTURE_AND_STANDARDS.md`), nunca instalado.
+- `src/server/storage/s3.ts`: `uploadObject`/`getSignedDownloadUrl`/`deleteObject`, lendo `S3_ENDPOINT`/`S3_REGION`/`S3_BUCKET`/`S3_ACCESS_KEY_ID`/`S3_SECRET_ACCESS_KEY`/`S3_FORCE_PATH_STYLE` (já documentados em `.env.example`), falha com erro claro se ausente (mesmo padrão do `seed.ts`).
+- `src/server/db/schema/relations.ts`: `storedFilesRelations`/`attachmentsRelations` — faltavam (mesmo gotcha já documentado de relations bidirecionais do Drizzle).
+- `src/server/actions/files.ts`: `uploadFile` (valida MIME allowlist, tamanho via `MAX_UPLOAD_SIZE_MB`, gera checksum SHA-256 e chave de objeto imprevisível prefixada por `organizationId/entityType/entityId`), `getFilesForEntity`, `getFileDownloadUrl` (URL assinada, 5 min), `deleteFile` (exclusão lógica: remove só o `attachment`, preserva `storedFiles`/objeto no S3), `purgeOrphanedFile` (limpeza real, só quando não há mais vínculo).
+- `src/server/actions/files.validation.ts` + `.test.ts`: validação extraída em funções puras testáveis (obrigatório — arquivo `"use server"` só pode exportar funções async, então constantes/helpers não podem morar ali).
+- `src/components/ui/file-upload.tsx`: componente `FileUpload` novo no design system.
+- `src/components/crm/files-panel.tsx`: painel client genérico (lista, upload, download, exclusão com confirmação inline — sem `window.confirm()`, aprendizado da Fase 3 sobre travar automação de teste).
+- Wired em `src/app/crm/opportunities/[id]/page.tsx` (painel "Arquivos"). Demais entidades (`proposal`/`contract`/`project`/`approval`/...) já suportadas pela action genérica; só falta a tela de detalhe correspondente as invocar (proposta ganha isso na Fase 2, aprovação na Fase 3).
+
+### Validação real
+
+- `tsc --noEmit`, `biome check`, `vitest run` (39/39, +8 novos testes de `files.validation`), `next build` (27 rotas): todos limpos.
+- **Sem credenciais S3 reais neste ambiente** (`.env`/`.env.local` sem `S3_*` preenchido) — upload/download real não testado ponta a ponta. `uploadObject`/`getSignedDownloadUrl` falham com erro claro e imediato se as variáveis não estiverem configuradas (mesmo padrão de `BETTER_AUTH_SECRET`/`SEED_ADMIN_*`), não silenciosamente.
+
+### Débitos conhecidos
+
+- Provisionar bucket S3-compatível real (Cloudflare R2, MinIO, etc.) e preencher `S3_*` em produção — decisão de infraestrutura do responsável, fora do que um agente pode decidir sozinho.
+- Sem rotina agendada de "limpeza de órfãos" (arquivo sem nenhum `attachment`) — `purgeOrphanedFile` existe mas precisa ser chamada manualmente ou por um job futuro (Fase 7, Notificações/Jobs).
+- Sem retenção configurável ainda (spec pede "retenção" — não implementado, baixo risco no estado atual sem dado real).
 
 ## 10. Próxima ação exata
 

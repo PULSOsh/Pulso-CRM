@@ -3,6 +3,7 @@ import { activities } from "./activities";
 import { briefingSubmissionAnswers, briefingSubmissions, briefingTemplates } from "./briefings";
 import { companies } from "./companies";
 import { contacts } from "./contacts";
+import { attachments, storedFiles } from "./files";
 import { opportunities, opportunityProducts } from "./opportunities";
 import { products } from "./products";
 import { tasks } from "./tasks";
@@ -84,3 +85,14 @@ export const briefingSubmissionAnswersRelations = relations(
     }),
   }),
 );
+
+export const storedFilesRelations = relations(storedFiles, ({ many }) => ({
+  attachments: many(attachments),
+}));
+
+export const attachmentsRelations = relations(attachments, ({ one }) => ({
+  file: one(storedFiles, {
+    fields: [attachments.fileId],
+    references: [storedFiles.id],
+  }),
+}));
