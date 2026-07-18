@@ -1,13 +1,14 @@
 import { CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 
-export default function BriefingSuccessPage({
+export default async function BriefingSuccessPage({
   searchParams,
 }: {
-  params: { slug: string };
-  searchParams: { protocolo?: string };
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ protocolo?: string }>;
 }) {
-  const protocol = searchParams.protocolo || `PULSO-${Math.floor(100000 + Math.random() * 900000)}`;
+  const { protocolo } = await searchParams;
+  const protocol = protocolo || `PULSO-${Math.floor(100000 + Math.random() * 900000)}`;
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">

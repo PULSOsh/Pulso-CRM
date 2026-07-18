@@ -5,7 +5,7 @@ import { ContractDetailsClient } from "@/components/crm/contract-details-client"
 import { getContractById } from "@/server/actions/contracts";
 import { auth } from "@/server/auth";
 
-export default async function ContractDetailsPage({ params }: { params: { id: string } }) {
+export default async function ContractDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -14,7 +14,8 @@ export default async function ContractDetailsPage({ params }: { params: { id: st
     redirect("/login");
   }
 
-  const contract = await getContractById(params.id);
+  const { id } = await params;
+  const contract = await getContractById(id);
 
   if (!contract) {
     notFound();

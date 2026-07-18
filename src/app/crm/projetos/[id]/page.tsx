@@ -5,7 +5,7 @@ import { ProjectDetailsClient } from "@/components/crm/project-details-client";
 import { getProjectById, getProjectStages } from "@/server/actions/projects";
 import { auth } from "@/server/auth";
 
-export default async function ProjectDetailsPage({ params }: { params: { id: string } }) {
+export default async function ProjectDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -14,7 +14,8 @@ export default async function ProjectDetailsPage({ params }: { params: { id: str
     redirect("/login");
   }
 
-  const project = await getProjectById(params.id);
+  const { id } = await params;
+  const project = await getProjectById(id);
 
   if (!project) {
     notFound();

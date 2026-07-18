@@ -6,7 +6,11 @@ import { TemplateBuilder } from "@/components/briefings/builder/template-builder
 import { getBriefingTemplateById } from "@/server/actions/briefing-templates";
 import { auth } from "@/server/auth";
 
-export default async function BriefingTemplateEditorPage({ params }: { params: { id: string } }) {
+export default async function BriefingTemplateEditorPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -15,7 +19,8 @@ export default async function BriefingTemplateEditorPage({ params }: { params: {
     redirect("/login");
   }
 
-  const template = await getBriefingTemplateById(params.id);
+  const { id } = await params;
+  const template = await getBriefingTemplateById(id);
 
   if (!template) {
     // If not found, perhaps it hasn't been seeded yet. We'll show a placeholder or 404

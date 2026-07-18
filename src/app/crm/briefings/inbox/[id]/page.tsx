@@ -4,7 +4,7 @@ import { SubmissionDetails } from "@/components/crm/briefings/submission-details
 import { getBriefingSubmissionById } from "@/server/actions/briefing-submissions";
 import { auth } from "@/server/auth";
 
-export default async function InboxDetailsPage({ params }: { params: { id: string } }) {
+export default async function InboxDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -13,7 +13,8 @@ export default async function InboxDetailsPage({ params }: { params: { id: strin
     redirect("/login");
   }
 
-  const submission = await getBriefingSubmissionById(params.id);
+  const { id } = await params;
+  const submission = await getBriefingSubmissionById(id);
 
   if (!submission) {
     notFound();

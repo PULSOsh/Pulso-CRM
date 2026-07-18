@@ -5,7 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import { getProductById, updateProduct } from "@/server/actions/products";
 import { auth } from "@/server/auth";
 
-export default async function EditProductPage({ params }: { params: { id: string } }) {
+export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -14,7 +14,8 @@ export default async function EditProductPage({ params }: { params: { id: string
     redirect("/login");
   }
 
-  const product = await getProductById(params.id);
+  const { id } = await params;
+  const product = await getProductById(id);
 
   if (!product) {
     notFound();
@@ -23,7 +24,7 @@ export default async function EditProductPage({ params }: { params: { id: string
   async function handleUpdate(formData: FormData) {
     "use server";
 
-    await updateProduct(params.id, {
+    await updateProduct(id, {
       name: formData.get("name") as string,
       category: formData.get("category") as string,
       description: formData.get("description") as string,

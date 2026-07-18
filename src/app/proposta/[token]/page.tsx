@@ -5,8 +5,9 @@ import { notFound } from "next/navigation";
 import { getPublicProposal } from "@/server/actions/public-quote";
 import ApproveModal from "./approve-modal";
 
-export default async function PublicQuotePage({ params }: { params: { token: string } }) {
-  const proposal = await getPublicProposal(params.token);
+export default async function PublicQuotePage({ params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params;
+  const proposal = await getPublicProposal(token);
 
   if (!proposal) {
     notFound();
@@ -169,7 +170,7 @@ export default async function PublicQuotePage({ params }: { params: { token: str
           Falar com Especialista
         </a>
 
-        {proposal.status === "draft" && <ApproveModal token={params.token} />}
+        {proposal.status === "draft" && <ApproveModal token={token} />}
       </div>
     </div>
   );

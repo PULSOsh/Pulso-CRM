@@ -4,10 +4,15 @@ import { BriefingWizard } from "@/components/public/briefing-wizard";
 import { db } from "@/server/db/connection";
 import { briefingTemplates } from "@/server/db/schema";
 
-export default async function BriefingPublicPage({ params }: { params: { slug: string } }) {
+export default async function BriefingPublicPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
   // Find published template by slug
   const template = await db.query.briefingTemplates.findFirst({
-    where: eq(briefingTemplates.slug, params.slug),
+    where: eq(briefingTemplates.slug, slug),
   });
 
   if (template?.status !== "published") {

@@ -23,7 +23,11 @@ import {
   proposals,
 } from "@/server/db/schema";
 
-export default async function OpportunityDetailsPage({ params }: { params: { id: string } }) {
+export default async function OpportunityDetailsPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -32,10 +36,11 @@ export default async function OpportunityDetailsPage({ params }: { params: { id:
     redirect("/login");
   }
 
+  const { id } = await params;
   const orgId = await getActiveOrganizationId(session.user.id);
 
   const opp = await db.query.opportunities.findFirst({
-    where: and(eq(opportunities.id, params.id), eq(opportunities.organizationId, orgId)),
+    where: and(eq(opportunities.id, id), eq(opportunities.organizationId, orgId)),
   });
 
   if (!opp) notFound();

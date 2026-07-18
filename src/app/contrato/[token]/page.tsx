@@ -5,8 +5,13 @@ import { notFound } from "next/navigation";
 import { getPublicContract } from "@/server/actions/contracts";
 import SignModal from "./sign-modal";
 
-export default async function PublicContractPage({ params }: { params: { token: string } }) {
-  const contract = await getPublicContract(params.token);
+export default async function PublicContractPage({
+  params,
+}: {
+  params: Promise<{ token: string }>;
+}) {
+  const { token } = await params;
+  const contract = await getPublicContract(token);
 
   if (!contract) {
     notFound();
@@ -66,7 +71,7 @@ export default async function PublicContractPage({ params }: { params: { token: 
 
       {contract.status === "sent" && (
         <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent flex justify-center items-center z-50">
-          <SignModal token={params.token} />
+          <SignModal token={token} />
         </div>
       )}
     </div>
