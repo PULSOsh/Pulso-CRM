@@ -71,7 +71,7 @@ O `BETTER_AUTH_SECRET` foi ajustado via CLI (`docker service update --env-add`),
 | Aprovações | **Funcional, Fase 3 concluída 18/07** | Solicitar aprovação a partir de um projeto, página pública (`/aprovacao/[token]`) com aprovar/aprovar com observação/solicitar ajuste, evidências (nome/e-mail/IP/user-agent/comentário em `evidence` jsonb), rejeição cria tarefa automaticamente vinculada ao projeto, arquivos públicos opcionais |
 | Financeiro / Recebíveis | **Funcional, Fase 4 concluída 18/07** | Geração de recebível + parcelas a partir de contrato assinado, `/crm/financeiro` real (link desoculto no menu), baixa e estorno, indicadores em aberto/vencido/recebido, `refreshOverdueInstallments` sob demanda |
 | Custos e lucratividade | **Ausente** | Não iniciado, é o módulo confidencial restrito ao fundador |
-| Dashboard | **Mock total** | Métricas e data hardcoded, zero query real ao banco |
+| Dashboard | **Funcional, Fase 5 concluída 18/07** | `getDashboardData` real: funil aberto, taxa de conversão 90d, recebido no mês, pendente/vencido; feed de atenção (próxima ação vencida, tarefa vencida, parcela vencida, proposta sem follow-up >3 dias) |
 | Relatórios | **Link morto** | Nem aparece renderizado no menu (item filtrado por ter `href="#"`) |
 | Notificações | **Ausente** | Schema pronto (`notifications`, `notificationChannelEnum`), zero código usando |
 | Auditoria genérica (`audit_logs`) | **Ausente como serviço** | Só existe registro pontual em contratos (`contractEvents`); a tabela genérica de auditoria nunca é escrita |
@@ -276,6 +276,23 @@ Sessão de continuidade: confirmado estado real do repositório (branch `main` =
 - `financialAccounts` (contas de recebimento) tem schema pronto mas nenhuma UI de cadastro — `installments.accountId` fica `null` por enquanto; `paymentMethod` é texto livre.
 - Estorno não mantém um ledger append-only separado (mutação in-place da parcela, motivo concatenado em `notes`) — suficiente para o volume atual (banco de produção praticamente vazio), mas vale revisar se `docs/ARCHITECTURE_AND_STANDARDS.md` exigir trilha de auditoria mais forte quando a Fase 7 (auditoria genérica) for implementada.
 - Sem geração automática de parcelas a partir de "condição comercial" estruturada (proposta/contrato não têm esse campo hoje) — entrada manual por enquanto.
+
+## 27. Fase 5 — Dashboard real (concluída 18/07/2026)
+
+### O que foi feito
+
+- `src/server/actions/dashboard.ts::getDashboardData`: substitui os 4 cartões hardcoded de `src/app/dashboard/page.tsx` (que nem checava sessão) por queries reais — funil aberto (soma + contagem de oportunidades `open`), taxa de conversão (ganhas/decididas nos últimos 90 dias), recebido no mês (parcelas `paid` com `paidAt` no mês corrente) e pendente/vencido (soma de parcelas `pending`/`overdue`) — dados da Fase 4.
+- Feed de atenção expandido além do `getOverdueAlerts` original (`nav.ts`, ainda usado pelo sino da topbar): próxima ação vencida, tarefa vencida, **parcela vencida** (novo, Fase 4) e **proposta sem follow-up** (novo — `status` em `sent`/`viewed` há mais de 3 dias sem decisão).
+- Agregação feita em JS a partir de linhas já filtradas por `organizationId` no servidor (não no cliente) — segue o mesmo padrão já usado em todo o resto do código (`getReceivables`, `getPipelineWithOpportunities`, etc.); nenhum arquivo do projeto usa `sql`/`sum`/`count` do Drizzle hoje, então não introduzi um padrão novo isolado só nesta tela. Agregação real no banco (a regra explícita do `STEP_BY_STEP_IMPLEMENTATION.md`) fica pra Fase 6 (Relatórios), quando o volume justificar.
+
+### Validação real
+
+- `tsc --noEmit`, `biome check`, `vitest run` (39/39), `next build` (30 rotas — `/dashboard` virou `ƒ` dinâmica, antes era `○` estática): limpos.
+- Sem banco disponível — números reais não conferidos, só a lógica de agregação por leitura de código.
+
+### Débitos conhecidos
+
+- "Taxa de conversão" fica `—` sem nenhuma oportunidade ganha/perdida nos últimos 90 dias (banco de produção hoje está praticamente vazio) — comportamento correto, não é bug.
 
 ## 10. Próxima ação exata
 

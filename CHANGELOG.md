@@ -428,6 +428,22 @@ Depois de uma auditoria pedida pelo responsável ("me diz oq falta"), ficou clar
 
 ---
 
+## [2026-07-18] — Fase 5: Dashboard real (fim do mock)
+
+### Adicionado
+
+- `src/server/actions/dashboard.ts`: funil aberto, taxa de conversão 90d, recebido no mês, pendente/vencido, feed de atenção (próxima ação/tarefa/parcela vencida, proposta sem follow-up).
+
+### Removido
+
+- 4 métricas hardcoded (`R$ 34.900`, `31,4%`, etc.) e a data fixa "quinta-feira, 16 de julho" de `src/app/dashboard/page.tsx` — a página nem checava sessão antes.
+
+### Testes
+
+- `tsc --noEmit`, `biome check`, `vitest run` (39/39), `next build` (30 rotas): limpos.
+
+---
+
 Formato recomendado por alteração:
 
 ```text
