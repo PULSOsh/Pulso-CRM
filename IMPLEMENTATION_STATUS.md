@@ -424,3 +424,38 @@ Durante o Grupo 8, clicar em "Ver excluídos" sem sessão ativa disparou um `ale
 - Proposta ainda não tem rota de detalhe interna — só é mostrada como texto no painel de vínculos, sem link.
 - `createContact`/`createCompany` continuam sem validação Zod (só `update*` valida) — gap pré-existente, não introduzido nem expandido nesta sessão.
 - Produto vinculado à oportunidade (`opportunity_products`), diagnóstico, orçamento informado, valor negociado, probabilidade e previsão de fechamento continuam sem UI — registrados na auditoria original, não abordados nesta rodada.
+
+## 20. Correção crítica — `params`/`searchParams` assíncronos não aguardados (Next.js 16) (concluído 18/07/2026, commit `ac68401`)
+
+### Contexto
+
+O responsável testou o app depois do push da seção 19 e reportou crash real ao abrir o detalhe de uma oportunidade pelo Kanban ("deu esse erro"), com prints de tela mostrando "This page couldn't load. A server error occurred" (digest `3086529012`).
+
+### Causa raiz real (achada por investigação, não por suposição)
+
+Entrei via SSH na VPS de produção (`pulso@191.96.251.124`) e li os logs reais do container Docker (`sudo docker logs`). O stack trace mostrava `params: [ undefined, '<uuid>', 1 ]` e `[cause]: Error: UNDEFINED_VALUE: Undefined values are not allowed`. `package.json` confirma `"next": "16.2.10"` — nessa versão, `params` e `searchParams` de rotas dinâmicas são `Promise`, precisam de `await`, igual ao padrão que o código já usava corretamente pra `headers()` (`await headers()`) mas nunca tinha sido aplicado a `params`.
+
+Busquei por grep em todo `src/app` e confirmei: **todas as 10 rotas dinâmicas do app** tinham o mesmo bug — 6 internas do CRM (oportunidade, briefing inbox, briefing template, contrato, produto, projeto) e 4 públicas voltadas ao cliente (assinatura de contrato, aprovação de proposta, formulário de briefing, página de sucesso do briefing). Isso não foi introduzido nesta sessão — é um bug sistêmico pré-existente que nunca tinha sido testado clicando de verdade, porque nenhuma dessas 10 rotas tinha sido exercitada ponta a ponta antes do trabalho da Fase 3 forçar o primeiro clique real na tela de detalhe de oportunidade.
+
+### O que foi feito
+
+Em cada um dos 10 arquivos: tipo do parâmetro mudado para `Promise<{...}>`, `await params` (ou `await searchParams`) logo no início da função, e toda referência solta subsequente (`params.id`, `params.token`, `params.slug`, `searchParams.protocolo`) trocada pela variável desestruturada. Em `src/app/crm/products/[id]/page.tsx`, a closure `"use server"` interna (`handleUpdate`) também referenciava `params.id` — corrigida para usar o `id` do escopo externo. Em `src/app/solicitar/[slug]/sucesso/page.tsx`, a função não era `async` — virou `async` pra poder aguardar `searchParams`.
+
+Arquivos: `src/app/crm/opportunities/[id]/page.tsx`, `src/app/crm/briefings/inbox/[id]/page.tsx`, `src/app/crm/briefings/templates/[id]/page.tsx`, `src/app/crm/contratos/[id]/page.tsx`, `src/app/crm/products/[id]/page.tsx`, `src/app/crm/projetos/[id]/page.tsx`, `src/app/contrato/[token]/page.tsx`, `src/app/proposta/[token]/page.tsx`, `src/app/solicitar/[slug]/page.tsx`, `src/app/solicitar/[slug]/sucesso/page.tsx`.
+
+### Validação real
+
+- `npx tsc --noEmit`: limpo, sem erros.
+- `npx biome check` nos 10 arquivos: limpo (rodei `--write` uma vez pra formatação de assinatura de função, depois confirmei limpo de novo).
+- `npx vitest run`: 31/31 testes passando (nenhum teste cobre estas rotas de página diretamente, mas nenhuma regressão em schemas/actions).
+- `rm -rf .next && npm run build`: sucesso, build de produção limpo, as 10 rotas dinâmicas aparecem corretamente na tabela de rotas do Next (todas `ƒ` dinâmicas, como esperado).
+- Não testado via clique real no navegador nesta correção (exigiria sessão autenticada real ou dados de produção reais para as rotas públicas por token) — validação foi por leitura de código, typecheck, build e comparação direta com o padrão que já funcionava (`await headers()`).
+
+### Impacto em produção
+
+Bug estava ativo em produção **antes** desta correção — qualquer clique em qualquer uma das 10 rotas dinâmicas (interna ou pública) resultava em erro 500 para o usuário. Correção commitada localmente (`ac68401`); push pendente de autorização explícita do responsável.
+
+### Débitos conhecidos
+
+- Nenhum novo introduzido por esta correção — é puramente a aplicação do padrão assíncrono já usado em outras partes do código.
+- Continua pendente: reportar ao responsável sobre o comentário "a tela de funil kanban tá diferente do proposto" — não investigado ainda se é sobre o Kanban em si ou sobre a experiência geral degradada pelo crash.

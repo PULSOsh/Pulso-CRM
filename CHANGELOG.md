@@ -229,6 +229,27 @@ Um clique em fluxo com `window.alert()` travou a automação de navegador usada 
 
 ---
 
+## [2026-07-18] — Correção crítica: params/searchParams assíncronos (Next.js 16)
+
+### Corrigido
+
+- Bug sistêmico pré-existente (não introduzido nesta sessão): todas as 10 rotas dinâmicas do app liam `params`/`searchParams` de forma síncrona, mas no Next.js 16 esses valores são `Promise` e precisam de `await`. Isso derrubava com `UNDEFINED_VALUE: Undefined values are not allowed` assim que qualquer rota dinâmica fosse acessada — inclusive páginas públicas voltadas ao cliente (assinatura de contrato, aprovação de proposta, formulário de briefing).
+- Reportado pelo usuário via crash real na tela de detalhe de oportunidade (digest `3086529012`); diagnosticado lendo os logs reais do container Docker em produção via SSH, não por suposição.
+- Arquivos corrigidos: `src/app/crm/opportunities/[id]/page.tsx`, `src/app/crm/briefings/inbox/[id]/page.tsx`, `src/app/crm/briefings/templates/[id]/page.tsx`, `src/app/crm/contratos/[id]/page.tsx`, `src/app/crm/products/[id]/page.tsx` (incluindo a closure `"use server"` interna), `src/app/crm/projetos/[id]/page.tsx`, `src/app/contrato/[token]/page.tsx`, `src/app/proposta/[token]/page.tsx`, `src/app/solicitar/[slug]/page.tsx`, `src/app/solicitar/[slug]/sucesso/page.tsx`.
+
+### Testes
+
+- `tsc --noEmit`: limpo.
+- `biome check` nos 10 arquivos alterados: limpo (após `--write` para formatação).
+- `vitest run`: 31/31 testes passando.
+- `next build` (build limpo, `.next` removido antes): sucesso, todas as 10 rotas dinâmicas compilando e presentes na tabela de rotas.
+
+### Impacto em produção
+
+- Bug estava ativo em produção antes desta correção — qualquer clique em uma rota dinâmica (interna ou pública) resultava em erro 500. Correção pronta para deploy mediante autorização explícita.
+
+---
+
 Formato recomendado por alteração:
 
 ```text
