@@ -2,7 +2,7 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Building2, GripVertical, User } from "lucide-react";
+import { Building2, Clock, GripVertical, User } from "lucide-react";
 import Link from "next/link";
 
 export type OpportunityCardType = {
@@ -13,6 +13,8 @@ export type OpportunityCardType = {
   estimatedValue: string;
   position: string;
   stageId: string;
+  nextActionAt: string | null;
+  nextActionDescription: string | null;
 };
 
 export function KanbanCard({ opportunity }: { opportunity: OpportunityCardType }) {
@@ -36,6 +38,9 @@ export function KanbanCard({ opportunity }: { opportunity: OpportunityCardType }
       : "Desconhecido");
 
   const isCompany = !!opportunity.company?.tradeName;
+
+  const nextActionDate = opportunity.nextActionAt ? new Date(opportunity.nextActionAt) : null;
+  const isOverdue = !!nextActionDate && nextActionDate.getTime() < Date.now();
 
   if (isDragging) {
     return (
@@ -76,11 +81,23 @@ export function KanbanCard({ opportunity }: { opportunity: OpportunityCardType }
               currency: "BRL",
             }).format(Number(opportunity.estimatedValue))}
           </span>
-          <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
-            {/* TODO: Add days in stage */}
-            Novo
-          </span>
         </div>
+
+        {opportunity.nextActionDescription && (
+          <div
+            className={`flex items-center gap-1.5 text-[11px] mt-3 pt-3 border-t border-slate-100 ${
+              isOverdue ? "text-red-600 font-medium" : "text-slate-500"
+            }`}
+          >
+            <Clock size={12} />
+            <span className="truncate">{opportunity.nextActionDescription}</span>
+            {nextActionDate && (
+              <span className="ml-auto shrink-0">
+                {nextActionDate.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+              </span>
+            )}
+          </div>
+        )}
       </Link>
     </div>
   );

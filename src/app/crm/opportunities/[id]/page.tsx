@@ -5,6 +5,7 @@ import { ArrowLeft, Building2, CheckCircle2, User, XCircle } from "lucide-react"
 import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { NextActionForm } from "@/components/crm/pipeline/next-action-form";
 import { getActiveOrganizationId } from "@/server/actions/organization";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db/connection";
@@ -86,6 +87,15 @@ export default async function OpportunityDetailsPage({ params }: { params: { id:
                 <span className="font-semibold text-slate-900">{opp.source || "-"}</span>
               </div>
             </div>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-xl p-8">
+            <h2 className="font-semibold text-lg mb-4">Próxima ação</h2>
+            <NextActionForm
+              opportunityId={opp.id}
+              initialAt={opp.nextActionAt ? opp.nextActionAt.toISOString() : null}
+              initialDescription={opp.nextActionDescription}
+            />
           </div>
 
           <div className="bg-white border border-slate-200 rounded-xl p-8">

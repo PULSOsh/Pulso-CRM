@@ -224,6 +224,8 @@ export function KanbanBoard({
             estimatedValue: newOpp.estimatedValue,
             position: newOpp.position.toString(),
             stageId: newOpp.stageId,
+            nextActionAt: null,
+            nextActionDescription: null,
           });
         }
         return newStages;

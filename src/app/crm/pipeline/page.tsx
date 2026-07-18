@@ -33,6 +33,8 @@ export default async function PipelinePage() {
       estimatedValue: opp.estimatedValue,
       position: opp.position,
       stageId: opp.stageId,
+      nextActionAt: opp.nextActionAt ? opp.nextActionAt.toISOString() : null,
+      nextActionDescription: opp.nextActionDescription,
     })),
   }));
 
