@@ -1,19 +1,36 @@
 "use server";
 
-import { and, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "../auth/require-permission";
 import { db } from "../db/connection";
-import { contacts } from "../db/schema";
+import { companies, companyContacts, contacts } from "../db/schema";
 import { updateContactSchema } from "./contacts.schemas";
 
 export async function getContacts() {
   const { organizationId } = await requirePermission("contacts.read");
 
-  return await db.query.contacts.findMany({
-    where: and(eq(contacts.organizationId, organizationId), isNull(contacts.deletedAt)),
-    orderBy: (contacts, { desc }) => [desc(contacts.createdAt)],
-  });
+  return await db
+    .select({
+      id: contacts.id,
+      firstName: contacts.firstName,
+      lastName: contacts.lastName,
+      email: contacts.email,
+      phone: contacts.phone,
+      whatsapp: contacts.whatsapp,
+      jobTitle: contacts.jobTitle,
+      createdAt: contacts.createdAt,
+      companyId: companyContacts.companyId,
+      companyName: companies.tradeName,
+    })
+    .from(contacts)
+    .leftJoin(
+      companyContacts,
+      and(eq(companyContacts.contactId, contacts.id), eq(companyContacts.isPrimary, true)),
+    )
+    .leftJoin(companies, eq(companies.id, companyContacts.companyId))
+    .where(and(eq(contacts.organizationId, organizationId), isNull(contacts.deletedAt)))
+    .orderBy(desc(contacts.createdAt));
 }
 
 export async function createContact(data: {
@@ -23,6 +40,7 @@ export async function createContact(data: {
   phone?: string;
   whatsapp?: string;
   jobTitle?: string;
+  companyId?: string;
 }) {
   const { organizationId } = await requirePermission("contacts.create");
 
@@ -39,8 +57,20 @@ export async function createContact(data: {
     })
     .returning();
 
+  let companyName: string | null = null;
+  if (data.companyId) {
+    await db
+      .insert(companyContacts)
+      .values({ companyId: data.companyId, contactId: contact.id, isPrimary: true });
+    const company = await db.query.companies.findFirst({
+      where: eq(companies.id, data.companyId),
+      columns: { tradeName: true },
+    });
+    companyName = company?.tradeName ?? null;
+  }
+
   revalidatePath("/crm/contatos");
-  return contact;
+  return { ...contact, companyId: data.companyId ?? null, companyName };
 }
 
 export async function updateContact(contactId: string, input: unknown) {
@@ -63,8 +93,23 @@ export async function updateContact(contactId: string, input: unknown) {
 
   if (!updated) throw new Error("Contato não encontrado.");
 
+  // Simple 1:1 model for this slice: replace whatever primary company link
+  // existed with the one chosen in the form (or none).
+  await db.delete(companyContacts).where(eq(companyContacts.contactId, contactId));
+  let companyName: string | null = null;
+  if (parsed.companyId) {
+    await db
+      .insert(companyContacts)
+      .values({ companyId: parsed.companyId, contactId, isPrimary: true });
+    const company = await db.query.companies.findFirst({
+      where: eq(companies.id, parsed.companyId),
+      columns: { tradeName: true },
+    });
+    companyName = company?.tradeName ?? null;
+  }
+
   revalidatePath("/crm/contatos");
-  return { success: true };
+  return { success: true, companyId: parsed.companyId || null, companyName };
 }
 
 export async function deleteContact(contactId: string) {

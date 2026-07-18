@@ -7,6 +7,7 @@ export const updateContactSchema = z.object({
   phone: z.string().trim().max(32).optional(),
   whatsapp: z.string().trim().max(32).optional(),
   jobTitle: z.string().trim().max(120).optional(),
+  companyId: z.uuid().optional().or(z.literal("")),
 });
 
 export type UpdateContactInput = z.infer<typeof updateContactSchema>;

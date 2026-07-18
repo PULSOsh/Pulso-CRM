@@ -1,6 +1,6 @@
 "use client";
 
-import { Briefcase, Contact, Mail, Pencil, Phone, Plus, Search, Trash2 } from "lucide-react";
+import { Briefcase, Building2, Contact, Mail, Pencil, Phone, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { createContact, deleteContact, updateContact } from "@/server/actions/contacts";
 
@@ -13,9 +13,19 @@ type ContactType = {
   whatsapp: string | null;
   jobTitle: string | null;
   createdAt: Date;
+  companyId: string | null;
+  companyName: string | null;
 };
 
-export function ContactsClient({ initialContacts }: { initialContacts: ContactType[] }) {
+type CompanyOption = { id: string; tradeName: string };
+
+export function ContactsClient({
+  initialContacts,
+  companies,
+}: {
+  initialContacts: ContactType[];
+  companies: CompanyOption[];
+}) {
   const [contacts, setContacts] = useState(initialContacts);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<ContactType | null>(null);
@@ -46,21 +56,33 @@ export function ContactsClient({ initialContacts }: { initialContacts: ContactTy
     const phone = formData.get("phone") as string;
     const whatsapp = formData.get("whatsapp") as string;
     const jobTitle = formData.get("jobTitle") as string;
+    const companyId = formData.get("companyId") as string;
 
     try {
       if (editingContact) {
-        await updateContact(editingContact.id, {
+        const result = await updateContact(editingContact.id, {
           firstName,
           lastName,
           email,
           phone,
           whatsapp,
           jobTitle,
+          companyId,
         });
         setContacts(
           contacts.map((c) =>
             c.id === editingContact.id
-              ? { ...c, firstName, lastName, email, phone, whatsapp, jobTitle }
+              ? {
+                  ...c,
+                  firstName,
+                  lastName,
+                  email,
+                  phone,
+                  whatsapp,
+                  jobTitle,
+                  companyId: result.companyId,
+                  companyName: result.companyName,
+                }
               : c,
           ),
         );
@@ -72,6 +94,7 @@ export function ContactsClient({ initialContacts }: { initialContacts: ContactTy
           phone,
           whatsapp,
           jobTitle,
+          companyId: companyId || undefined,
         });
         setContacts([newContact, ...contacts]);
       }
@@ -138,6 +161,7 @@ export function ContactsClient({ initialContacts }: { initialContacts: ContactTy
             <thead>
               <tr className="bg-slate-50 text-slate-500 text-sm border-b border-slate-200">
                 <th className="p-4 font-medium">Nome Completo</th>
+                <th className="p-4 font-medium">Empresa</th>
                 <th className="p-4 font-medium">Cargo</th>
                 <th className="p-4 font-medium">E-mail</th>
                 <th className="p-4 font-medium">WhatsApp / Telefone</th>
@@ -148,7 +172,7 @@ export function ContactsClient({ initialContacts }: { initialContacts: ContactTy
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-500">
+                  <td colSpan={7} className="p-8 text-center text-slate-500">
                     Nenhum contato encontrado.
                   </td>
                 </tr>
@@ -170,6 +194,16 @@ export function ContactsClient({ initialContacts }: { initialContacts: ContactTy
                           </p>
                         </div>
                       </div>
+                    </td>
+                    <td className="p-4 text-slate-600">
+                      {contact.companyName ? (
+                        <span className="flex items-center gap-1 text-sm">
+                          <Building2 size={14} className="text-slate-400" />
+                          {contact.companyName}
+                        </span>
+                      ) : (
+                        "-"
+                      )}
                     </td>
                     <td className="p-4 text-slate-600">
                       {contact.jobTitle ? (
@@ -336,6 +370,27 @@ export function ContactsClient({ initialContacts }: { initialContacts: ContactTy
                     defaultValue={editingContact?.jobTitle ?? undefined}
                     className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
                   />
+                </div>
+                <div>
+                  <label
+                    htmlFor="contact-companyId"
+                    className="block text-sm font-medium text-slate-700 mb-1"
+                  >
+                    Empresa vinculada
+                  </label>
+                  <select
+                    id="contact-companyId"
+                    name="companyId"
+                    defaultValue={editingContact?.companyId ?? ""}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
+                  >
+                    <option value="">-- Nenhuma --</option>
+                    {companies.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.tradeName}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </form>
             </div>

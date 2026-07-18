@@ -24,4 +24,14 @@ describe("updateContactSchema", () => {
     const result = updateContactSchema.safeParse({ firstName: "a".repeat(101) });
     expect(result.success).toBe(false);
   });
+
+  it("aceita companyId vazio (nenhuma empresa vinculada)", () => {
+    const result = updateContactSchema.safeParse({ firstName: "Maria", companyId: "" });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejeita companyId que não seja um uuid válido", () => {
+    const result = updateContactSchema.safeParse({ firstName: "Maria", companyId: "not-a-uuid" });
+    expect(result.success).toBe(false);
+  });
 });
