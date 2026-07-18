@@ -72,4 +72,4 @@ Todo módulo existe pra servir uma etapa deste fluxo. Se uma tela não avança e
 
 ## O pedido concreto desta rodada
 
-Reconstruir o CRM do zero, numa branch separada (`rewrite-from-scratch`) sem tocar o que está no ar em produção, seguindo `STEP_BY_STEP_IMPLEMENTATION.md` fase por fase, cobrindo **todos** os módulos do fluxo — inclusive os que nunca saíram do papel na primeira construção: Propostas com versionamento e publicação corrigidos, Financeiro/Recebíveis, Arquivos, Aprovações, Relatórios, Notificações, e Auditoria genérica.
+Continuar construindo em cima do que já existe e funciona (Contatos, Empresas, Kanban, Tarefas, Atividades, Briefings, Produtos, Contratos, Projetos — todos testados e no ar), seguindo `STEP_BY_STEP_IMPLEMENTATION.md` fase por fase pra completar os módulos que nunca saíram do papel: Propostas com versionamento e publicação corrigidos, Arquivos, Aprovações, Financeiro/Recebíveis, Dashboard real, Relatórios, Notificações e Auditoria genérica. Não reescrever nem apagar o que já funciona — o problema nunca foi o código existente, foi a implementação não ter seguido a especificação até o fim.
