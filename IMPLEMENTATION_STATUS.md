@@ -70,7 +70,7 @@ O `BETTER_AUTH_SECRET` foi ajustado via CLI (`docker service update --env-add`),
 | Arquivos | **Funcional (base), 18/07/2026** | Upload/download real via S3-compatível (URL assinada), `FileUpload` em `components/ui/`, `FilesPanel` genérico por `entityType`/`entityId`, exclusão lógica (remove vínculo, preserva objeto no storage). Wired em Oportunidade; demais entidades (proposta/contrato/projeto/aprovação) reusam a mesma action ao ganhar tela de detalhe. Sem credenciais S3 reais neste ambiente — não testado ponta a ponta com upload real |
 | Aprovações | **Funcional, Fase 3 concluída 18/07** | Solicitar aprovação a partir de um projeto, página pública (`/aprovacao/[token]`) com aprovar/aprovar com observação/solicitar ajuste, evidências (nome/e-mail/IP/user-agent/comentário em `evidence` jsonb), rejeição cria tarefa automaticamente vinculada ao projeto, arquivos públicos opcionais |
 | Financeiro / Recebíveis | **Funcional, Fase 4 concluída 18/07** | Geração de recebível + parcelas a partir de contrato assinado, `/crm/financeiro` real (link desoculto no menu), baixa e estorno, indicadores em aberto/vencido/recebido, `refreshOverdueInstallments` sob demanda |
-| Custos e lucratividade | **Ausente** | Não iniciado, é o módulo confidencial restrito ao fundador |
+| Custos e lucratividade | **Funcional (base), Fase 8 concluída 18/07** | Único módulo sem schema pronto — criado `expense_categories`/`expenses`/`financial_settings` (migration `0004_warm_spyke.sql` **gerada, não aplicada**, mesmo padrão da `0003`). 12 fórmulas puras testadas (`profitability.test.ts`, 20 testes). `/crm/lucratividade` (fora da nav principal, de propósito). Dados pessoais gateados por `profitability.read_personal` (só `owner`) |
 | Dashboard | **Funcional, Fase 5 concluída 18/07** | `getDashboardData` real: funil aberto, taxa de conversão 90d, recebido no mês, pendente/vencido; feed de atenção (próxima ação vencida, tarefa vencida, parcela vencida, proposta sem follow-up >3 dias) |
 | Relatórios | **Funcional, Fase 6 concluída 18/07** | `/crm/relatorios`, link desoculto no menu. Comercial (leads/mês, conversão por origem, ganho/perda por responsável, ticket médio), Operacional (projetos por status, tarefas atrasadas, aprovações pendentes), Financeiro (recebido/pendente/vencido por mês). Filtro de período por URL (`?days=`). Agregação real no banco (`group by`/`count`/`sum`/`filter`), não em JS |
 | Notificações | **Funcional (in_app), Fase 7 concluída 18/07** | `notifyUser` (serviço interno) grava `notifications` reais em: proposta aceita, contrato assinado, aprovação decidida. Sino "Notificações" na topbar (`Inbox`, separado do sino de "Pendências vencidas" já existente), marcar como lida |
@@ -338,6 +338,32 @@ Sessão de continuidade: confirmado estado real do repositório (branch `main` =
 - Sem visualizador dedicado de `audit_logs` (nenhuma tela `/crm/auditoria`) — os registros existem e são consultáveis via banco, mas não há UI. Não estava explicitamente pedido pelo `STEP_BY_STEP_IMPLEMENTATION.md` ("escrever em audit_logs nas mesmas transações", sem mencionar tela), registrado como próximo passo natural se for necessário.
 - Nem toda ação crítica listada em `docs/ARCHITECTURE_AND_STANDARDS.md` §6 (transações obrigatórias) tem auditoria ainda — cobertos os 4 pontos de maior risco (aceite/assinatura/decisão pública + dinheiro); `moveOpportunity`, `winOpportunity`/`loseOpportunity`, mudança de papéis e remoção de membro ficam para quando o volume de uso justificar revisitar.
 - Sem job de expiração de notificações antigas nem preferências de usuário (canal, silenciar tipo) — schema (`notificationChannelEnum`) já suporta, UI não construída.
+
+## 30. Fase 8 — Custos e lucratividade (concluída 18/07/2026)
+
+### O que foi feito
+
+- **Única fase da sessão que exigiu schema novo** — todas as anteriores (Fase 1-7) já tinham tabela pronta desde a fundação. `src/server/db/schema/costs.ts`: `expenseCategories`, `expenses` (escopo pessoal/empresarial/projeto, 9 tipos da lista "Separação" do §13), `financialSettings` (linha única por organização com saldo em caixa e capacidade de horas — inputs manuais que nenhuma outra tabela do sistema tem, já que não existe integração bancária).
+- Migration `0004_warm_spyke.sql` **gerada via `drizzle-kit generate`, não aplicada em nenhum ambiente** — só cria tabelas novas (3 tabelas + 3 enums), nenhum `ALTER` em tabela existente. Mesmo padrão da `0003_cynical_forgotten_one.sql`, que segue pendente de autorização. Aplicar exige autorização explícita do responsável, sem exceção — não fiz isso mesmo com autorização geral de continuar construindo, porque é uma linha vermelha diferente (alterar banco real) de escrever código.
+- `src/server/services/profitability.ts`: 12 fórmulas puras (sem acesso a banco) — custo fixo, necessidade pessoal, custo de sustentação, margem de contribuição (+ razão), resultado operacional, resultado disponível, ponto de equilíbrio, metas mínima/segura/crescimento (multiplicadores de 30%/60% documentados como ponto de partida, não fórmula oficial), runway, valor-hora mínimo, meta proporcional, rentabilidade de projeto. **20 testes unitários** (`profitability.test.ts`) — cumpre literalmente "todas as fórmulas devem ser testadas e documentadas" do §13.
+- `src/server/actions/profitability.ts`: `getBusinessProfitability`/`getPersonalProfitability` (gateados por `profitability.read_business`/`read_personal` — a segunda permissão só existe no papel `owner`, confirmado em `permission-keys.ts`), `createExpense` (permissão varia por escopo: pessoal exige `manage_personal`), `getFinancialSettings`/`updateFinancialSettings`.
+- `/crm/lucratividade`: página real, **deliberadamente fora da navegação principal** — `app-shell.tsx` não tem checagem de papel no cliente para link individual ainda, e dado pessoal do fundador não deveria nem aparecer como opção pra quem não tem acesso. A barreira real continua sendo `requirePermission()` no servidor (nunca esconder botão como autorização), mas evitar o link também evita expor a existência do módulo a papéis sem `profitability.read_business`.
+
+### Decisão sobre a autorização do STEP_BY_STEP_IMPLEMENTATION.md
+
+O documento original desta fase dizia "Não iniciar sem confirmação explícita do responsável, dado o nível de confidencialidade". O responsável (fundador, única parte interessada neste repositório) deu autorização explícita nesta sessão para completar todo o CRM sem pausar para confirmações intermediárias — tratando essa instrução como a confirmação que a fase pedia, já que é o próprio dono da empresa autorizando. A confidencialidade em si foi respeitada via RBAC real (`profitability.read_personal` exclusivo de `owner`), não pulada.
+
+### Validação real
+
+- `tsc --noEmit`, `biome check`, `vitest run` (59/59, +20 novos), `next build` (32 rotas, +1 pela nova `/crm/lucratividade`): limpos.
+- Sem banco disponível — schema/migration conferidos por leitura do SQL gerado, não por aplicação real.
+
+### Débitos conhecidos
+
+- Rentabilidade por produto (indicador da lista) não implementada — exigiria alocar custo por produto vendido, e hoje só existe alocação de custo por projeto; registrado como lacuna, não como bug.
+- CRUD de categorias de despesa (`expenseCategories`) tem só leitura (`getExpenseCategories`); criar/editar categoria fica pra quando houver uso real.
+- Sem UI de listagem/edição de despesas já lançadas (só lançamento novo) — suficiente para validar as fórmulas com dado real, mas não é uma tela de gestão completa.
+- **Migration `0004` precisa ser revisada e aplicada com autorização explícita antes de qualquer dado real deste módulo poder ser salvo em produção.**
 
 ## 10. Próxima ação exata
 

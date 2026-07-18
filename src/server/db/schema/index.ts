@@ -6,6 +6,7 @@ export * from "./companies";
 export * from "./consent";
 export * from "./contacts";
 export * from "./contracts";
+export * from "./costs";
 export * from "./enums";
 export * from "./files";
 export * from "./finance";

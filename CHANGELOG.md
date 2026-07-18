@@ -477,6 +477,21 @@ Depois de uma auditoria pedida pelo responsável ("me diz oq falta"), ficou clar
 
 ---
 
+## [2026-07-18] — Fase 8: Custos e lucratividade (schema novo, fórmulas testadas)
+
+### Adicionado
+
+- `src/server/db/schema/costs.ts`: `expenseCategories`/`expenses`/`financialSettings` — único schema novo desta sessão (todas as fases anteriores reusaram tabelas já existentes). Migration `0004_warm_spyke.sql` gerada, **não aplicada**.
+- `src/server/services/profitability.ts` + `profitability.test.ts`: 12 fórmulas puras, 20 testes unitários (custo fixo, margem, ponto de equilíbrio, metas, runway, valor-hora mínimo, etc.).
+- `src/server/actions/profitability.ts` + `/crm/lucratividade`: dados empresariais (`profitability.read_business`) e pessoais (`profitability.read_personal`, exclusivo do papel `owner`) separados por permissão real, não por UI.
+
+### Testes
+
+- `tsc --noEmit`, `biome check`, `vitest run` (59/59, 20 novos), `next build` (32 rotas): limpos.
+- Migration gerada e conferida por leitura do SQL, não aplicada em nenhum ambiente — precisa de autorização explícita antes de tocar produção.
+
+---
+
 Formato recomendado por alteração:
 
 ```text
