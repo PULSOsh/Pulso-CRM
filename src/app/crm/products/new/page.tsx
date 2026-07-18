@@ -2,6 +2,10 @@ import { ArrowLeft, Save } from "lucide-react";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { createProduct } from "@/server/actions/products";
 import { auth } from "@/server/auth";
 
@@ -54,13 +58,12 @@ export default async function NewProductPage() {
             <label htmlFor="name" className="text-sm font-medium text-slate-700">
               Nome do Produto
             </label>
-            <input
+            <Input
               type="text"
               id="name"
               name="name"
               required
               placeholder="Ex: Desenvolvimento de E-commerce"
-              className="w-full h-11 px-4 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
             />
           </div>
 
@@ -68,17 +71,13 @@ export default async function NewProductPage() {
             <label htmlFor="category" className="text-sm font-medium text-slate-700">
               Categoria
             </label>
-            <select
-              id="category"
-              name="category"
-              className="w-full h-11 px-4 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
-            >
+            <Select id="category" name="category">
               <option value="Entrada rápida">Entrada rápida</option>
               <option value="Sites">Sites</option>
               <option value="Tecnologia">Tecnologia</option>
               <option value="Manutenção">Manutenção</option>
               <option value="Consultoria">Consultoria</option>
-            </select>
+            </Select>
           </div>
         </div>
 
@@ -86,12 +85,11 @@ export default async function NewProductPage() {
           <label htmlFor="description" className="text-sm font-medium text-slate-700">
             Descrição Curta
           </label>
-          <input
+          <Input
             type="text"
             id="description"
             name="description"
             placeholder="Resumo que aparece no catálogo"
-            className="w-full h-11 px-4 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
           />
         </div>
 
@@ -100,14 +98,13 @@ export default async function NewProductPage() {
             <label htmlFor="basePrice" className="text-sm font-medium text-slate-700">
               Preço Base (R$)
             </label>
-            <input
+            <Input
               type="number"
               step="0.01"
               id="basePrice"
               name="basePrice"
               required
               placeholder="0.00"
-              className="w-full h-11 px-4 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
             />
           </div>
 
@@ -115,27 +112,22 @@ export default async function NewProductPage() {
             <label htmlFor="pricingUnit" className="text-sm font-medium text-slate-700">
               Unidade de Venda
             </label>
-            <select
-              id="pricingUnit"
-              name="pricingUnit"
-              className="w-full h-11 px-4 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
-            >
+            <Select id="pricingUnit" name="pricingUnit">
               <option value="project">Por Projeto (Fixo)</option>
               <option value="monthly">Mensalidade (Recorrente)</option>
               <option value="hour">Por Hora</option>
-            </select>
+            </Select>
           </div>
 
           <div className="space-y-2">
             <label htmlFor="averageDeliveryDays" className="text-sm font-medium text-slate-700">
               Prazo Médio (Dias)
             </label>
-            <input
+            <Input
               type="number"
               id="averageDeliveryDays"
               name="averageDeliveryDays"
               placeholder="Ex: 15"
-              className="w-full h-11 px-4 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
             />
           </div>
         </div>
@@ -147,12 +139,11 @@ export default async function NewProductPage() {
               Utilize formatação em texto para listar entregáveis, limites e exclusões.
             </span>
           </label>
-          <textarea
+          <Textarea
             id="scopeDefault"
             name="scopeDefault"
             rows={8}
             placeholder="- Criação de X páginas&#10;- Integração com Y&#10;- Não inclui: Hospedagem"
-            className="w-full p-4 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all resize-y"
           />
         </div>
 
@@ -163,13 +154,10 @@ export default async function NewProductPage() {
           >
             Cancelar
           </Link>
-          <button
-            type="submit"
-            className="flex items-center gap-2 px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium shadow-sm"
-          >
+          <Button type="submit">
             <Save size={20} />
             Salvar Produto
-          </button>
+          </Button>
         </div>
       </form>
     </div>

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Select } from "@/components/ui/select";
 import { toggleChecklistItem, updateProjectStage } from "@/server/actions/projects";
 
 type ChecklistItem = {
@@ -55,18 +56,18 @@ export function ProjectDetailsClient({ project, stages }: { project: Project; st
     <div className="p-4 md:p-8 max-w-3xl mx-auto w-full space-y-6">
       <div>
         <p className="text-sm font-medium text-slate-500 mb-1">Etapa do projeto</p>
-        <select
+        <Select
           value={project.stageId ?? ""}
           onChange={(e) => handleStageChange(e.target.value)}
           disabled={loading}
-          className="w-full sm:w-72 px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
+          className="w-full sm:w-72"
         >
           {stages.map((stage) => (
             <option key={stage.id} value={stage.id}>
               {stage.name}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl p-6">

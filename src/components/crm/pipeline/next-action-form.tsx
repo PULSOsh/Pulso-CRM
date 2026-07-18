@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { updateNextAction } from "@/server/actions/opportunities";
 
 function toLocalInputValue(iso: string | null): string {
@@ -49,38 +51,34 @@ export function NextActionForm({
           <label htmlFor="nextActionAt" className="text-sm font-medium text-slate-700">
             Data da próxima ação
           </label>
-          <input
+          <Input
             id="nextActionAt"
             type="datetime-local"
             value={at}
             onChange={(e) => setAt(e.target.value)}
-            className="w-full h-10 px-3 rounded-lg border border-slate-300 mt-1"
+            className="mt-1"
           />
         </div>
         <div>
           <label htmlFor="nextActionDescription" className="text-sm font-medium text-slate-700">
             O que fazer
           </label>
-          <input
+          <Input
             id="nextActionDescription"
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             maxLength={240}
             placeholder="Ex: Ligar pra confirmar orçamento"
-            className="w-full h-10 px-3 rounded-lg border border-slate-300 mt-1"
+            className="mt-1"
           />
         </div>
       </div>
       {error && <p className="text-red-600 text-sm">{error}</p>}
       {saved && !error && <p className="text-green-600 text-sm">Próxima ação salva.</p>}
-      <button
-        type="submit"
-        disabled={isPending}
-        className="bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
-      >
+      <Button type="submit" disabled={isPending} size="sm">
         {isPending ? "Salvando..." : "Salvar próxima ação"}
-      </button>
+      </Button>
     </form>
   );
 }

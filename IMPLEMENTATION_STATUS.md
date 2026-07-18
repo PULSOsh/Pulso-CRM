@@ -48,6 +48,38 @@ O `BETTER_AUTH_SECRET` foi ajustado via CLI (`docker service update --env-add`),
 
 ## 4. Estado dos módulos
 
+> Tabela original de 17/07, abaixo. Estado **real e atualizado** (auditoria de 18/07, depois da Fase 3 completa) está na tabela seguinte — use essa para decisões, a de baixo é só histórico.
+
+### 4.1 Estado real (auditoria de 18/07/2026, fonte de verdade atual)
+
+| Módulo | Estado real | Evidência / observação |
+|---|---|---|
+| Autenticação | **Funcional** | Better Auth, sessão real |
+| Workspace PULSO | **Funcional** | Uma organização, sem seletor, `requirePermission()` resolve tudo no servidor |
+| Usuários e papéis | **Funcional** | 6 papéis, catálogo de permissões batendo com `docs/ARCHITECTURE_AND_STANDARDS.md` §6. Falta UI de gestão de papéis/convite |
+| Contatos | **Funcional** | CRUD completo, editar/excluir/restaurar, vínculo com empresa. Formulário já padronizado com design system |
+| Empresas | **Funcional** | Idem contatos |
+| Funil e oportunidades (Kanban) | **Funcional** | Drag-and-drop com transação, próxima ação, ganho/perda, temperatura, responsável, tags de produto, contagens de atividade/tarefa, filtros e ordenação |
+| Atividades | **Funcional** | Linha do tempo automática (próxima ação, ganho/perda, mudança de etapa, tarefa) + nota manual |
+| Tarefas | **Funcional** | Criar, completar, ver vencidas, vínculo com oportunidade |
+| Briefings (interno + público) | **Funcional** | Inbox interna e formulário público (`/solicitar/[slug]`) funcionando |
+| Produtos | **Funcional** | CRUD completo, 15 produtos seedados preservados |
+| **Propostas** | **Parcial, com bug real conhecido** | `createQuote` já cria `publicToken` e o link fica acessível **antes** de qualquer etapa de publicação — contradiz `docs/MODULE_SPECIFICATIONS.md` §7, que exige "link público só existe depois de publicar". Não existe ação de publicar separada, nem página de detalhe interna (`/crm/quotes/[id]`), nem versionamento real (só 1 versão criada e nunca atualizada) |
+| Contratos | **Funcional** | Assinatura pública funciona de ponta a ponta (grava evidência, atualiza status, registra evento). Interface ainda fora do design system (Tailwind cru) |
+| Projetos | **Funcional** | CRUD real, conversão a partir de contrato assinado, etapas, checklist. UX tinha um beco sem saída (botão "Gerar Projeto" desabilitado sem explicação quando não há contrato assinado) — corrigido com uma dica visível |
+| Arquivos | **Ausente** | Schema pronto (`storedFiles`), zero código usando. Bloqueante: nenhuma UI de upload |
+| Aprovações | **Ausente como feature própria** | Schema e permissões existem (`approvals`, `approvals.read/create/decide`), zero código usando. Hoje "aprovação" só existe embutida no aceite de proposta/contrato |
+| Financeiro / Recebíveis | **Ausente** | Schema pronto (`receivables`, `installments`), zero código usando |
+| Custos e lucratividade | **Ausente** | Não iniciado, é o módulo confidencial restrito ao fundador |
+| Dashboard | **Mock total** | Métricas e data hardcoded, zero query real ao banco |
+| Relatórios | **Link morto** | Nem aparece renderizado no menu (item filtrado por ter `href="#"`) |
+| Notificações | **Ausente** | Schema pronto (`notifications`, `notificationChannelEnum`), zero código usando |
+| Auditoria genérica (`audit_logs`) | **Ausente como serviço** | Só existe registro pontual em contratos (`contractEvents`); a tabela genérica de auditoria nunca é escrita |
+| Configurações | **Link morto** | Mesma situação de Relatórios |
+| IA | **Fora da prioridade** | Deve permanecer desligada, conforme decisão de produto |
+
+### 4.2 Tabela original (17/07/2026, mantida como histórico)
+
 | Módulo | Estado conhecido | Observação |
 |---|---|---|
 | Autenticação | Funcional | Better Auth e sessão real |

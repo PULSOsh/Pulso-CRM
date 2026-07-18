@@ -2,6 +2,10 @@
 
 import { Loader2, Plus, Save, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import type { getProducts } from "@/server/actions/products";
 import type { getOpenOpportunities } from "@/server/actions/quotes";
 import { createQuote, type QuoteItemInput } from "@/server/actions/quotes";
@@ -90,12 +94,11 @@ export default function QuoteBuilderForm({
             <label htmlFor="opportunityId" className="text-sm font-medium text-slate-700">
               Oportunidade (Kanban)
             </label>
-            <select
+            <Select
               id="opportunityId"
               value={opportunityId}
               onChange={(e) => setOpportunityId(e.target.value)}
               required
-              className="w-full h-11 px-4 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
             >
               <option value="">Selecione uma Oportunidade...</option>
               {opportunities.map((opp) => (
@@ -103,19 +106,18 @@ export default function QuoteBuilderForm({
                   {opp.company?.tradeName || opp.contact?.firstName} - {opp.title || "Sem título"}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <div className="space-y-2">
             <label htmlFor="title" className="text-sm font-medium text-slate-700">
               Título da Proposta
             </label>
-            <input
+            <Input
               id="title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               required
-              className="w-full h-11 px-4 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
             />
           </div>
         </div>
@@ -126,12 +128,12 @@ export default function QuoteBuilderForm({
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-900">Itens do Orçamento</h2>
           <div className="flex items-center gap-2">
-            <select
+            <Select
               onChange={(e) => {
                 handleAddProduct(e.target.value);
                 e.target.value = ""; // reset
               }}
-              className="h-10 px-4 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm bg-white"
+              className="w-auto text-sm"
             >
               <option value="">+ Adicionar do Catálogo...</option>
               {products.map((p) => (
@@ -139,19 +141,20 @@ export default function QuoteBuilderForm({
                   {p.name} (R$ {Number(p.basePrice).toFixed(2)})
                 </option>
               ))}
-            </select>
-            <button
+            </Select>
+            <Button
               type="button"
+              variant="secondary"
+              size="sm"
               onClick={() =>
                 setItems([
                   ...items,
                   { description: "Item Personalizado", quantity: 1, unitPrice: 0, discount: 0 },
                 ])
               }
-              className="h-10 px-4 flex items-center gap-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors text-sm font-medium"
             >
               <Plus size={16} /> Item Manual
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -284,11 +287,11 @@ export default function QuoteBuilderForm({
           <p className="text-sm text-slate-500">
             Descreva o que está incluso no projeto. O texto padrão foi puxado do catálogo se houver.
           </p>
-          <textarea
+          <Textarea
             value={scope}
             onChange={(e) => setScope(e.target.value)}
             rows={10}
-            className="w-full p-4 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all resize-y font-mono text-sm"
+            className="font-mono text-sm"
             placeholder="- Entregável 1&#10;- Entregável 2"
           />
         </div>
@@ -302,32 +305,24 @@ export default function QuoteBuilderForm({
           <p className="text-sm text-slate-500">
             Condições de pagamento, prazos de validade da proposta, etc.
           </p>
-          <textarea
+          <Textarea
             value={terms}
             onChange={(e) => setTerms(e.target.value)}
             rows={6}
-            className="w-full p-4 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all resize-y text-sm"
+            className="text-sm"
             placeholder="A proposta tem validade de 15 dias..."
           />
         </div>
       </div>
 
       <div className="flex justify-end gap-4 pb-12">
-        <button
-          type="button"
-          onClick={() => window.history.back()}
-          className="px-6 py-3 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium"
-        >
+        <Button type="button" variant="outline" onClick={() => window.history.back()}>
           Cancelar
-        </button>
-        <button
-          type="submit"
-          disabled={isPending}
-          className="flex items-center gap-2 px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium shadow-sm disabled:opacity-70"
-        >
+        </Button>
+        <Button type="submit" disabled={isPending}>
           {isPending ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
           {isPending ? "Salvando..." : "Salvar Proposta (Rascunho)"}
-        </button>
+        </Button>
       </div>
     </form>
   );

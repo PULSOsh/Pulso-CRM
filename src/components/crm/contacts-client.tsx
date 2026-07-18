@@ -1,7 +1,21 @@
 "use client";
 
-import { Briefcase, Building2, Contact, Mail, Pencil, Phone, Plus, Search, Trash2 } from "lucide-react";
+import {
+  Briefcase,
+  Building2,
+  Contact,
+  Mail,
+  Pencil,
+  Phone,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
+import { Select } from "@/components/ui/select";
 import {
   createContact,
   deleteContact,
@@ -87,6 +101,11 @@ export function ContactsClient({
   function openEditModal(contact: ContactType) {
     setEditingContact(contact);
     setIsModalOpen(true);
+  }
+
+  function closeModal() {
+    setIsModalOpen(false);
+    setEditingContact(null);
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -175,26 +194,22 @@ export function ContactsClient({
           </h1>
           <p className="text-slate-500 mt-1">Gerencie pessoas e leads da sua carteira.</p>
         </div>
-        <button
-          type="button"
-          onClick={openCreateModal}
-          className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors w-full sm:w-auto justify-center"
-        >
+        <Button onClick={openCreateModal} className="w-full sm:w-auto">
           <Plus size={20} />
           Novo Contato
-        </button>
+        </Button>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
         <div className="p-4 border-b border-slate-100 bg-slate-50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="relative max-w-md w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input
+            <Input
               type="text"
               placeholder="Buscar por nome..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
+              className="pl-10"
             />
           </div>
           <button
@@ -313,22 +328,24 @@ export function ContactsClient({
                     </td>
                     <td className="p-4 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <button
-                          type="button"
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => openEditModal(contact)}
                           title="Editar"
-                          className="p-2 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-md transition-colors"
+                          className="text-slate-400 hover:text-orange-600 hover:bg-orange-50"
                         >
                           <Pencil size={16} />
-                        </button>
-                        <button
-                          type="button"
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => handleDelete(contact)}
                           title="Excluir"
-                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                          className="text-slate-400 hover:text-red-600 hover:bg-red-50"
                         >
                           <Trash2 size={16} />
-                        </button>
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -339,163 +356,114 @@ export function ContactsClient({
         </div>
       </div>
 
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-6 border-b border-slate-100">
-              <h2 className="text-xl font-bold text-slate-900">
-                {editingContact ? "Editar Contato" : "Novo Contato"}
-              </h2>
-              <p className="text-slate-500 text-sm mt-1">
-                {editingContact ? "Atualize os dados desta pessoa." : "Cadastre uma nova pessoa."}
-              </p>
+      <Modal
+        open={isModalOpen}
+        onClose={closeModal}
+        title={editingContact ? "Editar Contato" : "Novo Contato"}
+        description={
+          editingContact ? "Atualize os dados desta pessoa." : "Cadastre uma nova pessoa."
+        }
+      >
+        <form
+          id="contactForm"
+          key={editingContact?.id ?? "new"}
+          onSubmit={handleSubmit}
+          className="space-y-4"
+        >
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="contact-firstName" className="block text-sm font-medium mb-1">
+                Nome *
+              </label>
+              <Input
+                id="contact-firstName"
+                name="firstName"
+                required
+                defaultValue={editingContact?.firstName}
+              />
             </div>
-
-            <div className="p-6 overflow-y-auto">
-              <form
-                id="contactForm"
-                key={editingContact?.id ?? "new"}
-                onSubmit={handleSubmit}
-                className="space-y-4"
-              >
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label
-                      htmlFor="contact-firstName"
-                      className="block text-sm font-medium text-slate-700 mb-1"
-                    >
-                      Nome *
-                    </label>
-                    <input
-                      id="contact-firstName"
-                      name="firstName"
-                      required
-                      defaultValue={editingContact?.firstName}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="contact-lastName"
-                      className="block text-sm font-medium text-slate-700 mb-1"
-                    >
-                      Sobrenome
-                    </label>
-                    <input
-                      id="contact-lastName"
-                      name="lastName"
-                      defaultValue={editingContact?.lastName ?? undefined}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label
-                    htmlFor="contact-email"
-                    className="block text-sm font-medium text-slate-700 mb-1"
-                  >
-                    E-mail
-                  </label>
-                  <input
-                    id="contact-email"
-                    name="email"
-                    type="email"
-                    defaultValue={editingContact?.email ?? undefined}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label
-                      htmlFor="contact-whatsapp"
-                      className="block text-sm font-medium text-slate-700 mb-1"
-                    >
-                      WhatsApp
-                    </label>
-                    <input
-                      id="contact-whatsapp"
-                      name="whatsapp"
-                      defaultValue={editingContact?.whatsapp ?? undefined}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="contact-phone"
-                      className="block text-sm font-medium text-slate-700 mb-1"
-                    >
-                      Outro Telefone
-                    </label>
-                    <input
-                      id="contact-phone"
-                      name="phone"
-                      defaultValue={editingContact?.phone ?? undefined}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label
-                    htmlFor="contact-jobTitle"
-                    className="block text-sm font-medium text-slate-700 mb-1"
-                  >
-                    Cargo / Ocupação
-                  </label>
-                  <input
-                    id="contact-jobTitle"
-                    name="jobTitle"
-                    defaultValue={editingContact?.jobTitle ?? undefined}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="contact-companyId"
-                    className="block text-sm font-medium text-slate-700 mb-1"
-                  >
-                    Empresa vinculada
-                  </label>
-                  <select
-                    id="contact-companyId"
-                    name="companyId"
-                    defaultValue={editingContact?.companyId ?? ""}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
-                  >
-                    <option value="">-- Nenhuma --</option>
-                    {companies.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.tradeName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </form>
-            </div>
-
-            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsModalOpen(false);
-                  setEditingContact(null);
-                }}
-                className="px-4 py-2 text-slate-700 hover:bg-slate-200 rounded-md transition-colors"
-                disabled={loading}
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                form="contactForm"
-                disabled={loading}
-                className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors disabled:opacity-50 flex items-center justify-center min-w-[100px]"
-              >
-                {loading ? "Salvando..." : "Salvar"}
-              </button>
+            <div>
+              <label htmlFor="contact-lastName" className="block text-sm font-medium mb-1">
+                Sobrenome
+              </label>
+              <Input
+                id="contact-lastName"
+                name="lastName"
+                defaultValue={editingContact?.lastName ?? undefined}
+              />
             </div>
           </div>
-        </div>
-      )}
+          <div>
+            <label htmlFor="contact-email" className="block text-sm font-medium mb-1">
+              E-mail
+            </label>
+            <Input
+              id="contact-email"
+              name="email"
+              type="email"
+              defaultValue={editingContact?.email ?? undefined}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="contact-whatsapp" className="block text-sm font-medium mb-1">
+                WhatsApp
+              </label>
+              <Input
+                id="contact-whatsapp"
+                name="whatsapp"
+                defaultValue={editingContact?.whatsapp ?? undefined}
+              />
+            </div>
+            <div>
+              <label htmlFor="contact-phone" className="block text-sm font-medium mb-1">
+                Outro Telefone
+              </label>
+              <Input
+                id="contact-phone"
+                name="phone"
+                defaultValue={editingContact?.phone ?? undefined}
+              />
+            </div>
+          </div>
+          <div>
+            <label htmlFor="contact-jobTitle" className="block text-sm font-medium mb-1">
+              Cargo / Ocupação
+            </label>
+            <Input
+              id="contact-jobTitle"
+              name="jobTitle"
+              defaultValue={editingContact?.jobTitle ?? undefined}
+            />
+          </div>
+          <div>
+            <label htmlFor="contact-companyId" className="block text-sm font-medium mb-1">
+              Empresa vinculada
+            </label>
+            <Select
+              id="contact-companyId"
+              name="companyId"
+              defaultValue={editingContact?.companyId ?? ""}
+            >
+              <option value="">-- Nenhuma --</option>
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.tradeName}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          <div className="pt-2 flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={closeModal} disabled={loading}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={loading} className="min-w-[100px]">
+              {loading ? "Salvando..." : "Salvar"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

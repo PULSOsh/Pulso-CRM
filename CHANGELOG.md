@@ -292,6 +292,40 @@ Antes de construir, perguntei ao responsável sobre 4 pontos ambíguos do mockup
 
 ---
 
+## [2026-07-18] — Correção do crash do Kanban (relação Drizzle ambígua) + padronização de formulários + documentação de continuidade
+
+### Corrigido
+
+- **Crash de produção no Kanban**: `opportunitiesRelations` ganhou `activities: many(activities)` no redesenho anterior, mas `activitiesRelations` nunca declarou a relação inversa (`opportunity: one(opportunities, ...)`). Como `activities` tem três FKs possíveis (oportunidade/empresa/contato), o Drizzle não conseguia inferir sozinho e todo carregamento de `/crm/pipeline` quebrava com "There is not enough information to infer relation opportunities.activities". Diagnosticado via logs reais do container Docker em produção (não foi suposição). Corrigido replicando o padrão já usado em `tasksRelations.opportunity`.
+- **Beco sem saída em Projetos**: botão "Gerar Projeto" ficava desabilitado sem explicação quando não havia contrato assinado sem projeto (situação real da produção hoje, com 0 contratos assinados). Adicionada dica visível com link pra Contratos.
+- Removido `src/components/briefings/public-briefing-form.tsx` — mock órfão nunca importado em lugar nenhum, não fazia parte do fluxo real de briefing (que usa `BriefingWizard` + `QuestionRenderer`).
+
+### Padronização de formulários
+
+Auditoria encontrou 17 arquivos usando `<input>`/`<select>`/`<button>` cru com Tailwind ad-hoc em vez dos componentes reais de `src/components/ui/` (`Button`, `Input`, `Select`, `Textarea`, `Modal`) — causa raiz de formulários inconsistentes entre telas. Migrados: `contacts-client.tsx`, `companies-client.tsx`, `tasks-client.tsx`, `next-action-form.tsx`, `activity-timeline.tsx`, `kanban-board.tsx` (modal de nova oportunidade + filtros), `project-details-client.tsx`, `projects-client.tsx`, `products/new/page.tsx`, `products/[id]/page.tsx`, `quote-builder-form.tsx`, `question-editor.tsx` (builder de briefing), `question-renderer.tsx` (formulário público de briefing, o único componente de pergunta que é realmente usado).
+
+Deliberadamente **não** migrados: tela de login (`login/page.tsx`) e os modais de assinatura de contrato/aprovação de proposta (`sign-modal.tsx`, `approve-modal.tsx`) — usam uma paleta escura intencional que já bate com o fundo escuro das páginas públicas de proposta/contrato (`docs/DESIGN_SYSTEM.md` §9); os componentes do design system hoje só têm variante clara, então migrá-los quebraria visualmente essas telas.
+
+### Documentação
+
+Depois de uma auditoria pedida pelo responsável ("me diz oq falta"), ficou claro que `docs/MODULE_SPECIFICATIONS.md` e `docs/ARCHITECTURE_AND_STANDARDS.md` já eram completos e corretos — o problema real era a implementação nunca ter seguido até o fim (Propostas, Financeiro, Arquivos, Aprovações, Relatórios, Notificações e Auditoria genérica existem só como schema, sem código usando). Em vez de reescrever os documentos do zero (que o responsável chegou a pedir, mas reconsiderou depois dessa descoberta), foram adicionados:
+
+- `PROMPT_MESTRE.md` — brief consolidado de kickoff pra qualquer sessão futura.
+- `STEP_BY_STEP_IMPLEMENTATION.md` — ordem de construção do que falta (Arquivos → Propostas corrigida → Aprovações → Financeiro → Dashboard real → Relatórios → Notificações/Auditoria → Custos), com justificativa de dependência entre módulos.
+- `docs/ARCHITECTURE_AND_STANDARDS.md` §11 — armadilhas técnicas reais descobertas nesta sessão (Next 16 async params, relations bidirecionais do Drizzle, CSS cascade layers, técnica de diagnóstico via SSH).
+- `docs/DESIGN_SYSTEM.md` §6 — status real dos componentes (já funcionam, o problema era não serem usados) e a regra de nunca usar HTML de formulário cru.
+- `IMPLEMENTATION_STATUS.md` §4.1 — raio-x atualizado de estado real por módulo, substituindo a tabela desatualizada de 17/07.
+
+### Testes
+
+- `tsc --noEmit`, `biome check` (arquivos alterados), `vitest run` (31/31), `next build`: todos limpos.
+
+### Débitos conhecidos
+
+- Nenhum novo. Os débitos de Propostas/Financeiro/Arquivos/Aprovações/Relatórios/Notificações/Auditoria já estavam registrados e agora têm ordem de execução em `STEP_BY_STEP_IMPLEMENTATION.md`.
+
+---
+
 Formato recomendado por alteração:
 
 ```text

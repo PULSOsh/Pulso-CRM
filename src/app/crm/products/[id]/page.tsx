@@ -2,6 +2,10 @@ import { ArrowLeft, Save } from "lucide-react";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { getProductById, updateProduct } from "@/server/actions/products";
 import { auth } from "@/server/auth";
 
@@ -61,32 +65,20 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
             <label htmlFor="name" className="text-sm font-medium text-slate-700">
               Nome do Produto
             </label>
-            <input
-              type="text"
-              id="name"
-              name="name"
-              defaultValue={product.name}
-              required
-              className="w-full h-11 px-4 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
-            />
+            <Input type="text" id="name" name="name" defaultValue={product.name} required />
           </div>
 
           <div className="space-y-2">
             <label htmlFor="category" className="text-sm font-medium text-slate-700">
               Categoria
             </label>
-            <select
-              id="category"
-              name="category"
-              defaultValue={product.category || ""}
-              className="w-full h-11 px-4 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
-            >
+            <Select id="category" name="category" defaultValue={product.category || ""}>
               <option value="Entrada rápida">Entrada rápida</option>
               <option value="Sites">Sites</option>
               <option value="Tecnologia">Tecnologia</option>
               <option value="Manutenção">Manutenção</option>
               <option value="Consultoria">Consultoria</option>
-            </select>
+            </Select>
           </div>
         </div>
 
@@ -94,12 +86,11 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
           <label htmlFor="description" className="text-sm font-medium text-slate-700">
             Descrição Curta
           </label>
-          <input
+          <Input
             type="text"
             id="description"
             name="description"
             defaultValue={product.description || ""}
-            className="w-full h-11 px-4 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
           />
         </div>
 
@@ -108,14 +99,13 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
             <label htmlFor="basePrice" className="text-sm font-medium text-slate-700">
               Preço Base (R$)
             </label>
-            <input
+            <Input
               type="number"
               step="0.01"
               id="basePrice"
               name="basePrice"
               defaultValue={product.basePrice}
               required
-              className="w-full h-11 px-4 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
             />
           </div>
 
@@ -123,28 +113,22 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
             <label htmlFor="pricingUnit" className="text-sm font-medium text-slate-700">
               Unidade de Venda
             </label>
-            <select
-              id="pricingUnit"
-              name="pricingUnit"
-              defaultValue={product.pricingUnit}
-              className="w-full h-11 px-4 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
-            >
+            <Select id="pricingUnit" name="pricingUnit" defaultValue={product.pricingUnit}>
               <option value="project">Por Projeto (Fixo)</option>
               <option value="monthly">Mensalidade (Recorrente)</option>
               <option value="hour">Por Hora</option>
-            </select>
+            </Select>
           </div>
 
           <div className="space-y-2">
             <label htmlFor="averageDeliveryDays" className="text-sm font-medium text-slate-700">
               Prazo Médio (Dias)
             </label>
-            <input
+            <Input
               type="number"
               id="averageDeliveryDays"
               name="averageDeliveryDays"
               defaultValue={product.averageDeliveryDays || ""}
-              className="w-full h-11 px-4 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
             />
           </div>
         </div>
@@ -156,12 +140,11 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
               Utilize formatação em texto para listar entregáveis, limites e exclusões.
             </span>
           </label>
-          <textarea
+          <Textarea
             id="scopeDefault"
             name="scopeDefault"
             rows={8}
             defaultValue={product.scopeDefault || ""}
-            className="w-full p-4 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all resize-y"
           />
         </div>
 
@@ -172,13 +155,10 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
           >
             Cancelar
           </Link>
-          <button
-            type="submit"
-            className="flex items-center gap-2 px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium shadow-sm"
-          >
+          <Button type="submit">
             <Save size={20} />
             Salvar Alterações
-          </button>
+          </Button>
         </div>
       </form>
     </div>

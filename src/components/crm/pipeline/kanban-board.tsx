@@ -13,8 +13,12 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { Plus, X } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
+import { Select } from "@/components/ui/select";
 import { createOpportunity, moveOpportunity } from "@/server/actions/pipeline";
 import { KanbanCard, type OpportunityCardType } from "./kanban-card";
 import { KanbanColumn, type PipelineStageColumnType } from "./kanban-column";
@@ -342,20 +346,20 @@ export function KanbanBoard({
 
       <div className="flex justify-between items-center mb-4 gap-3 flex-wrap">
         <div className="flex items-center gap-2">
-          <select
+          <Select
             value={temperatureFilter}
             onChange={(e) => setTemperatureFilter(e.target.value)}
-            className="text-sm px-3 py-2 border border-slate-300 rounded-md bg-white text-slate-700"
+            className="w-auto text-sm"
           >
             <option value="all">Todas temperaturas</option>
             <option value="hot">Quente</option>
             <option value="warm">Morna</option>
             <option value="cold">Fria</option>
-          </select>
-          <select
+          </Select>
+          <Select
             value={ownerFilter}
             onChange={(e) => setOwnerFilter(e.target.value)}
-            className="text-sm px-3 py-2 border border-slate-300 rounded-md bg-white text-slate-700"
+            className="w-auto text-sm"
           >
             <option value="all">Todos responsáveis</option>
             {owners.map((name) => (
@@ -363,26 +367,22 @@ export function KanbanBoard({
                 {name}
               </option>
             ))}
-          </select>
-          <select
+          </Select>
+          <Select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortOption)}
-            className="text-sm px-3 py-2 border border-slate-300 rounded-md bg-white text-slate-700"
+            className="w-auto text-sm"
           >
             <option value="position">Ordem do funil</option>
             <option value="value_desc">Maior valor</option>
             <option value="next_action">Próxima ação</option>
-          </select>
+          </Select>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors shadow-sm"
-        >
+        <Button onClick={() => setIsModalOpen(true)}>
           <Plus size={20} />
           Nova Oportunidade
-        </button>
+        </Button>
       </div>
 
       <div className="flex gap-6 overflow-x-auto pb-8 h-[calc(100vh-300px)]">
@@ -395,163 +395,105 @@ export function KanbanBoard({
 
       <DragOverlay>{activeCard ? <KanbanCard opportunity={activeCard} /> : null}</DragOverlay>
 
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900">Nova Oportunidade</h2>
-                <p className="text-slate-500 text-sm mt-1">Adicione um novo negócio ao funil.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            <div className="p-6 overflow-y-auto">
-              <form id="oppForm" onSubmit={handleCreateOpportunity} className="space-y-4">
-                <div>
-                  <label
-                    htmlFor="opp-title"
-                    className="block text-sm font-medium text-slate-700 mb-1"
-                  >
-                    Título do Negócio *
-                  </label>
-                  <input
-                    id="opp-title"
-                    name="title"
-                    required
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
-                    placeholder="Ex: Consultoria - Empresa XYZ"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="opp-companyId"
-                    className="block text-sm font-medium text-slate-700 mb-1"
-                  >
-                    Empresa
-                  </label>
-                  <select
-                    id="opp-companyId"
-                    name="companyId"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:border-orange-500 outline-none"
-                  >
-                    <option value="">-- Selecione uma empresa --</option>
-                    {companies.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="opp-contactId"
-                    className="block text-sm font-medium text-slate-700 mb-1"
-                  >
-                    Contato Principal
-                  </label>
-                  <select
-                    id="opp-contactId"
-                    name="contactId"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:border-orange-500 outline-none"
-                  >
-                    <option value="">-- Selecione um contato --</option>
-                    {contacts.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="opp-stageId"
-                    className="block text-sm font-medium text-slate-700 mb-1"
-                  >
-                    Etapa Inicial *
-                  </label>
-                  <select
-                    id="opp-stageId"
-                    name="stageId"
-                    required
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:border-orange-500 outline-none"
-                  >
-                    {stages.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="opp-estimatedValue"
-                    className="block text-sm font-medium text-slate-700 mb-1"
-                  >
-                    Valor Estimado (R$)
-                  </label>
-                  <input
-                    id="opp-estimatedValue"
-                    name="estimatedValue"
-                    type="number"
-                    step="0.01"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
-                    placeholder="0.00"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="opp-temperature"
-                    className="block text-sm font-medium text-slate-700 mb-1"
-                  >
-                    Temperatura
-                  </label>
-                  <select
-                    id="opp-temperature"
-                    name="temperature"
-                    defaultValue="warm"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:border-orange-500 outline-none"
-                  >
-                    <option value="hot">Quente</option>
-                    <option value="warm">Morno</option>
-                    <option value="cold">Frio</option>
-                  </select>
-                </div>
-              </form>
-            </div>
-
-            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 shrink-0">
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 text-slate-700 hover:bg-slate-200 rounded-md transition-colors"
-                disabled={loading}
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                form="oppForm"
-                disabled={loading}
-                className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors disabled:opacity-50 flex items-center justify-center min-w-[100px]"
-              >
-                {loading ? "Salvando..." : "Salvar"}
-              </button>
-            </div>
+      <Modal
+        open={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Nova Oportunidade"
+        description="Adicione um novo negócio ao funil."
+      >
+        <form id="oppForm" onSubmit={handleCreateOpportunity} className="space-y-4">
+          <div>
+            <label htmlFor="opp-title" className="block text-sm font-medium mb-1">
+              Título do Negócio *
+            </label>
+            <Input
+              id="opp-title"
+              name="title"
+              required
+              placeholder="Ex: Consultoria - Empresa XYZ"
+            />
           </div>
-        </div>
-      )}
+
+          <div>
+            <label htmlFor="opp-companyId" className="block text-sm font-medium mb-1">
+              Empresa
+            </label>
+            <Select id="opp-companyId" name="companyId">
+              <option value="">-- Selecione uma empresa --</option>
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          <div>
+            <label htmlFor="opp-contactId" className="block text-sm font-medium mb-1">
+              Contato Principal
+            </label>
+            <Select id="opp-contactId" name="contactId">
+              <option value="">-- Selecione um contato --</option>
+              {contacts.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          <div>
+            <label htmlFor="opp-stageId" className="block text-sm font-medium mb-1">
+              Etapa Inicial *
+            </label>
+            <Select id="opp-stageId" name="stageId" required>
+              {stages.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          <div>
+            <label htmlFor="opp-estimatedValue" className="block text-sm font-medium mb-1">
+              Valor Estimado (R$)
+            </label>
+            <Input
+              id="opp-estimatedValue"
+              name="estimatedValue"
+              type="number"
+              step="0.01"
+              placeholder="0.00"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="opp-temperature" className="block text-sm font-medium mb-1">
+              Temperatura
+            </label>
+            <Select id="opp-temperature" name="temperature" defaultValue="warm">
+              <option value="hot">Quente</option>
+              <option value="warm">Morno</option>
+              <option value="cold">Frio</option>
+            </Select>
+          </div>
+
+          <div className="pt-2 flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsModalOpen(false)}
+              disabled={loading}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={loading} className="min-w-[100px]">
+              {loading ? "Salvando..." : "Salvar"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </DndContext>
   );
 }

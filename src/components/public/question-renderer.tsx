@@ -1,5 +1,8 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+
 export type QuestionDef = {
   id: string;
   type: string;
@@ -20,13 +23,13 @@ export function QuestionRenderer({
 }) {
   const commonProps = {
     required: question.isRequired,
-    className: "w-full p-3 border border-slate-300 rounded-md mt-2",
+    className: "mt-2",
   };
 
   switch (question.type) {
     case "textarea":
       return (
-        <textarea
+        <Textarea
           {...commonProps}
           rows={4}
           placeholder={question.placeholder}
@@ -88,7 +91,7 @@ export function QuestionRenderer({
     }
     case "file":
       return (
-        <input
+        <Input
           type="file"
           {...commonProps}
           onChange={(e) => {
@@ -100,7 +103,7 @@ export function QuestionRenderer({
       );
     default:
       return (
-        <input
+        <Input
           type={question.type === "email" ? "email" : "text"}
           {...commonProps}
           placeholder={question.placeholder}

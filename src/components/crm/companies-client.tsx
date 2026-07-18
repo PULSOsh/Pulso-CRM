@@ -2,6 +2,9 @@
 
 import { Building2, Globe, MapPin, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
 import {
   createCompany,
   deleteCompany,
@@ -146,26 +149,22 @@ export function CompaniesClient({ initialCompanies }: { initialCompanies: Compan
           </h1>
           <p className="text-slate-500 mt-1">Gerencie as empresas e clientes da sua carteira.</p>
         </div>
-        <button
-          type="button"
-          onClick={openCreateModal}
-          className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors w-full sm:w-auto justify-center"
-        >
+        <Button onClick={openCreateModal} className="w-full sm:w-auto">
           <Plus size={20} />
           Nova Empresa
-        </button>
+        </Button>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
         <div className="p-4 border-b border-slate-100 bg-slate-50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="relative max-w-md w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input
+            <Input
               type="text"
               placeholder="Buscar por nome fantasia..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
+              className="pl-10"
             />
           </div>
           <button
@@ -267,22 +266,24 @@ export function CompaniesClient({ initialCompanies }: { initialCompanies: Compan
                     </td>
                     <td className="p-4 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <button
-                          type="button"
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => openEditModal(company)}
                           title="Editar"
-                          className="p-2 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-md transition-colors"
+                          className="text-slate-400 hover:text-orange-600 hover:bg-orange-50"
                         >
                           <Pencil size={16} />
-                        </button>
-                        <button
-                          type="button"
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => handleDelete(company)}
                           title="Excluir"
-                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                          className="text-slate-400 hover:text-red-600 hover:bg-red-50"
                         >
                           <Trash2 size={16} />
-                        </button>
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -293,133 +294,103 @@ export function CompaniesClient({ initialCompanies }: { initialCompanies: Compan
         </div>
       </div>
 
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-6 border-b border-slate-100">
-              <h2 className="text-xl font-bold text-slate-900">
-                {editingCompany ? "Editar Empresa" : "Nova Empresa"}
-              </h2>
-              <p className="text-slate-500 text-sm mt-1">
-                {editingCompany
-                  ? "Atualize os dados desta organização."
-                  : "Preencha os dados da organização parceira."}
-              </p>
+      <Modal
+        open={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingCompany(null);
+        }}
+        title={editingCompany ? "Editar Empresa" : "Nova Empresa"}
+        description={
+          editingCompany
+            ? "Atualize os dados desta organização."
+            : "Preencha os dados da organização parceira."
+        }
+      >
+        <form
+          id="companyForm"
+          key={editingCompany?.id ?? "new"}
+          onSubmit={handleSubmit}
+          className="space-y-4"
+        >
+          <div>
+            <label htmlFor="company-tradeName" className="block text-sm font-medium mb-1">
+              Nome Fantasia *
+            </label>
+            <Input
+              id="company-tradeName"
+              name="tradeName"
+              required
+              defaultValue={editingCompany?.tradeName}
+              placeholder="Ex: Pulso Cloud"
+            />
+          </div>
+          <div>
+            <label htmlFor="company-documentNumber" className="block text-sm font-medium mb-1">
+              CNPJ / CPF
+            </label>
+            <Input
+              id="company-documentNumber"
+              name="documentNumber"
+              defaultValue={editingCompany?.documentNumber ?? undefined}
+              placeholder="Apenas números"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="company-email" className="block text-sm font-medium mb-1">
+                E-mail
+              </label>
+              <Input
+                id="company-email"
+                name="email"
+                type="email"
+                defaultValue={editingCompany?.email ?? undefined}
+                placeholder="contato@..."
+              />
             </div>
-
-            <div className="p-6 overflow-y-auto">
-              <form
-                id="companyForm"
-                key={editingCompany?.id ?? "new"}
-                onSubmit={handleSubmit}
-                className="space-y-4"
-              >
-                <div>
-                  <label
-                    htmlFor="company-tradeName"
-                    className="block text-sm font-medium text-slate-700 mb-1"
-                  >
-                    Nome Fantasia *
-                  </label>
-                  <input
-                    id="company-tradeName"
-                    name="tradeName"
-                    required
-                    defaultValue={editingCompany?.tradeName}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
-                    placeholder="Ex: Pulso Cloud"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="company-documentNumber"
-                    className="block text-sm font-medium text-slate-700 mb-1"
-                  >
-                    CNPJ / CPF
-                  </label>
-                  <input
-                    id="company-documentNumber"
-                    name="documentNumber"
-                    defaultValue={editingCompany?.documentNumber ?? undefined}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
-                    placeholder="Apenas números"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label
-                      htmlFor="company-email"
-                      className="block text-sm font-medium text-slate-700 mb-1"
-                    >
-                      E-mail
-                    </label>
-                    <input
-                      id="company-email"
-                      name="email"
-                      type="email"
-                      defaultValue={editingCompany?.email ?? undefined}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
-                      placeholder="contato@..."
-                    />
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="company-phone"
-                      className="block text-sm font-medium text-slate-700 mb-1"
-                    >
-                      Telefone
-                    </label>
-                    <input
-                      id="company-phone"
-                      name="phone"
-                      defaultValue={editingCompany?.phone ?? undefined}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
-                      placeholder="(11) 90000-0000"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label
-                    htmlFor="company-website"
-                    className="block text-sm font-medium text-slate-700 mb-1"
-                  >
-                    Website
-                  </label>
-                  <input
-                    id="company-website"
-                    name="website"
-                    defaultValue={editingCompany?.website ?? undefined}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
-                    placeholder="https://..."
-                  />
-                </div>
-              </form>
-            </div>
-
-            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsModalOpen(false);
-                  setEditingCompany(null);
-                }}
-                className="px-4 py-2 text-slate-700 hover:bg-slate-200 rounded-md transition-colors"
-                disabled={loading}
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                form="companyForm"
-                disabled={loading}
-                className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors disabled:opacity-50 flex items-center justify-center min-w-[100px]"
-              >
-                {loading ? "Salvando..." : "Salvar"}
-              </button>
+            <div>
+              <label htmlFor="company-phone" className="block text-sm font-medium mb-1">
+                Telefone
+              </label>
+              <Input
+                id="company-phone"
+                name="phone"
+                defaultValue={editingCompany?.phone ?? undefined}
+                placeholder="(11) 90000-0000"
+              />
             </div>
           </div>
-        </div>
-      )}
+          <div>
+            <label htmlFor="company-website" className="block text-sm font-medium mb-1">
+              Website
+            </label>
+            <Input
+              id="company-website"
+              name="website"
+              defaultValue={editingCompany?.website ?? undefined}
+              placeholder="https://..."
+            />
+          </div>
+
+          <div className="pt-2 flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsModalOpen(false);
+                setEditingCompany(null);
+              }}
+              disabled={loading}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={loading} className="min-w-[100px]">
+              {loading ? "Salvando..." : "Salvar"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

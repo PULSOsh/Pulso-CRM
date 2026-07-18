@@ -5,6 +5,8 @@ import { ptBR } from "date-fns/locale";
 import { CheckSquare, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { completeTask, createTask } from "@/server/actions/tasks";
 
 type TaskItem = {
@@ -73,27 +75,23 @@ export function TasksClient({
       </div>
 
       <form onSubmit={handleCreate} className="flex gap-2 mb-6">
-        <input
+        <Input
           type="text"
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
           placeholder="Nova tarefa..."
           required
-          className="flex-1 h-10 px-3 rounded-lg border border-slate-300"
+          className="flex-1"
         />
-        <input
+        <Input
           type="datetime-local"
           value={newDueAt}
           onChange={(e) => setNewDueAt(e.target.value)}
-          className="h-10 px-3 rounded-lg border border-slate-300"
+          className="w-auto"
         />
-        <button
-          type="submit"
-          disabled={isPending}
-          className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors disabled:opacity-50"
-        >
+        <Button type="submit" disabled={isPending}>
           <Plus size={18} /> Adicionar
-        </button>
+        </Button>
       </form>
 
       {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
@@ -134,14 +132,15 @@ export function TasksClient({
                     : "Sem prazo"}
                 </p>
               </div>
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => handleComplete(task.id)}
                 disabled={isPending}
-                className="text-sm font-medium text-green-700 hover:bg-green-50 px-3 py-1.5 rounded-md disabled:opacity-50"
+                className="text-green-700 hover:bg-green-50"
               >
                 Concluir
-              </button>
+              </Button>
             </div>
           ))
         )}

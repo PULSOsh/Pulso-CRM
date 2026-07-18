@@ -1,6 +1,9 @@
 "use client";
 
 import { Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 
 type QuestionProps = {
   id: string;
@@ -16,50 +19,30 @@ type QuestionProps = {
 
 export function QuestionEditor({ id, title, type, isRequired, onUpdate, onDelete }: QuestionProps) {
   return (
-    <div
-      className="card"
-      style={{ padding: "16px", marginBottom: "12px", border: "1px solid #e2e8f0" }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "12px",
-        }}
-      >
-        <input
+    <div className="p-4 mb-3 border border-slate-200 rounded-lg bg-white">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <Input
           type="text"
           value={title}
           onChange={(e) => onUpdate(id, { title: e.target.value })}
-          style={{
-            width: "100%",
-            padding: "8px",
-            border: "1px solid #cbd5e1",
-            borderRadius: "4px",
-          }}
           placeholder="Título da pergunta..."
         />
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon"
           onClick={() => onDelete(id)}
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            color: "#ef4444",
-            marginLeft: "12px",
-          }}
+          className="text-red-500 hover:bg-red-50 shrink-0"
         >
           <Trash2 size={20} />
-        </button>
+        </Button>
       </div>
 
-      <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
-        <select
+      <div className="flex items-center gap-4">
+        <Select
           value={type}
           onChange={(e) => onUpdate(id, { type: e.target.value })}
-          style={{ padding: "8px", borderRadius: "4px", border: "1px solid #cbd5e1" }}
+          className="w-auto"
         >
           <option value="text">Texto Curto</option>
           <option value="textarea">Texto Longo</option>
@@ -69,9 +52,9 @@ export function QuestionEditor({ id, title, type, isRequired, onUpdate, onDelete
           <option value="radio">Escolha Única (Radio)</option>
           <option value="checkbox">Múltipla Escolha</option>
           <option value="file">Upload de Arquivo</option>
-        </select>
+        </Select>
 
-        <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <label className="flex items-center gap-2 text-sm text-slate-700">
           <input
             type="checkbox"
             checked={isRequired}

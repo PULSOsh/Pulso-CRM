@@ -79,15 +79,25 @@ export function ProjectsClient({
           </h1>
           <p className="text-slate-500 mt-1">Acompanhe a execução dos contratos assinados.</p>
         </div>
-        <button
-          type="button"
-          onClick={() => setIsModalOpen(true)}
-          disabled={availableContracts.length === 0}
-          className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors w-full sm:w-auto justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Plus size={20} />
-          Gerar Projeto
-        </button>
+        <div className="flex flex-col items-end gap-1 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => setIsModalOpen(true)}
+            disabled={availableContracts.length === 0}
+            className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors w-full sm:w-auto justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Plus size={20} />
+            Gerar Projeto
+          </button>
+          {availableContracts.length === 0 && (
+            <p className="text-xs text-slate-500 text-right">
+              Nenhum contrato assinado sem projeto.{" "}
+              <Link href="/crm/contratos" className="text-orange-600 hover:underline">
+                Ver contratos
+              </Link>
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">

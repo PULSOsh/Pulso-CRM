@@ -4,6 +4,8 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { addNote } from "@/server/actions/activities";
 
 type ActivityItem = {
@@ -51,21 +53,17 @@ export function ActivityTimeline({
   return (
     <div className="space-y-4">
       <form onSubmit={handleSubmit} className="flex gap-2">
-        <input
+        <Input
           type="text"
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="Adicionar nota..."
           required
-          className="flex-1 h-10 px-3 rounded-lg border border-slate-300 text-sm"
+          className="flex-1"
         />
-        <button
-          type="submit"
-          disabled={isPending}
-          className="px-4 py-2 bg-slate-800 text-white rounded-md text-sm font-medium disabled:opacity-50"
-        >
+        <Button type="submit" disabled={isPending} variant="secondary" size="sm">
           Adicionar
-        </button>
+        </Button>
       </form>
       {error && <p className="text-red-600 text-sm">{error}</p>}
 
