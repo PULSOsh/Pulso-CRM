@@ -458,6 +458,25 @@ Depois de uma auditoria pedida pelo responsável ("me diz oq falta"), ficou clar
 
 ---
 
+## [2026-07-18] — Fase 7: Notificações (in_app) e Auditoria genérica
+
+### Adicionado
+
+- `src/server/services/notify.ts`/`audit-log.ts`: helpers internos (mesmo padrão de `logActivity`), gravam `notifications`/`audit_logs` reais.
+- `src/server/actions/notifications.ts`: listar, contar não lidas, marcar lida(s).
+- Wired em: aceite de proposta, assinatura de contrato, decisão de aprovação, baixa/estorno de parcela.
+- Sino "Notificações" novo na topbar, separado do sino de pendências vencidas já existente.
+
+### Corrigido
+
+- `signContractPublic` não estava em transação (mesmo gap que `approveProposal` tinha antes da Fase 2) — corrigido de passagem.
+
+### Testes
+
+- `tsc --noEmit`, `biome check`, `vitest run` (39/39), `next build` (31 rotas): limpos.
+
+---
+
 Formato recomendado por alteração:
 
 ```text

@@ -10,6 +10,7 @@ import {
   Contact,
   FileSignature,
   FileText,
+  Inbox,
   KanbanSquare,
   LayoutDashboard,
   LogOut,
@@ -26,6 +27,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import { getNavBadgeCounts, getOverdueAlerts } from "@/server/actions/nav";
+import { getMyNotifications, markNotificationRead } from "@/server/actions/notifications";
 
 const primary = [
   { href: "/dashboard", label: "Visão geral", key: "dashboard", icon: LayoutDashboard },
@@ -66,6 +68,8 @@ type OverdueAlerts = {
   total: number;
 };
 
+type Notifications = Awaited<ReturnType<typeof getMyNotifications>>;
+
 type ActiveKey =
   | "dashboard"
   | "crm"
@@ -93,6 +97,8 @@ export function AppShell({ active, eyebrow, title, children }: AppShellProps) {
   const [badgeCounts, setBadgeCounts] = useState<NavBadgeCounts | null>(null);
   const [overdueAlerts, setOverdueAlerts] = useState<OverdueAlerts | null>(null);
   const [isAlertsOpen, setIsAlertsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<Notifications | null>(null);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
   useEffect(() => {
     if (!session) return;
@@ -102,7 +108,21 @@ export function AppShell({ active, eyebrow, title, children }: AppShellProps) {
     getOverdueAlerts()
       .then(setOverdueAlerts)
       .catch(() => setOverdueAlerts(null));
+    getMyNotifications()
+      .then(setNotifications)
+      .catch(() => setNotifications(null));
   }, [session]);
+
+  const unreadNotifications = notifications?.filter((n) => !n.readAt) ?? [];
+
+  async function handleOpenNotification(id: string) {
+    setNotifications(
+      (prev) =>
+        prev?.map((n) => (n.id === id ? { ...n, readAt: n.readAt ?? new Date() } : n)) ?? null,
+    );
+    setIsNotificationsOpen(false);
+    await markNotificationRead(id);
+  }
 
   const handleLogout = async () => {
     await authClient.signOut();
@@ -271,6 +291,56 @@ export function AppShell({ active, eyebrow, title, children }: AppShellProps) {
                       >
                         <AlertTriangle size={14} className="text-red-500 mt-0.5 shrink-0" />
                         <span className="text-slate-800">{task.title}</span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative text-slate-500 hover:bg-slate-100"
+                onClick={() => setIsNotificationsOpen((v) => !v)}
+                title="Notificações"
+              >
+                <Inbox size={20} />
+                {!!unreadNotifications.length && (
+                  <span className="absolute -top-1 -right-1 bg-orange-600 text-white text-[10px] font-semibold w-4 h-4 rounded-full flex items-center justify-center">
+                    {unreadNotifications.length}
+                  </span>
+                )}
+              </Button>
+
+              {isNotificationsOpen && (
+                <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-lg shadow-lg z-50 overflow-hidden">
+                  <div className="p-3 border-b border-slate-100 font-semibold text-sm text-slate-700">
+                    Notificações
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {!notifications?.length && (
+                      <p className="p-4 text-sm text-slate-400">Nenhuma notificação ainda.</p>
+                    )}
+                    {notifications?.map((n) => (
+                      <Link
+                        key={n.id}
+                        href={n.actionUrl || "#"}
+                        className={`flex items-start gap-2 p-3 hover:bg-slate-50 border-b border-slate-50 text-sm ${
+                          n.readAt ? "opacity-60" : ""
+                        }`}
+                        onClick={() => handleOpenNotification(n.id)}
+                      >
+                        <span>
+                          <strong className="text-slate-800">{n.title}</strong>
+                          {n.body && (
+                            <>
+                              <br />
+                              <span className="text-slate-500 text-xs">{n.body}</span>
+                            </>
+                          )}
+                        </span>
                       </Link>
                     ))}
                   </div>

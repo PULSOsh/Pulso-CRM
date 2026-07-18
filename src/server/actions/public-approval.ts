@@ -5,6 +5,8 @@ import { headers } from "next/headers";
 import { db } from "../db/connection";
 import { approvals, projects, tasks } from "../db/schema";
 import { logActivity } from "../services/activity-log";
+import { writeAuditLog } from "../services/audit-log";
+import { notifyUser } from "../services/notify";
 import { getPublicFilesForEntity } from "./files";
 
 export async function getPublicApproval(token: string) {
@@ -93,13 +95,14 @@ export async function decideApproval(
       });
     }
 
+    const label =
+      decision === "approved"
+        ? "aprovada"
+        : decision === "rejected"
+          ? "rejeitada"
+          : "aprovada com observações";
+
     if (project?.opportunityId) {
-      const label =
-        decision === "approved"
-          ? "aprovada"
-          : decision === "rejected"
-            ? "rejeitada"
-            : "aprovada com observações";
       await logActivity(
         {
           organizationId: approval.organizationId,
@@ -111,6 +114,34 @@ export async function decideApproval(
         tx,
       );
     }
+
+    if (project?.ownerUserId) {
+      await notifyUser(
+        {
+          organizationId: approval.organizationId,
+          userId: project.ownerUserId,
+          type: `approval.${decision}`,
+          title: `Aprovação ${label}: ${approval.title}`,
+          actionUrl: `/crm/projetos/${approval.projectId}`,
+        },
+        tx,
+      );
+    }
+
+    await writeAuditLog(
+      {
+        organizationId: approval.organizationId,
+        actorUserId: null,
+        action: `approval.${decision}`,
+        entityType: "approval",
+        entityId: approval.id,
+        before: { status: "pending" },
+        after: { status: decision, decidedByName: data.name },
+        ipAddress: ip,
+        userAgent,
+      },
+      tx,
+    );
   });
 
   return { success: true };

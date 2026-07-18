@@ -73,8 +73,8 @@ O `BETTER_AUTH_SECRET` foi ajustado via CLI (`docker service update --env-add`),
 | Custos e lucratividade | **Ausente** | Não iniciado, é o módulo confidencial restrito ao fundador |
 | Dashboard | **Funcional, Fase 5 concluída 18/07** | `getDashboardData` real: funil aberto, taxa de conversão 90d, recebido no mês, pendente/vencido; feed de atenção (próxima ação vencida, tarefa vencida, parcela vencida, proposta sem follow-up >3 dias) |
 | Relatórios | **Funcional, Fase 6 concluída 18/07** | `/crm/relatorios`, link desoculto no menu. Comercial (leads/mês, conversão por origem, ganho/perda por responsável, ticket médio), Operacional (projetos por status, tarefas atrasadas, aprovações pendentes), Financeiro (recebido/pendente/vencido por mês). Filtro de período por URL (`?days=`). Agregação real no banco (`group by`/`count`/`sum`/`filter`), não em JS |
-| Notificações | **Ausente** | Schema pronto (`notifications`, `notificationChannelEnum`), zero código usando |
-| Auditoria genérica (`audit_logs`) | **Ausente como serviço** | Só existe registro pontual em contratos (`contractEvents`); a tabela genérica de auditoria nunca é escrita |
+| Notificações | **Funcional (in_app), Fase 7 concluída 18/07** | `notifyUser` (serviço interno) grava `notifications` reais em: proposta aceita, contrato assinado, aprovação decidida. Sino "Notificações" na topbar (`Inbox`, separado do sino de "Pendências vencidas" já existente), marcar como lida |
+| Auditoria genérica (`audit_logs`) | **Funcional como serviço, Fase 7 concluída 18/07** | `writeAuditLog` grava `audit_logs` (append-only, `before`/`after`, sem segredos) nas mesmas transações que já escrevem `activities`: aceite de proposta, assinatura de contrato, decisão de aprovação, baixa/estorno de parcela |
 | Configurações | **Link morto** | Mesma situação de Relatórios |
 | IA | **Fora da prioridade** | Deve permanecer desligada, conforme decisão de produto |
 
@@ -313,6 +313,31 @@ Sessão de continuidade: confirmado estado real do repositório (branch `main` =
 
 - Cobertura parcial da lista completa do §14 (ex.: ciclo de vendas, recorrência, margem/despesas — dependem da Fase 8 Custos, ainda não iniciada). Os relatórios entregues são os que já têm dado real disponível hoje.
 - Sem exportação (CSV/PDF) — spec pede "exportação autorizada", não implementado nesta fase.
+
+## 29. Fase 7 — Notificações e Auditoria genérica (concluída 18/07/2026)
+
+### O que foi feito
+
+- `src/server/services/notify.ts::notifyUser` — mesmo padrão de `logActivity`/`writeAuditLog` (helper puro, fora de arquivo `"use server"`, só chamado de dentro de actions já autorizadas). Só canal `in_app` (decisão explícita do `STEP_BY_STEP_IMPLEMENTATION.md`, não expandir pra e-mail/WhatsApp sem necessidade comprovada).
+- `src/server/services/audit-log.ts::writeAuditLog` — grava `audit_logs` (append-only, `beforeData`/`afterData` em jsonb, nunca segredos), mesmo padrão.
+- `src/server/actions/notifications.ts`: `getMyNotifications`, `getUnreadNotificationCount`, `markNotificationRead`, `markAllNotificationsRead`.
+- Wired em 4 pontos críticos já existentes, dentro das mesmas transações que já gravam `activities`:
+  - `approveProposal` (`public-quote.ts`): notifica o dono da oportunidade + audita `proposal.accepted`.
+  - `signContractPublic` (`contracts.ts`): **corrigido de passagem** — não estava em transação (mesmo gap que `approveProposal` tinha antes da Fase 2); agora `update` + `contractEvents` + notificação + auditoria são atômicos. Notifica o dono da oportunidade + audita `contract.signed`.
+  - `decideApproval` (`public-approval.ts`): notifica o dono do projeto + audita `approval.<decisão>`.
+  - `markInstallmentPaid`/`reverseInstallmentPayment` (`finance.ts`): audita `installment.paid`/`installment.reversed`.
+- UI: sino "Notificações" novo na topbar (`app-shell.tsx`, ícone `Inbox`), separado do sino de "Pendências vencidas" já existente (semânticas diferentes: um é vencimento, outro é evento) — contagem de não lidas, marcar como lida ao clicar.
+
+### Validação real
+
+- `tsc --noEmit`, `biome check`, `vitest run` (39/39), `next build` (31 rotas, sem rota nova — só wiring): limpos.
+- Sem banco disponível — notificações/auditoria não conferidas com dado real.
+
+### Débitos conhecidos
+
+- Sem visualizador dedicado de `audit_logs` (nenhuma tela `/crm/auditoria`) — os registros existem e são consultáveis via banco, mas não há UI. Não estava explicitamente pedido pelo `STEP_BY_STEP_IMPLEMENTATION.md` ("escrever em audit_logs nas mesmas transações", sem mencionar tela), registrado como próximo passo natural se for necessário.
+- Nem toda ação crítica listada em `docs/ARCHITECTURE_AND_STANDARDS.md` §6 (transações obrigatórias) tem auditoria ainda — cobertos os 4 pontos de maior risco (aceite/assinatura/decisão pública + dinheiro); `moveOpportunity`, `winOpportunity`/`loseOpportunity`, mudança de papéis e remoção de membro ficam para quando o volume de uso justificar revisitar.
+- Sem job de expiração de notificações antigas nem preferências de usuário (canal, silenciar tipo) — schema (`notificationChannelEnum`) já suporta, UI não construída.
 
 ## 10. Próxima ação exata
 

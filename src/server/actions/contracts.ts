@@ -8,11 +8,14 @@ import { db } from "../db/connection";
 import {
   contractEvents,
   contracts,
+  opportunities,
   organizations,
   proposalItems,
   proposals,
   proposalVersions,
 } from "../db/schema";
+import { writeAuditLog } from "../services/audit-log";
+import { notifyUser } from "../services/notify";
 
 export async function getContracts() {
   const { organizationId } = await requirePermission("contracts.read");
@@ -248,32 +251,67 @@ export async function signContractPublic(
   const ip = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim();
   const userAgent = requestHeaders.get("user-agent") ?? undefined;
 
-  await db
-    .update(contracts)
-    .set({
-      status: "signed",
-      signedAt: new Date(),
-      signerName: signerData.name,
-      signerDocument: signerData.document,
-      signerIp: ip,
-      signerUserAgent: userAgent,
-      signatureEvidence: {
-        name: signerData.name,
-        document: signerData.document ?? null,
-        signedAt: new Date().toISOString(),
-        ip: ip ?? null,
-        userAgent: userAgent ?? null,
-      },
-      updatedAt: new Date(),
-    })
-    .where(eq(contracts.id, contract.id));
+  await db.transaction(async (tx) => {
+    await tx
+      .update(contracts)
+      .set({
+        status: "signed",
+        signedAt: new Date(),
+        signerName: signerData.name,
+        signerDocument: signerData.document,
+        signerIp: ip,
+        signerUserAgent: userAgent,
+        signatureEvidence: {
+          name: signerData.name,
+          document: signerData.document ?? null,
+          signedAt: new Date().toISOString(),
+          ip: ip ?? null,
+          userAgent: userAgent ?? null,
+        },
+        updatedAt: new Date(),
+      })
+      .where(eq(contracts.id, contract.id));
 
-  await db.insert(contractEvents).values({
-    contractId: contract.id,
-    eventType: "signed",
-    ipAddress: ip,
-    userAgent,
-    metadata: { signerName: signerData.name },
+    await tx.insert(contractEvents).values({
+      contractId: contract.id,
+      eventType: "signed",
+      ipAddress: ip,
+      userAgent,
+      metadata: { signerName: signerData.name },
+    });
+
+    if (contract.opportunityId) {
+      const opp = await tx.query.opportunities.findFirst({
+        where: eq(opportunities.id, contract.opportunityId),
+      });
+      if (opp?.ownerUserId) {
+        await notifyUser(
+          {
+            organizationId: contract.organizationId,
+            userId: opp.ownerUserId,
+            type: "contract.signed",
+            title: `Contrato assinado: ${contract.title}`,
+            actionUrl: `/crm/contratos/${contract.id}`,
+          },
+          tx,
+        );
+      }
+    }
+
+    await writeAuditLog(
+      {
+        organizationId: contract.organizationId,
+        actorUserId: null,
+        action: "contract.signed",
+        entityType: "contract",
+        entityId: contract.id,
+        before: { status: contract.status },
+        after: { status: "signed", signerName: signerData.name },
+        ipAddress: ip,
+        userAgent,
+      },
+      tx,
+    );
   });
 
   revalidatePath(`/crm/contratos/${contract.id}`);

@@ -6,6 +6,7 @@ import { requirePermission } from "../auth/require-permission";
 import { db } from "../db/connection";
 import { contracts, installments, projects, receivables } from "../db/schema";
 import { logActivity } from "../services/activity-log";
+import { writeAuditLog } from "../services/audit-log";
 
 export type InstallmentInput = { amount: number; dueDate: string };
 
@@ -264,6 +265,19 @@ export async function markInstallmentPaid(
         tx,
       );
     }
+
+    await writeAuditLog(
+      {
+        organizationId,
+        actorUserId: userId,
+        action: "installment.paid",
+        entityType: "installment",
+        entityId: installmentId,
+        before: { status: installment.status },
+        after: { status: "paid", paidAmount: data.paidAmount },
+      },
+      tx,
+    );
   });
 
   revalidatePath("/crm/financeiro");
@@ -322,6 +336,19 @@ export async function reverseInstallmentPayment(installmentId: string, reason: s
         tx,
       );
     }
+
+    await writeAuditLog(
+      {
+        organizationId,
+        actorUserId: userId,
+        action: "installment.reversed",
+        entityType: "installment",
+        entityId: installmentId,
+        before: { status: "paid", paidAmount: installment.paidAmount },
+        after: { status: newStatus, reason },
+      },
+      tx,
+    );
   });
 
   revalidatePath("/crm/financeiro");

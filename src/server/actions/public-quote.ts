@@ -10,6 +10,8 @@ import {
   proposalVersions,
 } from "../db/schema";
 import { logActivity } from "../services/activity-log";
+import { writeAuditLog } from "../services/audit-log";
+import { notifyUser } from "../services/notify";
 import { getPublicFilesForEntity } from "./files";
 
 export async function getPublicProposal(token: string) {
@@ -148,6 +150,19 @@ export async function approveProposal(token: string, _signerData: { name: string
             })
             .where(eq(opportunities.id, opp.id));
         }
+
+        if (opp.ownerUserId) {
+          await notifyUser(
+            {
+              organizationId: proposal.organizationId,
+              userId: opp.ownerUserId,
+              type: "proposal.accepted",
+              title: `Proposta aceita: ${proposal.title}`,
+              actionUrl: `/crm/quotes/${proposal.id}`,
+            },
+            tx,
+          );
+        }
       }
     }
 
@@ -158,6 +173,19 @@ export async function approveProposal(token: string, _signerData: { name: string
         type: "proposal",
         title: `Proposta aceita pelo cliente: ${proposal.title}`,
         opportunityId: proposal.opportunityId ?? undefined,
+      },
+      tx,
+    );
+
+    await writeAuditLog(
+      {
+        organizationId: proposal.organizationId,
+        actorUserId: null,
+        action: "proposal.accepted",
+        entityType: "proposal",
+        entityId: proposal.id,
+        before: { status: proposal.status },
+        after: { status: "approved" },
       },
       tx,
     );
