@@ -38,6 +38,12 @@ export async function uploadFile(
 
   await uploadObject(objectKey, buffer, file.type);
 
+  // Only proposal/contract attachments can be marked public (shown on the
+  // matching public page); everything else stays private regardless of the
+  // form field, since there is no public page that would ever read it.
+  const canBePublic = entityType === "proposal" || entityType === "contract";
+  const isPrivate = !(canBePublic && formData.get("isPublic") === "true");
+
   const fileId = crypto.randomUUID();
   await db.transaction(async (tx) => {
     await tx.insert(storedFiles).values({
@@ -51,7 +57,7 @@ export async function uploadFile(
       mimeType: file.type,
       sizeBytes: file.size,
       checksumSha256: checksum,
-      isPrivate: true,
+      isPrivate,
     });
 
     await tx.insert(attachments).values({
@@ -119,6 +125,38 @@ export async function deleteFile(attachmentId: string) {
 
   revalidatePath("/crm");
   return { success: true };
+}
+
+/**
+ * No requirePermission() here on purpose - this is meant to be called from
+ * inside an already-gated public action (getPublicProposal/getPublicContract),
+ * which resolves organizationId/entityId itself only after validating the
+ * public token + publicAccessEnabled. Only ever returns attachments whose
+ * underlying file is explicitly isPrivate = false.
+ */
+export async function getPublicFilesForEntity(
+  organizationId: string,
+  entityType: "proposal" | "contract",
+  entityId: string,
+) {
+  const rows = await db.query.attachments.findMany({
+    where: and(
+      eq(attachments.organizationId, organizationId),
+      eq(attachments.entityType, entityType),
+      eq(attachments.entityId, entityId),
+    ),
+    with: { file: true },
+  });
+
+  const publicFiles = rows.filter((row) => row.file && row.file.isPrivate === false);
+
+  return Promise.all(
+    publicFiles.map(async (row) => ({
+      originalName: row.file.originalName,
+      label: row.label,
+      url: await getSignedDownloadUrl(row.file.objectKey, 3600),
+    })),
+  );
 }
 
 export async function purgeOrphanedFile(fileId: string) {

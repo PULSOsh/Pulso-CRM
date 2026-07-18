@@ -1,6 +1,5 @@
 "use server";
 
-import crypto from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db } from "../db/connection";
 import {
@@ -10,6 +9,8 @@ import {
   proposals,
   proposalVersions,
 } from "../db/schema";
+import { logActivity } from "../services/activity-log";
+import { getPublicFilesForEntity } from "./files";
 
 export async function getPublicProposal(token: string) {
   if (!token) {
@@ -44,6 +45,32 @@ export async function getPublicProposal(token: string) {
     orderBy: (items, { asc }) => [asc(items.position)],
   });
 
+  // First view only - avoid writing on every reload/refresh of the same link.
+  if (!proposal.firstViewedAt) {
+    await db.transaction(async (tx) => {
+      await tx
+        .update(proposals)
+        .set({
+          firstViewedAt: new Date(),
+          status: proposal.status === "draft" ? "viewed" : proposal.status,
+        })
+        .where(eq(proposals.id, proposal.id));
+
+      await logActivity(
+        {
+          organizationId: proposal.organizationId,
+          actorUserId: null,
+          type: "proposal",
+          title: `Proposta visualizada pela primeira vez: ${proposal.title}`,
+          opportunityId: proposal.opportunityId ?? undefined,
+        },
+        tx,
+      );
+    });
+  }
+
+  const files = await getPublicFilesForEntity(proposal.organizationId, "proposal", proposal.id);
+
   // We return a safe, sanitized object containing only what the client needs to see
   return {
     code: proposal.code,
@@ -65,6 +92,7 @@ export async function getPublicProposal(token: string) {
       unitPrice: item.unitPrice,
       total: item.total,
     })),
+    files,
   };
 }
 
@@ -78,52 +106,62 @@ export async function approveProposal(token: string, _signerData: { name: string
     where: eq(proposals.publicToken, token),
   });
 
-  if (!proposal?.publicAccessEnabled || proposal.status !== "draft") {
+  if (
+    !proposal?.publicAccessEnabled ||
+    (proposal.status !== "draft" && proposal.status !== "sent" && proposal.status !== "viewed")
+  ) {
     return { success: false, error: "Proposta inválida ou já processada." };
   }
 
-  // 2. Mark proposal as approved
-  await db
-    .update(proposals)
-    .set({
-      status: "approved",
-      approvedAt: new Date(),
-    })
-    .where(eq(proposals.id, proposal.id));
+  await db.transaction(async (tx) => {
+    // 2. Mark proposal as approved
+    await tx
+      .update(proposals)
+      .set({
+        status: "approved",
+        approvedAt: new Date(),
+      })
+      .where(eq(proposals.id, proposal.id));
 
-  // 3. Move Opportunity in Kanban
-  if (proposal.opportunityId) {
-    // Find the 'won' stage for the organization
-    // For MVP, we'll try to find a stage named "Ganho" or "Won", or just the one with highest position
-    const opp = await db.query.opportunities.findFirst({
-      where: eq(opportunities.id, proposal.opportunityId),
-    });
-
-    if (opp) {
-      const stages = await db.query.pipelineStages.findMany({
-        where: eq(pipelineStages.pipelineId, opp.pipelineId),
-        orderBy: (stages, { desc }) => [desc(stages.position)],
+    // 3. Move Opportunity in Kanban
+    if (proposal.opportunityId) {
+      const opp = await tx.query.opportunities.findFirst({
+        where: eq(opportunities.id, proposal.opportunityId),
       });
 
-      // Usually the last stage or a stage marked 'isWon'. We assume last stage for MVP if isWon is not set.
-      const wonStage = stages.find((s) => s.isWon) || stages[0];
+      if (opp) {
+        const stages = await tx.query.pipelineStages.findMany({
+          where: eq(pipelineStages.pipelineId, opp.pipelineId),
+          orderBy: (stages, { desc }) => [desc(stages.position)],
+        });
 
-      if (wonStage) {
-        await db
-          .update(opportunities)
-          .set({
-            status: "won",
-            stageId: wonStage.id,
-            wonAt: new Date(),
-          })
-          .where(eq(opportunities.id, opp.id));
+        // Usually the last stage or a stage marked 'isWon'. We assume last stage for MVP if isWon is not set.
+        const wonStage = stages.find((s) => s.isWon) || stages[0];
+
+        if (wonStage) {
+          await tx
+            .update(opportunities)
+            .set({
+              status: "won",
+              stageId: wonStage.id,
+              wonAt: new Date(),
+            })
+            .where(eq(opportunities.id, opp.id));
+        }
       }
     }
-  }
 
-  // 4. Save response record
-  // We mock a hash for the snapshot
-  const _snapshotHash = crypto.randomUUID();
+    await logActivity(
+      {
+        organizationId: proposal.organizationId,
+        actorUserId: null,
+        type: "proposal",
+        title: `Proposta aceita pelo cliente: ${proposal.title}`,
+        opportunityId: proposal.opportunityId ?? undefined,
+      },
+      tx,
+    );
+  });
 
   // Note: we'd ideally insert into proposalResponses here, but the schema requires publicLinkId which is for phase 9 extension
   // For the MVP, updating the proposal and opportunity is the core business value.

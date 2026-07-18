@@ -8,6 +8,26 @@ import { Button } from "@/components/ui/button";
 import { getQuotes, publishQuote } from "@/server/actions/quotes";
 import { auth } from "@/server/auth";
 
+const STATUS_LABELS: Record<string, string> = {
+  draft: "Rascunho",
+  sent: "Enviada",
+  viewed: "Visualizada",
+  approved: "Aceita",
+  rejected: "Recusada",
+  expired: "Expirada",
+  cancelled: "Cancelada",
+};
+
+const STATUS_STYLES: Record<string, string> = {
+  draft: "bg-slate-100 text-slate-800",
+  sent: "bg-blue-100 text-blue-800",
+  viewed: "bg-amber-100 text-amber-800",
+  approved: "bg-emerald-100 text-emerald-800",
+  rejected: "bg-red-100 text-red-800",
+  expired: "bg-slate-200 text-slate-600",
+  cancelled: "bg-red-100 text-red-800",
+};
+
 export default async function QuotesPage() {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -66,7 +86,12 @@ export default async function QuotesPage() {
                   <tr key={quote.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4 font-medium text-slate-500">{quote.code}</td>
                     <td className="px-6 py-4">
-                      <p className="font-medium text-slate-900">{quote.title}</p>
+                      <Link
+                        href={`/crm/quotes/${quote.id}`}
+                        className="font-medium text-slate-900 hover:text-orange-600"
+                      >
+                        {quote.title}
+                      </Link>
                       {quote.opportunity && (
                         <p className="text-xs text-slate-500 mt-0.5">
                           {quote.opportunity.company?.tradeName ||
@@ -83,18 +108,11 @@ export default async function QuotesPage() {
                     </td>
                     <td className="px-6 py-4">
                       <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize
-                        ${
-                          quote.status === "draft"
-                            ? "bg-slate-100 text-slate-800"
-                            : quote.status === "sent"
-                              ? "bg-blue-100 text-blue-800"
-                              : quote.status === "approved"
-                                ? "bg-emerald-100 text-emerald-800"
-                                : "bg-red-100 text-red-800"
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          STATUS_STYLES[quote.status] ?? "bg-slate-100 text-slate-800"
                         }`}
                       >
-                        {quote.status === "draft" ? "Rascunho" : quote.status}
+                        {STATUS_LABELS[quote.status] ?? quote.status}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-slate-500">

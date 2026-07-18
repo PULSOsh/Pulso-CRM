@@ -64,7 +64,7 @@ O `BETTER_AUTH_SECRET` foi ajustado via CLI (`docker service update --env-add`),
 | Tarefas | **Funcional** | Criar, completar, ver vencidas, vínculo com oportunidade |
 | Briefings (interno + público) | **Funcional** | Inbox interna e formulário público (`/solicitar/[slug]`) funcionando |
 | Produtos | **Funcional** | CRUD completo, 15 produtos seedados preservados |
-| **Propostas** | **Parcial, bug de publicação corrigido em 18/07 (seção 22)** | `publicAccessEnabled` (existia no schema, nunca lido) agora gateia `getPublicProposal`/`approveProposal`; `publishQuote` flipa a flag. Ainda faltam: página de detalhe interna (`/crm/quotes/[id]`), versionamento real (só 1 versão criada e nunca atualizada), eventos (`proposal.published` etc.) — escopo da Fase 2 em `STEP_BY_STEP_IMPLEMENTATION.md` |
+| **Propostas** | **Funcional, Fase 2 concluída 18/07 (seção 24)** | Publicação separada do rascunho, versionamento real (nova `proposalVersion` ao editar proposta já publicada, versão antiga preservada, bloqueado se já aceita), página de detalhe interna (`/crm/quotes/[id]`), eventos gravados via `logActivity` (criada/publicada/1ª visualização/nova versão/aceita), arquivos públicos opcionais na página pública |
 | Contratos | **Funcional** | Assinatura pública funciona de ponta a ponta (grava evidência, atualiza status, registra evento). Interface ainda fora do design system (Tailwind cru) |
 | Projetos | **Funcional** | CRUD real, conversão a partir de contrato assinado, etapas, checklist. UX tinha um beco sem saída (botão "Gerar Projeto" desabilitado sem explicação quando não há contrato assinado) — corrigido com uma dica visível |
 | Arquivos | **Funcional (base), 18/07/2026** | Upload/download real via S3-compatível (URL assinada), `FileUpload` em `components/ui/`, `FilesPanel` genérico por `entityType`/`entityId`, exclusão lógica (remove vínculo, preserva objeto no storage). Wired em Oportunidade; demais entidades (proposta/contrato/projeto/aprovação) reusam a mesma action ao ganhar tela de detalhe. Sem credenciais S3 reais neste ambiente — não testado ponta a ponta com upload real |
@@ -213,6 +213,28 @@ Sessão de continuidade: confirmado estado real do repositório (branch `main` =
 - Provisionar bucket S3-compatível real (Cloudflare R2, MinIO, etc.) e preencher `S3_*` em produção — decisão de infraestrutura do responsável, fora do que um agente pode decidir sozinho.
 - Sem rotina agendada de "limpeza de órfãos" (arquivo sem nenhum `attachment`) — `purgeOrphanedFile` existe mas precisa ser chamada manualmente ou por um job futuro (Fase 7, Notificações/Jobs).
 - Sem retenção configurável ainda (spec pede "retenção" — não implementado, baixo risco no estado atual sem dado real).
+
+## 24. Fase 2 — Propostas completas (concluída 18/07/2026)
+
+### O que foi feito
+
+- `updateQuoteDraft`/`createNewProposalVersion` em `quotes.ts`: rascunho não publicado edita a versão existente in-place; proposta já publicada cria nova `proposalVersion` (número incremental), preserva as anteriores, bloqueia se `status === "approved"` ("versão aceita não pode ser substituída", `docs/MODULE_SPECIFICATIONS.md` §7).
+- `getQuoteById` + `/crm/quotes/[id]/page.tsx` + `quote-detail-client.tsx`/`quote-content-form.tsx`: página de detalhe real (antes só existiam lista e criação), com publicar/editar/nova versão/link público/histórico de versões.
+- Eventos gravados como atividade (`logActivity`, reaproveitando o serviço já existente): proposta criada, publicada, primeira visualização (usa `firstViewedAt`, que já existia no schema e nunca era lido — evita duplicidade em reload), nova versão, aceita pelo cliente.
+- `approveProposal`/movimento de oportunidade agora dentro de `db.transaction` (não estava — bug real de consistência corrigido de passagem).
+- Arquivos públicos: `uploadFile` ganhou flag `isPublic` (só válida pra `entityType` `proposal`/`contract`), `getPublicFilesForEntity` (sem `requirePermission`, deliberado — só é chamada de dentro de `getPublicProposal`/futuramente `getPublicContract`, depois que o token e `publicAccessEnabled` já foram validados), página pública mostra os anexos marcados como públicos.
+- Corrigido no caminho: badge de status e gate do `ApproveModal` na página pública só reconheciam `"draft"`; com o novo `"viewed"` (setado na 1ª visualização), o botão de aceite teria sumido depois do primeiro clique de um cliente real. Corrigido pra reconhecer `draft`/`sent`/`viewed` como "aguardando decisão".
+
+### Validação real
+
+- `tsc --noEmit`, `biome check`, `vitest run` (39/39), `next build` (28 rotas, +1 pela nova `/crm/quotes/[id]`): limpos.
+- Sem banco disponível nesta sessão — fluxo completo (criar → editar rascunho → publicar → nova versão → aceitar) não exercitado com dado real, só por leitura de código + tipos + build.
+
+### Débitos conhecidos
+
+- `proposalResponses` (registro formal de aceite com hash/IP/user-agent) continua não implementado — já era um débito anotado no código original (`_snapshotHash` mockado), não introduzido nem resolvido nesta fase.
+- Sem PDF do snapshot (item do roadmap original, fora do escopo combinado desta fase).
+- "Enviar" (copiar link/WhatsApp) continua sem ação dedicada no servidor — é uma ação client-side (copiar/abrir link), não precisa de endpoint.
 
 ## 10. Próxima ação exata
 

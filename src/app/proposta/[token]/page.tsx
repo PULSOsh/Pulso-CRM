@@ -42,7 +42,9 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
             </span>
           ) : (
             <span className="px-3 py-1 rounded-full bg-orange-500/10 text-orange-500 border border-orange-500/20">
-              {proposal.status === "draft" ? "Em Análise" : proposal.status}
+              {["draft", "sent", "viewed"].includes(proposal.status)
+                ? "Em Análise"
+                : proposal.status}
             </span>
           )}
         </div>
@@ -156,6 +158,30 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
             </div>
           </section>
         )}
+
+        {/* Attached files */}
+        {proposal.files.length > 0 && (
+          <section className="mt-16 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-700">
+            <h2 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3">
+              <span className="w-1.5 h-6 bg-orange-600 rounded-full"></span>
+              Arquivos
+            </h2>
+            <div className="bg-slate-900 border border-white/5 rounded-2xl p-6 md:p-8 shadow-xl space-y-3">
+              {proposal.files.map((file) => (
+                <a
+                  key={file.url}
+                  href={file.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between rounded-lg border border-white/5 px-4 py-3 text-sm text-slate-200 hover:border-orange-500/40 hover:text-orange-400 transition-colors"
+                >
+                  <span>{file.label || file.originalName}</span>
+                  <span className="text-slate-500">Baixar →</span>
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
       </main>
 
       {/* Floating Action Button */}
@@ -170,7 +196,7 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
           Falar com Especialista
         </a>
 
-        {proposal.status === "draft" && <ApproveModal token={token} />}
+        {["draft", "sent", "viewed"].includes(proposal.status) && <ApproveModal token={token} />}
       </div>
     </div>
   );

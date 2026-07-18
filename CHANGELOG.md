@@ -376,6 +376,27 @@ Depois de uma auditoria pedida pelo responsável ("me diz oq falta"), ficou clar
 
 ---
 
+## [2026-07-18] — Fase 2: Propostas completas (versionamento, detalhe interna, eventos, arquivos públicos)
+
+### Adicionado
+
+- `updateQuoteDraft`/`createNewProposalVersion`/`getQuoteById` em `src/server/actions/quotes.ts`: edição livre de rascunho não publicado; alteração relevante em proposta publicada cria nova versão imutável (bloqueado se já aceita).
+- `src/app/crm/quotes/[id]/page.tsx` + `quote-detail-client.tsx`/`quote-content-form.tsx`: página de detalhe interna (não existia).
+- Eventos de proposta gravados via `logActivity`: criação, publicação, primeira visualização, nova versão, aceite.
+- `isPublic` em `uploadFile` + `getPublicFilesForEntity`: anexos podem ser marcados visíveis na página pública da proposta.
+
+### Corrigido
+
+- `approveProposal` (aceite público) e o update de oportunidade associado agora rodam dentro de uma transação — não estavam, risco real de estado inconsistente se a segunda escrita falhasse.
+- Badge de status e exibição do botão de aceite na página pública só reconheciam `status === "draft"`; com o novo status `"viewed"` (setado na primeira visualização), o botão de aceite sumiria depois do primeiro clique real de um cliente.
+
+### Testes
+
+- `tsc --noEmit`, `biome check`, `vitest run` (39/39), `next build` (28 rotas): limpos.
+- Sem banco disponível — fluxo completo não exercitado com dado real.
+
+---
+
 Formato recomendado por alteração:
 
 ```text

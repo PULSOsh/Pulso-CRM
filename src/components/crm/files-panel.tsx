@@ -28,15 +28,20 @@ export function FilesPanel({
   entityType,
   entityId,
   initialFiles,
+  allowPublicToggle = false,
 }: {
   entityType: AttachableEntityType;
   entityId: string;
   initialFiles: FileRow[];
+  /** Only meaningful for entityType "proposal"/"contract" - shows a checkbox
+   * that marks the upload visible on the matching public page. */
+  allowPublicToggle?: boolean;
 }) {
   const [files, setFiles] = useState(initialFiles);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [makePublic, setMakePublic] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -45,6 +50,9 @@ export function FilesPanel({
     setError(null);
     const formData = new FormData();
     formData.append("file", file);
+    if (allowPublicToggle && makePublic) {
+      formData.append("isPublic", "true");
+    }
 
     startTransition(async () => {
       try {
@@ -96,6 +104,16 @@ export function FilesPanel({
     <div className="space-y-4">
       <div>
         <FileUpload ref={inputRef} onChange={handleUpload} disabled={isPending} />
+        {allowPublicToggle && (
+          <label className="mt-2 flex items-center gap-2 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              checked={makePublic}
+              onChange={(e) => setMakePublic(e.target.checked)}
+            />
+            Visível na página pública
+          </label>
+        )}
         {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
       </div>
 
