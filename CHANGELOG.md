@@ -444,6 +444,20 @@ Depois de uma auditoria pedida pelo responsável ("me diz oq falta"), ficou clar
 
 ---
 
+## [2026-07-18] — Fase 6: Relatórios (comercial, operacional, financeiro)
+
+### Adicionado
+
+- `src/server/actions/reports.ts`: agregação real no banco (`group by`/`count`/`sum`/`filter`) — primeira vez que o projeto usa esses helpers do Drizzle, em vez do padrão de agregar em JS usado no resto do código.
+- `/crm/relatorios`: rota real substituindo o link morto do menu, com filtro de período por URL.
+
+### Testes
+
+- `tsc --noEmit`, `biome check`, `vitest run` (39/39), `next build` (31 rotas): limpos.
+- Sem banco disponível — sintaxe SQL conferida por leitura, não executada.
+
+---
+
 Formato recomendado por alteração:
 
 ```text

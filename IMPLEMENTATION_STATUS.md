@@ -72,7 +72,7 @@ O `BETTER_AUTH_SECRET` foi ajustado via CLI (`docker service update --env-add`),
 | Financeiro / Recebíveis | **Funcional, Fase 4 concluída 18/07** | Geração de recebível + parcelas a partir de contrato assinado, `/crm/financeiro` real (link desoculto no menu), baixa e estorno, indicadores em aberto/vencido/recebido, `refreshOverdueInstallments` sob demanda |
 | Custos e lucratividade | **Ausente** | Não iniciado, é o módulo confidencial restrito ao fundador |
 | Dashboard | **Funcional, Fase 5 concluída 18/07** | `getDashboardData` real: funil aberto, taxa de conversão 90d, recebido no mês, pendente/vencido; feed de atenção (próxima ação vencida, tarefa vencida, parcela vencida, proposta sem follow-up >3 dias) |
-| Relatórios | **Link morto** | Nem aparece renderizado no menu (item filtrado por ter `href="#"`) |
+| Relatórios | **Funcional, Fase 6 concluída 18/07** | `/crm/relatorios`, link desoculto no menu. Comercial (leads/mês, conversão por origem, ganho/perda por responsável, ticket médio), Operacional (projetos por status, tarefas atrasadas, aprovações pendentes), Financeiro (recebido/pendente/vencido por mês). Filtro de período por URL (`?days=`). Agregação real no banco (`group by`/`count`/`sum`/`filter`), não em JS |
 | Notificações | **Ausente** | Schema pronto (`notifications`, `notificationChannelEnum`), zero código usando |
 | Auditoria genérica (`audit_logs`) | **Ausente como serviço** | Só existe registro pontual em contratos (`contractEvents`); a tabela genérica de auditoria nunca é escrita |
 | Configurações | **Link morto** | Mesma situação de Relatórios |
@@ -293,6 +293,26 @@ Sessão de continuidade: confirmado estado real do repositório (branch `main` =
 ### Débitos conhecidos
 
 - "Taxa de conversão" fica `—` sem nenhuma oportunidade ganha/perdida nos últimos 90 dias (banco de produção hoje está praticamente vazio) — comportamento correto, não é bug.
+
+## 28. Fase 6 — Relatórios (concluída 18/07/2026)
+
+### O que foi feito
+
+- `src/server/actions/reports.ts`: **primeira vez que o projeto usa `sql`/`count`/`sum`/`filter` do Drizzle** — a regra do módulo é explícita ("agregação no banco, nunca cálculo completo no cliente"), diferente do Dashboard (Fase 5), que segue o padrão de agregação em JS já usado no resto do código.
+  - `getCommercialReport(days)`: leads por mês, conversão por origem, ganho/perda por responsável (join com `users`), ticket médio de oportunidades ganhas.
+  - `getOperationalReport()`: projetos por status, contagem de tarefas atrasadas, contagem de aprovações pendentes.
+  - `getFinancialReport(days)`: recebido/pendente/vencido por mês de vencimento (usa `filter (where ...)` do Postgres, uma única query por agregação em vez de 3 separadas), gateado por `reports.finance` (permissão mais restrita que `reports.read`, já existia no catálogo).
+- `/crm/relatorios`: rota real, link desoculto no menu (`ActiveKey` ganhou `"reports"`). Filtro de período por URL (`?days=30|90|365`), tabelas (não gráficos — já satisfaz "tabela equivalente" da regra de acessibilidade do módulo por não ter gráfico nenhum pra ter equivalente).
+
+### Validação real
+
+- `tsc --noEmit`, `biome check`, `vitest run` (39/39), `next build` (31 rotas, +1 pela nova `/crm/relatorios`): limpos.
+- Sem banco disponível — SQL não executado de verdade nesta sessão; a sintaxe do Postgres (`to_char`, `filter (where ...)`, `coalesce`) foi conferida por leitura, não por execução.
+
+### Débitos conhecidos
+
+- Cobertura parcial da lista completa do §14 (ex.: ciclo de vendas, recorrência, margem/despesas — dependem da Fase 8 Custos, ainda não iniciada). Os relatórios entregues são os que já têm dado real disponível hoje.
+- Sem exportação (CSV/PDF) — spec pede "exportação autorizada", não implementado nesta fase.
 
 ## 10. Próxima ação exata
 
