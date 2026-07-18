@@ -300,3 +300,9 @@ Classes de visibilidade responsiva existentes (`mobile-close-btn`, `mobile-menu-
 - Campo de busca do topbar ainda usa `<input className="search">` cru.
 - Layout do shell (`.sidebar`, `.nav-link`, `.app-layout`, media queries de 900px/768px) ainda é CSS bespoke, não Tailwind.
 - Formulários das telas de CRM (`companies-client.tsx`, `contacts-client.tsx`, `pipeline/kanban-board.tsx`) ainda usam Tailwind cru com paleta `slate`/`orange`, não os tokens Pulso nem `components/ui/*`.
+
+### Bug pré-existente encontrado e corrigido durante a conferência visual desta fatia
+
+O responsável reportou, ao conferir os botões: "o menu acaba mas tem muita tela branca pra baixo". Diagnóstico (sem precisar reproduzir localmente, só pela leitura do CSS): `.sidebar` em `globals.css` tinha `height: 100vh` fixo dentro de um grid (`.app-layout`) cuja altura de linha se ajusta ao conteúdo de `.main-area`. Em qualquer página cujo conteúdo passe de uma tela (comum: funil, listas, projetos), a linha do grid fica mais alta que 100vh, mas o `.sidebar` (com `height` fixo, não `min-height`) não acompanha — sobra área em branco (fundo `--paper`) abaixo do menu ao rolar até o fim da página. **Não foi causado pelas mudanças desta sessão** (nenhum commit anterior tocou `.sidebar`/`.app-layout`); só ficou visível porque o responsável rolou a página conferindo os botões.
+
+Corrigido trocando `height: 100vh` por `min-height: 100vh` na regra base de `.sidebar` (a media query de mobile, que usa `position:fixed`, manteve `height:100vh` sem alteração — ali é o comportamento correto). `tsc --noEmit`, `vitest run` (2/2) e `next build` (27 rotas) verdes; ainda pendente confirmação visual do responsável, igual às fatias anteriores.

@@ -224,7 +224,7 @@ select:focus-visible {
   top: 0;
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  min-height: 100vh;
   color: white;
   background: var(--carbon);
 }

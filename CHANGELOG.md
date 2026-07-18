@@ -146,6 +146,19 @@ Todas as mudanças relevantes devem ser registradas aqui.
 
 ---
 
+## [2026-07-17] — fix: sidebar não cobria páginas mais altas que a tela
+
+### Corrigido
+
+- `src/app/globals.css`: `.sidebar` tinha `height: 100vh` fixo dentro de um grid cuja linha se ajusta ao conteúdo de `.main-area`. Em páginas com conteúdo maior que uma tela (funil, listas, projetos), sobrava espaço em branco abaixo do menu lateral ao rolar até o fim. Trocado para `min-height: 100vh`, permitindo que o menu acompanhe a altura real da página. Bug pré-existente, reportado pelo responsável ao conferir a fatia anterior (botões de ícone) — não foi causado por ela.
+
+### Testes
+
+- `tsc --noEmit`, `vitest run` (2/2), `next build` (27 rotas): verdes.
+- Pendente confirmação visual do responsável.
+
+---
+
 Formato recomendado por alteração:
 
 ```text
