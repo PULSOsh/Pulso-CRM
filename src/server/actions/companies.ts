@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "../auth/require-permission";
 import { db } from "../db/connection";
@@ -73,6 +73,30 @@ export async function deleteCompany(companyId: string) {
   const [updated] = await db
     .update(companies)
     .set({ deletedAt: new Date() })
+    .where(and(eq(companies.id, companyId), eq(companies.organizationId, organizationId)))
+    .returning({ id: companies.id });
+
+  if (!updated) throw new Error("Empresa não encontrada.");
+
+  revalidatePath("/crm/empresas");
+  return { success: true };
+}
+
+export async function getDeletedCompanies() {
+  const { organizationId } = await requirePermission("companies.restore");
+
+  return await db.query.companies.findMany({
+    where: and(eq(companies.organizationId, organizationId), isNotNull(companies.deletedAt)),
+    orderBy: (companies, { desc }) => [desc(companies.deletedAt)],
+  });
+}
+
+export async function restoreCompany(companyId: string) {
+  const { organizationId } = await requirePermission("companies.restore");
+
+  const [updated] = await db
+    .update(companies)
+    .set({ deletedAt: null })
     .where(and(eq(companies.id, companyId), eq(companies.organizationId, organizationId)))
     .returning({ id: companies.id });
 

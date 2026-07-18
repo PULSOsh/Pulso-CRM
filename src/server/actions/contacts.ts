@@ -1,6 +1,6 @@
 "use server";
 
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "../auth/require-permission";
 import { db } from "../db/connection";
@@ -118,6 +118,30 @@ export async function deleteContact(contactId: string) {
   const [updated] = await db
     .update(contacts)
     .set({ deletedAt: new Date() })
+    .where(and(eq(contacts.id, contactId), eq(contacts.organizationId, organizationId)))
+    .returning({ id: contacts.id });
+
+  if (!updated) throw new Error("Contato não encontrado.");
+
+  revalidatePath("/crm/contatos");
+  return { success: true };
+}
+
+export async function getDeletedContacts() {
+  const { organizationId } = await requirePermission("contacts.restore");
+
+  return await db.query.contacts.findMany({
+    where: and(eq(contacts.organizationId, organizationId), isNotNull(contacts.deletedAt)),
+    orderBy: (contacts, { desc }) => [desc(contacts.deletedAt)],
+  });
+}
+
+export async function restoreContact(contactId: string) {
+  const { organizationId } = await requirePermission("contacts.restore");
+
+  const [updated] = await db
+    .update(contacts)
+    .set({ deletedAt: null })
     .where(and(eq(contacts.id, contactId), eq(contacts.organizationId, organizationId)))
     .returning({ id: contacts.id });
 

@@ -2,7 +2,13 @@
 
 import { Building2, Globe, MapPin, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { createCompany, deleteCompany, updateCompany } from "@/server/actions/companies";
+import {
+  createCompany,
+  deleteCompany,
+  getDeletedCompanies,
+  restoreCompany,
+  updateCompany,
+} from "@/server/actions/companies";
 
 type Company = {
   id: string;
@@ -17,16 +23,48 @@ type Company = {
   createdAt: Date;
 };
 
+type DeletedCompany = { id: string; tradeName: string; deletedAt: Date | null };
+
 export function CompaniesClient({ initialCompanies }: { initialCompanies: Company[] }) {
   const [companies, setCompanies] = useState(initialCompanies);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const [deletedCompanies, setDeletedCompanies] = useState<DeletedCompany[] | null>(null);
+  const [loadingDeleted, setLoadingDeleted] = useState(false);
 
   const filtered = companies.filter((c) =>
     c.tradeName.toLowerCase().includes(search.toLowerCase()),
   );
+
+  async function toggleShowDeleted() {
+    const next = !showDeleted;
+    setShowDeleted(next);
+    if (next && deletedCompanies === null) {
+      setLoadingDeleted(true);
+      try {
+        setDeletedCompanies(await getDeletedCompanies());
+      } catch (err) {
+        console.error(err);
+        alert("Erro ao carregar empresas excluídas.");
+      } finally {
+        setLoadingDeleted(false);
+      }
+    }
+  }
+
+  async function handleRestore(company: DeletedCompany) {
+    try {
+      await restoreCompany(company.id);
+      setDeletedCompanies((prev) => prev?.filter((c) => c.id !== company.id) ?? null);
+      window.location.reload();
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao restaurar empresa.");
+    }
+  }
 
   function openCreateModal() {
     setEditingCompany(null);
@@ -119,8 +157,8 @@ export function CompaniesClient({ initialCompanies }: { initialCompanies: Compan
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
-        <div className="p-4 border-b border-slate-100 bg-slate-50">
-          <div className="relative max-w-md">
+        <div className="p-4 border-b border-slate-100 bg-slate-50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="relative max-w-md w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input
               type="text"
@@ -130,7 +168,39 @@ export function CompaniesClient({ initialCompanies }: { initialCompanies: Compan
               className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
             />
           </div>
+          <button
+            type="button"
+            onClick={toggleShowDeleted}
+            className="text-sm text-slate-500 hover:text-slate-700 underline shrink-0"
+          >
+            {showDeleted ? "Ocultar excluídas" : "Ver excluídas"}
+          </button>
         </div>
+
+        {showDeleted && (
+          <div className="p-4 border-b border-slate-100 bg-slate-50">
+            {loadingDeleted ? (
+              <p className="text-sm text-slate-500">Carregando...</p>
+            ) : deletedCompanies && deletedCompanies.length > 0 ? (
+              <ul className="space-y-2">
+                {deletedCompanies.map((c) => (
+                  <li key={c.id} className="flex items-center justify-between text-sm">
+                    <span>{c.tradeName}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRestore(c)}
+                      className="text-orange-600 hover:underline font-medium"
+                    >
+                      Restaurar
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-slate-500">Nenhuma empresa excluída.</p>
+            )}
+          </div>
+        )}
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[800px]">

@@ -2,7 +2,13 @@
 
 import { Briefcase, Building2, Contact, Mail, Pencil, Phone, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { createContact, deleteContact, updateContact } from "@/server/actions/contacts";
+import {
+  createContact,
+  deleteContact,
+  getDeletedContacts,
+  restoreContact,
+  updateContact,
+} from "@/server/actions/contacts";
 
 type ContactType = {
   id: string;
@@ -15,6 +21,13 @@ type ContactType = {
   createdAt: Date;
   companyId: string | null;
   companyName: string | null;
+};
+
+type DeletedContact = {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  deletedAt: Date | null;
 };
 
 type CompanyOption = { id: string; tradeName: string };
@@ -31,6 +44,36 @@ export function ContactsClient({
   const [editingContact, setEditingContact] = useState<ContactType | null>(null);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const [deletedContacts, setDeletedContacts] = useState<DeletedContact[] | null>(null);
+  const [loadingDeleted, setLoadingDeleted] = useState(false);
+
+  async function toggleShowDeleted() {
+    const next = !showDeleted;
+    setShowDeleted(next);
+    if (next && deletedContacts === null) {
+      setLoadingDeleted(true);
+      try {
+        setDeletedContacts(await getDeletedContacts());
+      } catch (err) {
+        console.error(err);
+        alert("Erro ao carregar contatos excluídos.");
+      } finally {
+        setLoadingDeleted(false);
+      }
+    }
+  }
+
+  async function handleRestore(contact: DeletedContact) {
+    try {
+      await restoreContact(contact.id);
+      setDeletedContacts((prev) => prev?.filter((c) => c.id !== contact.id) ?? null);
+      window.location.reload();
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao restaurar contato.");
+    }
+  }
 
   const filtered = contacts.filter((c) =>
     `${c.firstName} ${c.lastName || ""}`.toLowerCase().includes(search.toLowerCase()),
@@ -143,8 +186,8 @@ export function ContactsClient({
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
-        <div className="p-4 border-b border-slate-100 bg-slate-50">
-          <div className="relative max-w-md">
+        <div className="p-4 border-b border-slate-100 bg-slate-50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="relative max-w-md w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input
               type="text"
@@ -154,7 +197,41 @@ export function ContactsClient({
               className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
             />
           </div>
+          <button
+            type="button"
+            onClick={toggleShowDeleted}
+            className="text-sm text-slate-500 hover:text-slate-700 underline shrink-0"
+          >
+            {showDeleted ? "Ocultar excluídos" : "Ver excluídos"}
+          </button>
         </div>
+
+        {showDeleted && (
+          <div className="p-4 border-b border-slate-100 bg-slate-50">
+            {loadingDeleted ? (
+              <p className="text-sm text-slate-500">Carregando...</p>
+            ) : deletedContacts && deletedContacts.length > 0 ? (
+              <ul className="space-y-2">
+                {deletedContacts.map((c) => (
+                  <li key={c.id} className="flex items-center justify-between text-sm">
+                    <span>
+                      {c.firstName} {c.lastName ?? ""}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRestore(c)}
+                      className="text-orange-600 hover:underline font-medium"
+                    >
+                      Restaurar
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-slate-500">Nenhum contato excluído.</p>
+            )}
+          </div>
+        )}
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[800px]">
