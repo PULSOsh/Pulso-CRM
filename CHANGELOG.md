@@ -174,6 +174,34 @@ Todas as mudanças relevantes devem ser registradas aqui.
 
 ---
 
+## [2026-07-18] — Fase 3 (parte 1): CRM operacional (4 grupos, commits locais)
+
+### Adicionado
+
+- Zod instalado como dependência real (estava só documentado, nunca usado).
+- Oportunidades: próxima ação (`updateNextAction`, formulário, card do Kanban com destaque de atraso); ganho/perda funcionando de verdade (`winOpportunity`/`loseOpportunity`, transação, etapa "Perdido" idempotente no funil, modal de motivo obrigatório).
+- Tarefas: módulo novo do zero — `createTask`/`getMyTasks`/`getOverdueTasks`/`completeTask`, rota `/crm/tarefas`, link do menu corrigido.
+- Contatos e Empresas: editar e excluir (soft delete real — a coluna `deletedAt` existia mas nunca era usada).
+
+### Corrigido
+
+- `tasks.project_id` não tinha `.references()` — migration gerada (não aplicada), corrigindo a única FK da tabela sem constraint.
+- `crm/pipeline/page.tsx` estava descartando `nextActionAt`/`nextActionDescription` no mapeamento server→client.
+- Removido código morto (`_linkedBriefing`) da tela de detalhe de oportunidade.
+
+### Testes
+
+- `vitest run`: 2 → 26 testes (Zod schemas de todos os módulos novos, TDD).
+- `tsc --noEmit`, `npm run lint`, `next build`: verdes em cada um dos 4 grupos.
+- Verificado via rotas de preview temporárias (deletadas antes de cada commit): toda ação server tocada corretamente atinge `requirePermission()` e rejeita sem sessão — confirma a fiação completa sem tocar em dado real. Fluxo de banco de ponta a ponta ainda precisa de confirmação do responsável logado.
+
+### Pendências
+
+- 4 commits locais, não enviados ao GitHub — aguardando confirmação visual do responsável.
+- Migration da FK de `tasks.project_id` gerada, não aplicada em nenhum ambiente.
+
+---
+
 Formato recomendado por alteração:
 
 ```text

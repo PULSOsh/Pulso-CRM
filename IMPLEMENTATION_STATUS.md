@@ -127,19 +127,29 @@ Nada foi apagado ou recriado. Nenhum dado de produção foi alterado nesta fase,
 
 ## 9. Fase atual
 
-**Fase 2 em andamento.** Parte 1 (limpeza de rotas mockadas) concluída — ver seção 12. Parte 1b (extração mecânica de inline styles do shell para Tailwind) concluída — ver seção 13. Parte 1c (limpeza de lint de acessibilidade — labels sem controle, botões sem `type`) concluída — ver seção 14. Parte 1d (`noExplicitAny` e `@ts-ignore` reais, deixados pendentes na 1c) concluída — ver seção 15. `npm run lint` está em **zero erros/warnings de regra real** (só resta drift de fim-de-linha CRLF/LF do checkout Windows, documentado como fora de escopo). Parte 2a (primeira fatia real de migração pra `components/ui/*` — os 3 botões de ícone do shell) concluída — ver seção 16. **Bug real de responsividade mobile encontrado e corrigido** (viewport meta tag nunca existiu + gaveta do menu mobile nunca funcionou de verdade) — ver seção 17, **pendente confirmação visual do responsável em aparelho real**.
+**Fase 2 em andamento** (parte de design system) e **Fase 3 iniciada em paralelo** (CRM operacional), por decisão explícita do responsável em 17-18/07/2026: o app estava "inutilizável" no dia a dia, e fechar 100% da Fase 2 antes de tocar em função real não fazia sentido — ver seção 18.
 
-**Decisão registrada com o responsável em 17/07/2026**: os links ocultos de nav (Tarefas/Financeiro/Relatórios/Configurações) ficam como estão — array com `href: "#"`, filtrado da renderização (`app-shell.tsx`), documentado como placeholder pras fases futuras que constroem essas telas (Financeiro = Fase 8, Relatórios = Fase 10, Tarefas = Fase 3, Configurações = módulo de Workspace/Fase 1 pendente de UI). Não remover nem promover sem que a tela real exista.
+Fase 2: Parte 1 (limpeza de rotas mockadas) concluída — ver seção 12. Parte 1b (extração mecânica de inline styles do shell para Tailwind) concluída — ver seção 13. Parte 1c (limpeza de lint de acessibilidade) concluída — ver seção 14. Parte 1d (`noExplicitAny`/`@ts-ignore` reais) concluída — ver seção 15. `npm run lint` em **zero erros/warnings de regra real**. Parte 2a (3 botões de ícone do shell usando `components/ui/*`) concluída — ver seção 16. Bug real de responsividade mobile corrigido (viewport + gaveta do menu) — ver seção 17, **pendente confirmação visual do responsável em aparelho real**.
+
+Fase 3 (parte 1, 4 grupos): próxima ação em oportunidades, ganho/perda funcionando, tarefas básicas, e edição/exclusão de contatos e empresas — todos construídos, testados e commitados localmente. Ver seção 18 para detalhes completos, débitos conhecidos e o que ainda falta confirmar.
+
+**Decisão registrada com o responsável em 17/07/2026**: os links ocultos de nav (Financeiro/Relatórios/Configurações) ficam como estão — array com `href: "#"`, filtrado da renderização (`app-shell.tsx`), documentado como placeholder pras fases futuras que constroem essas telas (Financeiro = Fase 8, Relatórios = Fase 10, Configurações = módulo de Workspace/Fase 1 pendente de UI). **"Tarefas" saiu dessa lista em 18/07/2026** — agora aponta pra `/crm/tarefas`, uma tela real (ver seção 18, Grupo 3). Não remover nem promover os demais sem que a tela real exista.
 
 ## 10. Próxima ação exata
 
-Confirmar visualmente em aparelho real (ou emulador confiável) que o menu mobile abre corretamente após o push da seção 17, e decidir se a animação de abertura (removida por falta de confiança na verificação) deve ser reintroduzida. Depois, continuar Fase 2 (`docs/ROADMAP.md`) migrando `components/ui/*` de verdade, uma fatia pequena por vez, sempre com push seguido de confirmação visual do responsável antes de seguir pra próxima fatia (modelo combinado em 17/07/2026, ver seção 16). Próximas fatias candidatas do shell: `Input` no campo de busca do topbar (adiado na parte 2a por risco de sobreposição de estilo com a classe `.search` existente — precisa reconciliar largura/altura/padding antes), depois o restante das classes de layout bespoke (`.nav-link`, `.app-layout`) por Tailwind puro. Depois seguir pros formulários principais (`companies-client.tsx`, `contacts-client.tsx`, `pipeline/kanban-board.tsx`, etc.), que hoje usam Tailwind cru com paleta `slate`/`orange` em vez dos tokens Pulso.
+**Bloqueado em autorização do responsável, não em trabalho técnico**: nada da Fase 3 (seção 18) foi enviado ao GitHub nem ao banco — 5 commits estão só locais (`bc90224`, `a589ed8`, `6317388`, `bc6f24c`, mais o de mobile `6324f7d` que já foi confirmado e enviado antes). Antes de continuar:
+1. Responsável precisa logar em produção (ou ambiente de teste) e confirmar que os 4 grupos funcionam de verdade — só foi possível verificar a "casca" (formulário renderiza, campos corretos, ação correta é chamada) sem sessão real, não o fluxo de banco de ponta a ponta.
+2. Decidir se aplica a migration `0003_cynical_forgotten_one.sql` (fix da FK `tasks.project_id`) — pequena e aditiva, mas ainda precisa autorização explícita antes de tocar produção.
+3. Decidir quando dar push — meta combinada era "só commitar/subir quando tiver algo palpável pra uso"; os 4 grupos juntos formam essa fatia palpável.
 
-**Nota para sessões futuras**: `npm run dev` neste checkout demonstrou HMR (hot module reload) de CSS não-confiável durante esta sessão — mudanças em `globals.css` às vezes não se propagavam pra aba aberta do navegador mesmo com o arquivo salvo e o build servindo o conteúdo novo via `fetch()` direto. Sempre que for verificar uma mudança de CSS/layout via `next dev`, reiniciar o servidor com `.next` limpo antes de confiar no resultado, em vez de assumir que o HMR aplicou a mudança.
+Depois disso, retomar Fase 2 (`components/ui/*` de verdade nas telas de CRM, ver seção 16) ou continuar aprofundando a Fase 3 (checklist de tarefa, calendário, visão 360° de contato/empresa, restore) — a decidir com o responsável.
+
+**Nota para sessões futuras**: `npm run dev` neste checkout demonstrou HMR (hot module reload) de CSS não-confiável durante a sessão de 17/07 — mudanças em `globals.css` às vezes não se propagavam pra aba aberta do navegador mesmo com o arquivo salvo. Sempre que for verificar uma mudança de CSS/layout via `next dev`, reiniciar o servidor com `.next` limpo antes de confiar no resultado.
 
 Pendências que seguem precisando de autorização explícita do responsável antes de agir:
 - rotacionar a senha administrativa já semeada em produção;
-- persistir `BETTER_AUTH_SECRET` forte na configuração salva do Dokploy (hoje só existe via `docker service update`, some no próximo redeploy).
+- persistir `BETTER_AUTH_SECRET` forte na configuração salva do Dokploy (hoje só existe via `docker service update`, some no próximo redeploy);
+- aplicar a migration `0003_cynical_forgotten_one.sql` (fix `tasks.project_id`) em qualquer ambiente com dado real.
 
 ## 11. Fase 1 — Workspace, usuários, RBAC e autorização (concluída 17/07/2026)
 
@@ -347,3 +357,48 @@ Correções aplicadas em `src/app/globals.css`, dentro do `@media (max-width: 76
 
 - Animação de abertura/fechamento do menu mobile foi removida por falta de confiança na verificação — pode ser reintroduzida com teste visual real (aparelho físico ou navegador confiável) quando for prioridade.
 - O modo "trilho de ícones" (768-900px, tablet estreito) preserva o comportamento antigo — não testado nesta sessão por falta de um dispositivo/viewport de teste nessa faixa específica.
+
+## 18. Fase 3 (parte 1) — CRM operacional: 4 grupos (concluído 18/07/2026, commits locais, não enviados)
+
+### Contexto
+
+O responsável apontou, corretamente, que o sistema "do jeito que tá hoje, tá inutilizável" — auditoria confirmou: Contatos/Empresas eram só criar+listar (sem editar, excluir, ou filtrar excluídos), "próxima ação" existia no banco mas nunca era lida/escrita em lugar nenhum (o princípio nº1 do `docs/PRODUCT_VISION.md`), Ganho/Perda eram botões sem `onClick`, e Tarefas era 100% schema sem nenhuma ação/tela/rota. Decisão do responsável: **construir, validar e testar, e só commitar/subir quando tiver algo palpável pra uso** — não fatiar tão fino quanto as partes da Fase 2 anteriores.
+
+Plano detalhado (com código, critério de pronto por grupo) em `docs/superpowers/plans/2026-07-18-fase3-crm-operacional.md`, escrito com a skill `writing-plans` antes de qualquer código (os sub-skills `subagent-driven-development`/`executing-plans`/`plan-document-reviewer` que essa skill normalmente usa não estão instalados neste repo — plano executado inline, autorrevisado, seguindo o protocolo de 15 passos do `CLAUDE.md`).
+
+**Zod instalado nesta sessão** (`package.json`/`pnpm-lock.yaml`) — estava listado em `docs/ARCHITECTURE_AND_STANDARDS.md` como parte do stack, mas nunca tinha sido de fato adicionado; nenhuma server action validava input com ele antes desta fase.
+
+### Grupo 1 — Próxima ação nas oportunidades
+
+`opportunities.nextActionAt`/`nextActionDescription` existiam no schema desde a Fase 0/1, com índice dedicado, mas totalmente órfãos. Adicionado: `opportunities.schemas.ts` (Zod, testado), `opportunities.ts::updateNextAction`, formulário na tela de detalhe (`next-action-form.tsx`), e exibição no card do Kanban com destaque de atraso — que exigiu corrigir `crm/pipeline/page.tsx`, que estava silenciosamente descartando esses dois campos no mapeamento server→client antes de chegar no componente.
+
+### Grupo 2 — Ganho e Perda funcionando
+
+Os botões "Ganho"/"Perdido" na tela de detalhe não tinham `onClick` nenhum. Adicionado: etapa "Perdido" no funil, criada de forma idempotente (backfill pra pipelines já existentes, incluindo o de produção, que só tinha 5 etapas sem nenhuma de perda) sem tocar nas etapas atuais; `opportunities.ts::winOpportunity`/`loseOpportunity`, cada uma dentro de `db.transaction` (atualização de status + registro de histórico não podem ficar dessincronizados se uma escrita falhar — `moveOpportunity`, no mesmo arquivo, tem esse mesmo gap e **não foi corrigido**, fica como débito conhecido pra não expandir o escopo); ambas rejeitam se a oportunidade não estiver `"open"` (guarda contra ação repetida); modal de motivo obrigatório pra perda.
+
+### Grupo 3 — Tarefas básicas
+
+Maior peça nova. Corrigido de passagem um bug real de integridade encontrado na auditoria: `tasks.project_id` não tinha `.references()` nenhuma (única FK da tabela sem constraint) — corrigido no schema, migration `0003_cynical_forgotten_one.sql` **gerada mas não aplicada** (precisa autorização antes de rodar contra qualquer banco real). Adicionado `tasksRelations` em `relations.ts` (Drizzle exige isso além do `.references()` pra usar `with:` em queries relacionais — já tinha mordido este projeto antes). `tasks.ts`: `createTask`/`getMyTasks`/`getOverdueTasks`/`completeTask`. Rota `/crm/tarefas` + `tasks-client.tsx` (toggle minhas/atrasadas, criação rápida, concluir). Link "Tarefas" do menu corrigido de `href="#"` pra rota real.
+
+### Grupo 4 — Editar e excluir Contatos e Empresas
+
+`contacts.ts`/`companies.ts` só tinham `create`+`get` (44 linhas cada). Adicionado `updateContact`/`deleteContact` e `updateCompany`/`deleteCompany` (soft delete via `deletedAt`), e corrigido `getContacts`/`getCompanies` pra filtrar `deletedAt IS NULL` — a coluna existia desde sempre mas nunca era lida nem escrita, soft delete era 100% decorativo. UI: o modal de criação existente passou a servir também de edição (preenchido via `defaultValue`, com `key` no `<form>` pra resetar corretamente entre registros diferentes), mais botões Editar/Excluir por linha (exclusão com `window.confirm`).
+
+**Não implementado, fora do escopo combinado**: restaurar contato/empresa excluído (as permissões `contacts.restore`/`companies.restore` já existem e têm papel atribuído, só falta a ação).
+
+### Validação real (o que foi e o que não foi possível confirmar)
+
+- Todos os 4 grupos: `tsc --noEmit` limpo, `npm run lint` 0 erros reais, `vitest run` crescendo de 2 → 26 testes (todos passando), `next build` verde a cada grupo (27 → 28 rotas depois do Grupo 3, com `/crm/tarefas`).
+- Verificação de UI feita com a mesma técnica das partes anteriores da Fase 2: rota temporária sem exigir sessão (`dev-shell-preview`), deletada antes de cada commit, nunca chegou a fazer parte do código enviado.
+- **O que essa técnica provou de verdade**: os formulários renderizam com os campos certos, o modal de edição abre pré-preenchido com o dado real da linha, o toggle de tarefas funciona, e — o mais importante — **toda ação server (`updateNextAction`, `winOpportunity`, `loseOpportunity`, `createTask`, `completeTask`) foi de fato invocada e corretamente rejeitada por `requirePermission()` com "Sessão inválida ou expirada"**, sem sessão. Isso confirma a fiação completa (form → server action → checagem de permissão) sem tocar em dado real.
+- **O que essa técnica não prova**: que o fluxo persiste corretamente no banco de produção (status realmente muda, parcela de histórico é gravada, tarefa aparece na lista depois de recarregar, exclusão de fato some da lista após reload). Isso só o responsável pode confirmar, logado de verdade.
+- No Grupo 4 especificamente, **não cliquei em "Salvar"/"Excluir"** durante a verificação — ambos os fluxos passam por `window.alert()`/`window.confirm()` (diálogos nativos do navegador que arriscam travar a automação usada pra testar). Confiei no padrão `requirePermission()`-primeiro já verificado três vezes nesta mesma sessão (próxima ação, ganho/perda, tarefas) em vez de arriscar travar a ferramenta pra reconfirmar a mesma coisa uma quarta vez.
+
+### Débitos conhecidos, registrados de propósito (não esquecidos)
+
+- `moveOpportunity` (drag-and-drop do Kanban) ainda não usa transação pra unir a atualização de estágio + o registro de histórico — mesmo gap que `winOpportunity`/`loseOpportunity` corrigiram, mas não replicado ali pra não expandir escopo.
+- Restaurar contato/empresa excluído: não implementado.
+- Checklist de tarefa, recorrência de verdade (o campo `recurrenceRule` é texto livre sem parser), e calendário: fora do escopo combinado ("tarefas básicas").
+- Coluna "quem completou a tarefa": só existe `completedAt` (quando), não quem — precisaria de nova coluna, fora do escopo.
+- Migration `0003_cynical_forgotten_one.sql`: gerada, não aplicada em nenhum ambiente.
+- Nenhum dos 4 commits desta fase foi enviado ao GitHub — aguardando o responsável confirmar visualmente antes do push, conforme combinado.
