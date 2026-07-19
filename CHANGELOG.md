@@ -588,6 +588,19 @@ Depois de uma auditoria pedida pelo responsável ("me diz oq falta"), ficou clar
 
 ---
 
+## [2026-07-19] — Editar validade/pagamento/blocos numa proposta já criada
+
+### Adicionado
+
+- `quote-content-form.tsx` (editar rascunho / nova versão): mesmos campos de validade, pagamento estruturado e blocos opcionais que já existiam no fluxo de criação.
+- `quote-detail-client.tsx`: visualização somente-leitura de validade/pagamento/blocos fora do modo de edição.
+
+### Testes
+
+- `tsc --noEmit`, `biome check --write`, `vitest run` (59/59), `rm -rf .next && next build` (32 rotas): limpos.
+
+---
+
 Formato recomendado por alteração:
 
 ```text

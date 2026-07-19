@@ -30,6 +30,10 @@ export function QuoteDetailClient({
   items,
   scope,
   terms,
+  validUntil,
+  notIncluded,
+  responsibilities,
+  paymentPlan,
   allVersions,
   products,
   initialFiles,
@@ -46,6 +50,15 @@ export function QuoteDetailClient({
   items: QuoteItemInput[];
   scope: string;
   terms: string;
+  validUntil: string;
+  notIncluded: string;
+  responsibilities: string;
+  paymentPlan: {
+    description: string;
+    entryAmount: number;
+    installmentCount: number;
+    installmentAmount: number;
+  } | null;
   allVersions: { id: string; versionNumber: number }[];
   products: Awaited<ReturnType<typeof getProducts>>;
   initialFiles: FileRow;
@@ -79,6 +92,10 @@ export function QuoteDetailClient({
         initialScope={scope}
         initialTerms={terms}
         initialItems={items}
+        initialValidUntil={validUntil}
+        initialNotIncluded={notIncluded}
+        initialResponsibilities={responsibilities}
+        initialPaymentPlan={paymentPlan}
         submitLabel={canEditFreely ? "Salvar rascunho" : "Publicar nova versão"}
         onSave={async (data) => {
           if (canEditFreely) {
@@ -192,6 +209,42 @@ export function QuoteDetailClient({
             <div>
               <h3 className="font-semibold text-lg mb-2">Termos</h3>
               <p className="whitespace-pre-wrap text-sm text-slate-700">{terms}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {(paymentPlan || notIncluded || responsibilities || validUntil) && (
+        <div className="bg-white border border-slate-200 rounded-xl p-8 space-y-6">
+          {validUntil && (
+            <p className="text-sm text-slate-500">
+              Válida até {new Date(`${validUntil}T00:00:00`).toLocaleDateString("pt-BR")}
+            </p>
+          )}
+          {paymentPlan && (
+            <div>
+              <h3 className="font-semibold text-lg mb-2">Condição de pagamento</h3>
+              {paymentPlan.description && (
+                <p className="text-sm text-slate-700 mb-2">{paymentPlan.description}</p>
+              )}
+              <p className="text-sm text-slate-500">
+                {paymentPlan.entryAmount > 0 &&
+                  `Entrada: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(paymentPlan.entryAmount)}`}
+                {paymentPlan.installmentCount > 0 &&
+                  ` • ${paymentPlan.installmentCount}x de ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(paymentPlan.installmentAmount)}`}
+              </p>
+            </div>
+          )}
+          {responsibilities && (
+            <div>
+              <h3 className="font-semibold text-lg mb-2">Responsabilidades do cliente</h3>
+              <p className="whitespace-pre-wrap text-sm text-slate-700">{responsibilities}</p>
+            </div>
+          )}
+          {notIncluded && (
+            <div>
+              <h3 className="font-semibold text-lg mb-2">O que não está incluso</h3>
+              <p className="whitespace-pre-wrap text-sm text-slate-700">{notIncluded}</p>
             </div>
           )}
         </div>

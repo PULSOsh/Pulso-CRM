@@ -877,7 +877,31 @@ Igual ao padrão já visto com `globals.css` (seção 22) e `opportunity_product
 
 ### Débitos conhecidos
 
-- A tela de detalhe da proposta (`crm/quotes/[id]`, `QuoteDetailClient`) não foi estendida pra editar blocos/pagamento depois de criados — só o fluxo de criação (`quote-builder-form.tsx`) escreve esses campos. Editar uma proposta existente pra adicionar/mudar essas seções ainda não tem UI; ficou deliberadamente não-destrutivo (não apaga o que existe) em vez de forçar uma tela nova agora.
+- ~~A tela de detalhe da proposta não edita blocos/pagamento depois de criados~~ **Corrigido na seção 26.**
 - `proposal_payment_options` suporta múltiplas opções de pagamento por versão (é uma tabela "options", plural) mas só uma é usada — suficiente pro caso de uso atual (uma condição só, como no PDF de referência), mas o modelo já aguenta mais se um dia for pedido.
 - Toolbar de busca/filtro da inbox de briefings (visível no print de referência) não foi implementada — só o card de fluxo recomendado e o contador, que eram o pedido concreto.
 - "Usar briefing" continua desabilitado no gerador de orçamento (débito já registrado na seção 22) — o CTA "Criar orçamento" da inbox linka pro gerador em branco, não importa o briefing automaticamente ainda.
+
+## 26. Edição de blocos/pagamento numa proposta já criada (concluído 19/07/2026)
+
+### Contexto
+
+Débito registrado no fim da seção 25: o fluxo de criação (`quote-builder-form.tsx`) escrevia validade/pagamento/blocos, mas a tela de detalhe (`crm/quotes/[id]`) não tinha como editar isso depois — só criar. Como o usuário pediu pra continuar fechando débitos, esse era o mais recente e mais concreto.
+
+### O que foi feito
+
+`QuoteContentForm` (compartilhado entre "editar rascunho" e "criar nova versão" em `QuoteDetailClient`) ganhou os mesmos 3 blocos do builder de criação: validade, condição de pagamento estruturada e as duas seções opcionais (não incluso/responsabilidades), inicializados com o estado real vindo de `getQuoteById` (que já retornava `blocks`/`paymentOptions` desde a seção 25, só não estava sendo consumido aqui). `QuoteDetailClient` também ganhou uma visualização somente-leitura dessas informações na tela de detalhe (fora do modo de edição), que antes só mostrava escopo/termos.
+
+Diferente do builder de criação, aqui o `onSave` sempre manda `blocks`/`paymentPlan` (nunca `undefined`) porque este componente agora é dono completo desse estado — a proteção "não-destrutivo se undefined" que ficou em `updateQuoteDraft`/`createNewProposalVersion` (seção 25) continua existindo como rede de segurança pra qualquer chamador futuro que não conheça esses campos, mas deixou de ser necessária pra este fluxo específico.
+
+### Validação real
+
+- `npx tsc --noEmit`: limpo.
+- `npx biome check --write`: limpo.
+- `npx vitest run`: 59/59.
+- `rm -rf .next && npx next build`: limpo, 32 rotas.
+- Não testado via clique real — mesma limitação de credenciais já registrada.
+
+### Débitos conhecidos
+
+- Este formulário (`quote-content-form.tsx`) continua em Tailwind cru, igual ao resto da tela de detalhe de propostas — não redesenhado pro design system nesta rodada (débito já existente, não expandido nem resolvido aqui).

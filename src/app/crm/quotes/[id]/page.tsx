@@ -17,9 +17,13 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
   const result = await getQuoteById(id);
   if (!result) notFound();
 
-  const { proposal, version, items, allVersions } = result;
+  const { proposal, version, items, blocks, paymentOptions, allVersions } = result;
 
   const [products, files] = await Promise.all([getProducts(), getFilesForEntity("proposal", id)]);
+
+  const notIncludedBlock = blocks.find((b) => b.stableKey === "not_included");
+  const responsibilitiesBlock = blocks.find((b) => b.stableKey === "responsibilities");
+  const paymentOption = paymentOptions[0] ?? null;
 
   return (
     <AppShell active="budgets" eyebrow="COMERCIAL" title={`Proposta ${proposal.code}`}>
@@ -53,6 +57,19 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
           }))}
           scope={version?.scope ?? ""}
           terms={version?.terms ?? ""}
+          validUntil={proposal.validUntil ? proposal.validUntil.toISOString().slice(0, 10) : ""}
+          notIncluded={(notIncludedBlock?.content as { body?: string })?.body ?? ""}
+          responsibilities={(responsibilitiesBlock?.content as { body?: string })?.body ?? ""}
+          paymentPlan={
+            paymentOption
+              ? {
+                  description: paymentOption.description ?? "",
+                  entryAmount: Number(paymentOption.entryAmount),
+                  installmentCount: paymentOption.installmentCount,
+                  installmentAmount: Number(paymentOption.installmentAmount),
+                }
+              : null
+          }
           allVersions={allVersions}
           products={products}
           initialFiles={files}
