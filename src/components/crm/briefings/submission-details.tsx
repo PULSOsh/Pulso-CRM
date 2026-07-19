@@ -44,6 +44,19 @@ export function SubmissionDetails({
 
   const isLinked = submission.status === "linked";
   const submissionUserAgent = (submission.metadata as { userAgent?: string })?.userAgent;
+  // As respostas ficam em metadata.answers (jsonb, sem FK), não na tabela
+  // normalizada briefing_submission_answers - ver src/app/api/public/
+  // briefing/submit/route.ts pro porquê.
+  const rawAnswers = (submission.metadata as { answers?: Record<string, unknown> })?.answers ?? {};
+  const answerEntries = Object.entries(rawAnswers).filter(([, value]) => {
+    if (Array.isArray(value)) return value.length > 0;
+    return value !== undefined && value !== null && value !== "";
+  });
+  const prettifyKey = (key: string) =>
+    key
+      .replace(/^q_/, "")
+      .replace(/_/g, " ")
+      .replace(/^./, (c) => c.toUpperCase());
 
   return (
     <div className="max-w-6xl mx-auto flex gap-8 items-start">
@@ -70,36 +83,27 @@ export function SubmissionDetails({
           </div>
 
           <div className="space-y-8">
-            {submission.answers.map((answer) => (
-              <div
-                key={answer.id}
-                className="border-b border-slate-100 pb-6 last:border-0 last:pb-0"
-              >
-                <h4 className="text-sm font-medium text-slate-500 mb-2">
-                  {
-                    answer.questionKey /* Em um cenário ideal faríamos join com as perguntas para pegar o Título */
-                  }
-                </h4>
+            {answerEntries.map(([key, value]) => (
+              <div key={key} className="border-b border-slate-100 pb-6 last:border-0 last:pb-0">
+                <h4 className="text-sm font-medium text-slate-500 mb-2">{prettifyKey(key)}</h4>
                 <div className="text-slate-900 text-lg">
-                  {Array.isArray(answer.value) ? (
+                  {Array.isArray(value) ? (
                     <ul className="list-disc pl-5">
-                      {answer.value.map((v: string) => (
+                      {value.map((v: string) => (
                         <li key={v}>{v}</li>
                       ))}
                     </ul>
-                  ) : typeof answer.value === "object" ? (
-                    JSON.stringify(answer.value)
+                  ) : typeof value === "object" ? (
+                    JSON.stringify(value)
                   ) : (
-                    String(answer.value || "-")
+                    String(value || "-")
                   )}
                 </div>
               </div>
             ))}
 
-            {submission.answers.length === 0 && (
-              <p className="text-slate-500 italic">
-                Nenhuma resposta registrada (ou usando chaves mockadas).
-              </p>
+            {answerEntries.length === 0 && (
+              <p className="text-slate-500 italic">Nenhuma resposta registrada.</p>
             )}
           </div>
         </div>

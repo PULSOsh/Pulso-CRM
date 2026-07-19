@@ -3,14 +3,7 @@
 import { ArrowLeft, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { type QuestionDef, QuestionRenderer } from "./question-renderer";
-
-type SectionDef = {
-  id: string;
-  title: string;
-  description?: string;
-  questions: QuestionDef[];
-};
+import { QuestionRenderer, type SectionDef } from "./question-renderer";
 
 type BriefingWizardProps = {
   templateSlug: string;

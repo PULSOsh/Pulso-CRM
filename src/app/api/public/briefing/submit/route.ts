@@ -1,11 +1,7 @@
 import { eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db/connection";
-import {
-  briefingSubmissionAnswers,
-  briefingSubmissions,
-  briefingTemplates,
-} from "@/server/db/schema";
+import { briefingSubmissions, briefingTemplates } from "@/server/db/schema";
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,39 +21,42 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Template não encontrado ou inativo." }, { status: 404 });
     }
 
+    if (!template.publishedVersionId) {
+      // Sem versão publicada não há como gravar templateVersionId (FK
+      // obrigatória) - melhor recusar com um erro claro do que gravar um
+      // id falso que nunca existiria na tabela de versões.
+      return NextResponse.json(
+        { error: "Este formulário ainda não está pronto para receber respostas." },
+        { status: 409 },
+      );
+    }
+
     // Generate Protocol: PULSO-YYYYMMDD-XXXX
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
     const randomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
     const protocol = `PULSO-${dateStr}-${randomCode}`;
 
-    // Create submission record
-    const [submission] = await db
-      .insert(briefingSubmissions)
-      .values({
-        organizationId: template.organizationId,
-        templateId: template.id,
-        templateVersionId: template.publishedVersionId || "00000000-0000-0000-0000-000000000000", // Fallback for MVP if not set
-        protocol,
-        status: "started", // MVP, could be 'completed'
-        source: "public_site",
-        contactName: answers.q_name || "Desconhecido",
-        contactEmail: answers.q_email || "",
-        companyName: answers.q_company || "",
-        metadata: { userAgent: req.headers.get("user-agent") },
-      })
-      .returning();
-
-    // Insert answers
-    const answersToInsert = Object.entries(answers).map(([key, value]) => ({
-      submissionId: submission.id,
-      questionId: "00000000-0000-0000-0000-000000000000", // MVP fallback since we mocked questions
-      questionKey: key,
-      value: value as unknown,
-    }));
-
-    if (answersToInsert.length > 0) {
-      await db.insert(briefingSubmissionAnswers).values(answersToInsert);
-    }
+    // As respostas ficam em `metadata.answers` (jsonb, sem FK) em vez da
+    // tabela normalizada `briefing_submission_answers`, que exige um
+    // `question_id` real apontando pra `briefing_questions` - tabela ainda
+    // não populada (o catálogo de perguntas por template vive no snapshot
+    // da versão, não em linhas individuais). Normalizar é debt conhecido,
+    // não um bloqueio: os dados brutos continuam auditáveis aqui.
+    await db.insert(briefingSubmissions).values({
+      organizationId: template.organizationId,
+      templateId: template.id,
+      templateVersionId: template.publishedVersionId,
+      protocol,
+      status: "submitted",
+      source: "public_site",
+      contactName: answers.q_name || "Desconhecido",
+      contactEmail: answers.q_email || "",
+      contactPhone: answers.q_whatsapp || null,
+      companyName: answers.q_company || "",
+      completionPercent: 100,
+      submittedAt: new Date(),
+      metadata: { userAgent: req.headers.get("user-agent"), answers },
+    });
 
     return NextResponse.json({ success: true, protocol });
   } catch (error) {

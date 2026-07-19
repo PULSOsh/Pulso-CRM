@@ -12,6 +12,13 @@ export type QuestionDef = {
   options?: { label: string; value: string }[];
 };
 
+export type SectionDef = {
+  id: string;
+  title: string;
+  description?: string;
+  questions: QuestionDef[];
+};
+
 export function QuestionRenderer({
   question,
   value,
@@ -27,6 +34,21 @@ export function QuestionRenderer({
   };
 
   switch (question.type) {
+    case "select":
+      return (
+        <select
+          required={question.isRequired}
+          value={(value as string) || ""}
+          onChange={(e) => onChange(e.target.value)}
+        >
+          <option value="">Selecione...</option>
+          {question.options?.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      );
     case "textarea":
       return (
         <Textarea
