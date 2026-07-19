@@ -1,9 +1,10 @@
 "use client";
 
-import { FileSignature, Plus } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { FileSignature, Loader2, Plus } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { Select } from "@/components/ui/select";
 import { createContractFromProposal } from "@/server/actions/contracts";
 
 type Contract = {
@@ -21,7 +22,7 @@ type AvailableProposal = {
   total: string;
 };
 
-const statusLabels: Record<string, string> = {
+const STATUS_LABEL: Record<string, string> = {
   draft: "Rascunho",
   sent: "Enviado",
   signed: "Assinado",
@@ -29,12 +30,12 @@ const statusLabels: Record<string, string> = {
   ended: "Encerrado",
 };
 
-const statusStyles: Record<string, string> = {
-  draft: "bg-slate-100 text-slate-800",
-  sent: "bg-blue-100 text-blue-800",
-  signed: "bg-emerald-100 text-emerald-800",
-  cancelled: "bg-red-100 text-red-800",
-  ended: "bg-slate-200 text-slate-600",
+const STATUS_CLASS: Record<string, string> = {
+  draft: "status-rascunho",
+  sent: "status-enviado",
+  signed: "status-assinado",
+  cancelled: "status-cancelado",
+  ended: "status-encerrado",
 };
 
 export function ContractsClient({
@@ -67,119 +68,161 @@ export function ContractsClient({
   }
 
   return (
-    <div className="p-4 md:p-8 flex flex-col h-full max-w-7xl mx-auto w-full">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
+    <div className="p-4 md:p-8">
+      <div className="page-heading">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <FileSignature size={24} className="text-orange-600" />
-            Contratos
-          </h1>
-          <p className="text-slate-500 mt-1">Gere contratos a partir de propostas aprovadas.</p>
+          <p className="eyebrow">CONTRATOS</p>
+          <h2>Gere contratos a partir de propostas aprovadas.</h2>
         </div>
         <button
           type="button"
+          className="primary-button"
           onClick={() => setIsModalOpen(true)}
           disabled={availableProposals.length === 0}
-          className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors w-full sm:w-auto justify-center disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Plus size={20} />
-          Gerar Contrato
+          <Plus size={16} />
+          Gerar contrato
         </button>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[700px]">
-            <thead>
-              <tr className="bg-slate-50 text-slate-500 text-sm border-b border-slate-200">
-                <th className="p-4 font-medium">Código</th>
-                <th className="p-4 font-medium">Título</th>
-                <th className="p-4 font-medium">Status</th>
-                <th className="p-4 font-medium text-right">Data</th>
-                <th className="p-4 font-medium text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {contracts.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="p-8 text-center text-slate-500">
-                    Nenhum contrato gerado ainda.
-                  </td>
-                </tr>
-              ) : (
-                contracts.map((contract) => (
-                  <tr
-                    key={contract.id}
-                    className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
-                  >
-                    <td className="p-4 font-medium text-slate-500">{contract.code}</td>
-                    <td className="p-4 font-semibold text-slate-900">{contract.title}</td>
-                    <td className="p-4">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyles[contract.status] ?? "bg-slate-100 text-slate-800"}`}
-                      >
-                        {statusLabels[contract.status] ?? contract.status}
-                      </span>
-                    </td>
-                    <td className="p-4 text-slate-500 text-right text-sm">
-                      {new Date(contract.createdAt).toLocaleDateString("pt-BR")}
-                    </td>
-                    <td className="p-4 text-right">
-                      <Link
-                        href={`/crm/contratos/${contract.id}`}
-                        className="text-orange-600 hover:text-orange-700 font-medium"
-                      >
-                        Ver detalhes
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+      {contracts.length === 0 ? (
+        <div className="briefing-table" style={{ padding: 48, textAlign: "center" }}>
+          <FileSignature size={32} style={{ color: "var(--mineral)", margin: "0 auto 12px" }} />
+          <p className="muted">Nenhum contrato gerado ainda.</p>
         </div>
-      </div>
+      ) : (
+        <div className="briefing-table">
+          <div
+            className="briefing-row briefing-head"
+            style={{ gridTemplateColumns: "0.9fr 1.6fr 0.8fr 0.9fr 42px" }}
+          >
+            <div>Código</div>
+            <div>Título</div>
+            <div>Status</div>
+            <div>Data</div>
+            <div />
+          </div>
+          {contracts.map((contract) => (
+            <div
+              className="briefing-row"
+              key={contract.id}
+              style={{ gridTemplateColumns: "0.9fr 1.6fr 0.8fr 0.9fr 42px" }}
+            >
+              <div>
+                <strong className="mono" style={{ fontSize: 11 }}>
+                  {contract.code}
+                </strong>
+              </div>
+              <div>
+                <strong>{contract.title}</strong>
+              </div>
+              <div>
+                <span
+                  className={`status-pill ${STATUS_CLASS[contract.status] ?? "status-rascunho"}`}
+                >
+                  {STATUS_LABEL[contract.status] ?? contract.status}
+                </span>
+              </div>
+              <div>
+                <strong className="mono" style={{ fontSize: 11 }}>
+                  {format(contract.createdAt, "dd/MM/yyyy", { locale: ptBR })}
+                </strong>
+              </div>
+              <Link
+                href={`/crm/contratos/${contract.id}`}
+                className="icon-button"
+                aria-label={`Ver contrato ${contract.code}`}
+                style={{ textDecoration: "none", color: "var(--signal)" }}
+              >
+                →
+              </Link>
+            </div>
+          ))}
+        </div>
+      )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
-            <div className="p-6 border-b border-slate-100">
-              <h2 className="text-xl font-bold text-slate-900">Gerar Contrato</h2>
-              <p className="text-slate-500 text-sm mt-1">
-                Selecione uma proposta aprovada para gerar o contrato.
-              </p>
-            </div>
-            <div className="p-6 space-y-4">
-              <Select
-                value={selectedProposalId}
-                onChange={(e) => setSelectedProposalId(e.target.value)}
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+            background: "rgb(22 22 22 / .45)",
+            backdropFilter: "blur(3px)",
+          }}
+        >
+          <div
+            style={{
+              width: "min(100%, 460px)",
+              padding: 28,
+              borderRadius: 16,
+              background: "var(--paper)",
+              boxShadow: "0 30px 90px rgb(0 0 0 / .2)",
+            }}
+          >
+            <h3 style={{ margin: "0 0 6px", fontSize: 26, letterSpacing: "-.03em" }}>
+              Gerar contrato
+            </h3>
+            <p className="muted" style={{ margin: "0 0 24px" }}>
+              Selecione uma proposta aprovada para gerar o contrato.
+            </p>
+
+            <div style={{ display: "grid", gap: 18 }}>
+              <label className="field">
+                <span>Proposta aprovada</span>
+                <select
+                  value={selectedProposalId}
+                  onChange={(e) => setSelectedProposalId(e.target.value)}
+                >
+                  <option value="">Selecione uma proposta aprovada...</option>
+                  {availableProposals.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.code} — {p.title} (R$ {p.total})
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {error && <p style={{ color: "var(--danger)", fontSize: 13, margin: 0 }}>{error}</p>}
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  paddingTop: 8,
+                  borderTop: "1px solid var(--border)",
+                }}
               >
-                <option value="">Selecione uma proposta aprovada...</option>
-                {availableProposals.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.code} - {p.title} (R$ {p.total})
-                  </option>
-                ))}
-              </Select>
-              {error && <p className="text-sm text-red-600">{error}</p>}
-            </div>
-            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 text-slate-700 hover:bg-slate-200 rounded-md transition-colors"
-                disabled={loading}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleGenerate}
-                disabled={loading || !selectedProposalId}
-                className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors disabled:opacity-50 flex items-center justify-center min-w-[100px]"
-              >
-                {loading ? "Gerando..." : "Gerar"}
-              </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  style={{ flex: 1 }}
+                  onClick={() => setIsModalOpen(false)}
+                  disabled={loading}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="primary-button"
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                  }}
+                  onClick={handleGenerate}
+                  disabled={loading || !selectedProposalId}
+                >
+                  {loading ? <Loader2 size={18} className="animate-spin" /> : null}
+                  {loading ? "Gerando..." : "Gerar"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

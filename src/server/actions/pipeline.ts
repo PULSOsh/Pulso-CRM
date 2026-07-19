@@ -6,12 +6,19 @@ import { requirePermission } from "../auth/require-permission";
 import { db } from "../db/connection";
 import {
   opportunities,
+  opportunityProducts,
   opportunityStageHistory,
   pipelineStages,
   pipelines,
+  products,
   tasks,
 } from "../db/schema";
 import { logActivity } from "../services/activity-log";
+import {
+  type OpportunityProductInput,
+  opportunityProductSchema,
+  updateOpportunitySchema,
+} from "./pipeline.schemas";
 
 export async function getPipelineWithOpportunities() {
   const { organizationId } = await requirePermission("opportunities.read");
@@ -283,4 +290,118 @@ export async function createOpportunity(data: {
 
   revalidatePath("/crm/pipeline");
   return opp;
+}
+
+export async function updateOpportunity(opportunityId: string, input: unknown) {
+  const { organizationId, userId } = await requirePermission("opportunities.update");
+  const parsed = updateOpportunitySchema.parse(input);
+
+  const [updated] = await db
+    .update(opportunities)
+    .set({
+      title: parsed.title,
+      description: parsed.description || null,
+      source: parsed.source || null,
+      estimatedValue:
+        parsed.estimatedValue !== undefined ? parsed.estimatedValue.toString() : undefined,
+      negotiatedValue:
+        parsed.negotiatedValue !== undefined ? parsed.negotiatedValue.toString() : null,
+      probability: parsed.probability ?? null,
+      expectedCloseDate: parsed.expectedCloseDate ? new Date(parsed.expectedCloseDate) : null,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(eq(opportunities.id, opportunityId), eq(opportunities.organizationId, organizationId)),
+    )
+    .returning({ id: opportunities.id });
+
+  if (!updated) throw new Error("Oportunidade não encontrada.");
+
+  await logActivity({
+    organizationId,
+    actorUserId: userId,
+    type: "note",
+    title: `Negociação atualizada: ${parsed.title}`,
+    opportunityId,
+  });
+
+  revalidatePath(`/crm/opportunities/${opportunityId}`);
+  revalidatePath("/crm/pipeline");
+  return { success: true };
+}
+
+export async function addOpportunityProduct(opportunityId: string, input: unknown) {
+  const { organizationId, userId } = await requirePermission("opportunities.update");
+  const parsed: OpportunityProductInput = opportunityProductSchema.parse(input);
+
+  const opp = await db.query.opportunities.findFirst({
+    where: and(
+      eq(opportunities.id, opportunityId),
+      eq(opportunities.organizationId, organizationId),
+    ),
+    columns: { id: true },
+  });
+  if (!opp) throw new Error("Oportunidade não encontrada.");
+
+  const product = await db.query.products.findFirst({
+    where: eq(products.id, parsed.productId),
+    columns: { name: true },
+  });
+  if (!product) throw new Error("Produto não encontrado.");
+
+  await db
+    .insert(opportunityProducts)
+    .values({
+      opportunityId,
+      productId: parsed.productId,
+      quantity: parsed.quantity.toString(),
+      unitPrice: parsed.unitPrice.toString(),
+      discount: parsed.discount.toString(),
+      notes: parsed.notes || null,
+    })
+    .onConflictDoUpdate({
+      target: [opportunityProducts.opportunityId, opportunityProducts.productId],
+      set: {
+        quantity: parsed.quantity.toString(),
+        unitPrice: parsed.unitPrice.toString(),
+        discount: parsed.discount.toString(),
+        notes: parsed.notes || null,
+      },
+    });
+
+  await logActivity({
+    organizationId,
+    actorUserId: userId,
+    type: "note",
+    title: `Produto vinculado: ${product.name}`,
+    opportunityId,
+  });
+
+  revalidatePath(`/crm/opportunities/${opportunityId}`);
+  return { success: true };
+}
+
+export async function removeOpportunityProduct(opportunityId: string, productId: string) {
+  const { organizationId } = await requirePermission("opportunities.update");
+
+  const opp = await db.query.opportunities.findFirst({
+    where: and(
+      eq(opportunities.id, opportunityId),
+      eq(opportunities.organizationId, organizationId),
+    ),
+    columns: { id: true },
+  });
+  if (!opp) throw new Error("Oportunidade não encontrada.");
+
+  await db
+    .delete(opportunityProducts)
+    .where(
+      and(
+        eq(opportunityProducts.opportunityId, opportunityId),
+        eq(opportunityProducts.productId, productId),
+      ),
+    );
+
+  revalidatePath(`/crm/opportunities/${opportunityId}`);
+  return { success: true };
 }

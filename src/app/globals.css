@@ -714,6 +714,23 @@ textarea:focus-visible {
   color: #3b568e;
   background: #e4ebfa;
 }
+.status-rascunho,
+.status-encerrado {
+  color: var(--mineral);
+  background: #ece9e2;
+}
+.status-enviado {
+  color: #3b568e;
+  background: #e4ebfa;
+}
+.status-assinado {
+  color: #1f7044;
+  background: #dff4e8;
+}
+.status-cancelado {
+  color: #a13333;
+  background: #fbe1e1;
+}
 .progress-track {
   height: 5px;
   overflow: hidden;
@@ -1684,12 +1701,20 @@ textarea:focus-visible {
 }
 
 /* Mobile Menu */
-.mobile-menu-btn { display: none; }
-.mobile-close-btn { display: none; }
+.mobile-menu-btn {
+  display: none;
+}
+.mobile-close-btn {
+  display: none;
+}
 
 @media (max-width: 768px) {
-  .mobile-menu-btn { display: block; }
-  .mobile-close-btn { display: block; }
+  .mobile-menu-btn {
+    display: block;
+  }
+  .mobile-close-btn {
+    display: block;
+  }
   .sidebar {
     width: 280px;
     left: -280px;

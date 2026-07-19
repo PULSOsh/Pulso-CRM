@@ -1,10 +1,8 @@
 "use client";
 
-import { Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import type { getReceivableForContract, InstallmentInput } from "@/server/actions/finance";
 import { createReceivableFromContract } from "@/server/actions/finance";
 
@@ -44,17 +42,20 @@ export function GenerateReceivableForm({
 
   if (existing) {
     return (
-      <div className="bg-white border border-slate-200 rounded-xl p-6">
-        <h2 className="font-semibold text-slate-900 mb-4">
+      <div className="builder-card">
+        <strong style={{ fontSize: 15 }}>
           Recebível — {currency(existing.receivable.totalAmount)}
-        </h2>
-        <ul className="space-y-1 text-sm">
+        </strong>
+        <ul style={{ display: "grid", gap: 6, margin: "14px 0 0", padding: 0, listStyle: "none" }}>
           {existing.installments.map((i) => (
-            <li key={i.id} className="flex justify-between">
+            <li
+              key={i.id}
+              style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}
+            >
               <span>
                 Parcela {i.installmentNumber} — {new Date(i.dueDate).toLocaleDateString("pt-BR")}
               </span>
-              <span className="text-slate-500">
+              <span className="muted">
                 {currency(i.amount)} · {STATUS_LABELS[i.status] ?? i.status}
               </span>
             </li>
@@ -62,7 +63,13 @@ export function GenerateReceivableForm({
         </ul>
         <a
           href="/crm/financeiro"
-          className="mt-4 inline-block text-sm text-orange-600 hover:text-orange-700"
+          style={{
+            display: "inline-block",
+            marginTop: 14,
+            fontSize: 13,
+            fontWeight: 650,
+            color: "var(--signal-dark)",
+          }}
         >
           Gerenciar no Financeiro →
         </a>
@@ -94,98 +101,91 @@ export function GenerateReceivableForm({
 
   if (!creating) {
     return (
-      <Button type="button" variant="outline" onClick={() => setCreating(true)}>
+      <button type="button" className="secondary-button" onClick={() => setCreating(true)}>
         Gerar recebível
-      </Button>
+      </button>
     );
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="bg-white border border-slate-200 rounded-xl p-6 space-y-4"
-    >
-      <h2 className="font-semibold text-slate-900">Gerar recebível</h2>
-      <div>
-        <label htmlFor="receivable-description" className="text-sm font-medium text-slate-700">
-          Descrição
-        </label>
-        <Input
-          id="receivable-description"
+    <form onSubmit={handleSubmit} className="builder-card" style={{ display: "grid", gap: 16 }}>
+      <strong style={{ fontSize: 15 }}>Gerar recebível</strong>
+
+      <label className="field">
+        <span>Descrição</span>
+        <input
+          type="text"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           required
-          className="mt-1"
         />
-      </div>
+      </label>
 
-      <div className="space-y-2">
-        <p className="text-sm font-medium text-slate-700">Parcelas</p>
+      <div style={{ display: "grid", gap: 10 }}>
+        <span style={{ fontSize: 13, fontWeight: 750 }}>Parcelas</span>
         {rows.map((row) => (
-          <div key={row.key} className="flex items-end gap-2">
-            <div>
-              <label htmlFor={`row-amount-${row.key}`} className="text-xs text-slate-500">
-                Valor
-              </label>
-              <Input
-                id={`row-amount-${row.key}`}
+          <div key={row.key} style={{ display: "flex", alignItems: "flex-end", gap: 10 }}>
+            <label className="field" style={{ width: 140 }}>
+              <span>Valor</span>
+              <input
                 type="number"
                 step="0.01"
                 value={row.amount}
                 onChange={(e) => updateRow(row.key, "amount", Number(e.target.value))}
                 required
-                className="w-32"
               />
-            </div>
-            <div>
-              <label htmlFor={`row-due-${row.key}`} className="text-xs text-slate-500">
-                Vencimento
-              </label>
-              <Input
-                id={`row-due-${row.key}`}
+            </label>
+            <label className="field" style={{ flex: 1 }}>
+              <span>Vencimento</span>
+              <input
                 type="date"
                 value={row.dueDate}
                 onChange={(e) => updateRow(row.key, "dueDate", e.target.value)}
                 required
               />
-            </div>
+            </label>
             {rows.length > 1 && (
-              <Button
+              <button
                 type="button"
-                variant="ghost"
-                size="icon"
+                className="icon-button"
                 onClick={() => setRows((prev) => prev.filter((r) => r.key !== row.key))}
               >
                 <Trash2 size={16} />
-              </Button>
+              </button>
             )}
           </div>
         ))}
-        <Button
+        <button
           type="button"
-          variant="outline"
-          size="sm"
+          className="text-action"
+          style={{ marginTop: 0 }}
           onClick={() =>
             setRows((prev) => [...prev, { key: crypto.randomUUID(), amount: 0, dueDate: "" }])
           }
         >
           <Plus size={16} /> Adicionar parcela
-        </Button>
+        </button>
       </div>
 
-      <p className="text-sm text-slate-600">
-        Total: <span className="font-semibold">{currency(total)}</span>
+      <p style={{ fontSize: 13, color: "var(--mineral)", margin: 0 }}>
+        Total: <strong style={{ color: "var(--carbon)" }}>{currency(total)}</strong>
       </p>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p style={{ color: "var(--danger)", fontSize: 13, margin: 0 }}>{error}</p>}
 
-      <div className="flex gap-2">
-        <Button type="submit" disabled={isPending}>
+      <div style={{ display: "flex", gap: 10 }}>
+        <button type="submit" className="primary-button" disabled={isPending}>
+          {isPending ? <Loader2 size={16} className="animate-spin" /> : null}
           {isPending ? "Gerando..." : "Confirmar"}
-        </Button>
-        <Button type="button" variant="outline" onClick={() => setCreating(false)}>
+        </button>
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={() => setCreating(false)}
+          disabled={isPending}
+        >
           Cancelar
-        </Button>
+        </button>
       </div>
     </form>
   );

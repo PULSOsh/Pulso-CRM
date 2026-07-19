@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader2, Send, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { GenerateReceivableForm } from "@/components/crm/finance/generate-receivable-form";
@@ -16,12 +17,20 @@ type Contract = {
   signedAt: Date | null;
 };
 
-const statusLabels: Record<string, string> = {
+const STATUS_LABEL: Record<string, string> = {
   draft: "Rascunho",
   sent: "Enviado",
   signed: "Assinado",
   cancelled: "Cancelado",
   ended: "Encerrado",
+};
+
+const STATUS_CLASS: Record<string, string> = {
+  draft: "status-rascunho",
+  sent: "status-enviado",
+  signed: "status-assinado",
+  cancelled: "status-cancelado",
+  ended: "status-encerrado",
 };
 
 export function ContractDetailsClient({
@@ -36,11 +45,8 @@ export function ContractDetailsClient({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const _publicUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/contrato/${contract.publicToken}`
-      : "";
+  const [showCancelReason, setShowCancelReason] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
 
   async function handleSend() {
     setLoading(true);
@@ -56,12 +62,16 @@ export function ContractDetailsClient({
   }
 
   async function handleCancel() {
-    const reason = window.prompt("Motivo do cancelamento:");
-    if (!reason) return;
+    if (!cancelReason.trim()) {
+      setError("Informe o motivo do cancelamento.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      await cancelContract(contract.id, reason);
+      await cancelContract(contract.id, cancelReason.trim());
+      setShowCancelReason(false);
+      setCancelReason("");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao cancelar contrato.");
@@ -71,48 +81,99 @@ export function ContractDetailsClient({
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto w-full space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-slate-500 text-sm">{contract.code}</p>
-          <p className="text-sm font-medium text-orange-600">
-            {statusLabels[contract.status] ?? contract.status}
-          </p>
+    <div className="p-4 md:p-8 max-w-4xl mx-auto w-full" style={{ display: "grid", gap: 24 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "grid", gap: 6 }}>
+          <strong className="mono" style={{ fontSize: 12, color: "var(--mineral)" }}>
+            {contract.code}
+          </strong>
+          <span className={`status-pill ${STATUS_CLASS[contract.status] ?? "status-rascunho"}`}>
+            {STATUS_LABEL[contract.status] ?? contract.status}
+          </span>
         </div>
-        <div className="flex gap-3">
+        <div style={{ display: "flex", gap: 10 }}>
           {contract.status === "draft" && (
             <button
               type="button"
+              className="primary-button"
               onClick={handleSend}
               disabled={loading}
-              className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors disabled:opacity-50"
             >
+              {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
               Enviar para assinatura
             </button>
           )}
           {(contract.status === "draft" || contract.status === "sent") && (
             <button
               type="button"
-              onClick={handleCancel}
+              className="secondary-button"
+              style={{ color: "var(--danger)" }}
+              onClick={() => setShowCancelReason((v) => !v)}
               disabled={loading}
-              className="px-4 py-2 text-red-600 border border-red-200 rounded-md hover:bg-red-50 transition-colors disabled:opacity-50"
             >
+              <XCircle size={16} />
               Cancelar
             </button>
           )}
         </div>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {showCancelReason && (
+        <div className="builder-card" style={{ display: "grid", gap: 14 }}>
+          <label className="field">
+            <span>Motivo do cancelamento</span>
+            <input
+              type="text"
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Explique por que este contrato está sendo cancelado"
+            />
+          </label>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => {
+                setShowCancelReason(false);
+                setCancelReason("");
+              }}
+              disabled={loading}
+            >
+              Voltar
+            </button>
+            <button
+              type="button"
+              className="primary-button"
+              style={{ background: "var(--danger)" }}
+              onClick={handleCancel}
+              disabled={loading}
+            >
+              {loading ? <Loader2 size={16} className="animate-spin" /> : null}
+              Confirmar cancelamento
+            </button>
+          </div>
+        </div>
+      )}
+
+      {error && <p style={{ color: "var(--danger)", fontSize: 13, margin: 0 }}>{error}</p>}
 
       {contract.status !== "draft" && (
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-          <p className="text-sm text-slate-500 mb-1">Link público do contrato</p>
+        <div
+          style={{
+            padding: 16,
+            border: "1px solid var(--border)",
+            borderRadius: 10,
+            background: "white",
+          }}
+        >
+          <p className="muted" style={{ fontSize: 12, margin: "0 0 4px" }}>
+            Link público do contrato
+          </p>
           <a
             href={`/contrato/${contract.publicToken}`}
             target="_blank"
             rel="noreferrer"
-            className="text-orange-600 hover:underline break-all"
+            style={{ color: "var(--signal-dark)", wordBreak: "break-all", fontWeight: 650 }}
           >
             /contrato/{contract.publicToken}
           </a>
@@ -120,12 +181,15 @@ export function ContractDetailsClient({
       )}
 
       {contract.signedAt && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 text-emerald-800 text-sm">
+        <div className="status-assinado" style={{ padding: "12px 16px", borderRadius: 10 }}>
           Assinado em {new Date(contract.signedAt).toLocaleString("pt-BR")}
         </div>
       )}
 
-      <div className="bg-white border border-slate-200 rounded-xl p-6 whitespace-pre-wrap text-slate-700 text-sm leading-relaxed">
+      <div
+        className="builder-card"
+        style={{ whiteSpace: "pre-wrap", color: "var(--carbon)", fontSize: 14, lineHeight: 1.65 }}
+      >
         {contract.content}
       </div>
 

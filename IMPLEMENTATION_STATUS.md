@@ -811,3 +811,38 @@ Banco de produção alterado: 2 migrations aplicadas (`0003`, `0004`), nenhuma p
 
 - Backup feito por `pg_dump` manual pontual, não por rotina automatizada — `docs/runbooks/production-safety.md` §6 pede retenção e teste de restauração periódicos, ainda não configurados.
 - `BETTER_AUTH_SECRET` continua com o valor fraco padrão do Dokploy (débito já registrado em memória de sessões anteriores, não resolvido aqui — precisa ser persistido corretamente no painel do Dokploy, fora do alcance de um `docker service update` isolado).
+
+## 24. Contratos no design system + produto/diagnóstico na oportunidade + validação Zod em create* (concluído 19/07/2026)
+
+### Contexto
+
+Responsável testou o CRM em produção e confirmou "estamos indo no caminho, mas falta muita coisa", pedindo pra continuar fechando débitos sem pausar — mesmo mandato de "não pare, não pergunte, apenas construa" já em vigor nesta sessão. Priorizei três débitos concretos e bem delimitados, registrados em seções anteriores deste arquivo, que não dependem de credenciais que não tenho (S3, painel Dokploy): Contratos fora do design system, `opportunity_products`/diagnóstico/valores sem UI, e `create*` sem validação Zod.
+
+### Contratos no design system
+
+`contracts-client.tsx` e `contract-details-client.tsx` (mais `generate-receivable-form.tsx`, embutido na tela de detalhe) usavam Tailwind cru (`bg-orange-600`, `text-slate-900`...) — débito registrado desde a auditoria original. Reescritos com as classes reais do design system: `.briefing-table`/`.briefing-row` pra listagem (reaproveitando o padrão já usado em briefings), `.status-pill` com 5 variantes novas (`status-rascunho`/`status-enviado`/`status-assinado`/`status-cancelado`/`status-encerrado`, adicionadas em `globals.css` seguindo a paleta já estabelecida), `.field`/`.primary-button`/`.secondary-button`/`.builder-card` no detalhe e no formulário de recebível. Aproveitei pra tirar um `window.prompt()` nativo do fluxo de cancelamento (motivo do cancelamento vira um campo inline em vez de diálogo do navegador — mesmo achado de metodologia já registrado na seção 19, agora corrigido onde apareceu de novo).
+
+### Produto vinculado, diagnóstico e valores na oportunidade
+
+`opportunity_products`, `description` (diagnóstico), `negotiatedValue`, `probability` e `expectedCloseDate` existem no schema desde sempre mas nunca tiveram UI nem uma forma de editar depois de criada — só existia `createOpportunity` (na criação) e ações pontuais (`moveOpportunity`, próxima ação, ganhar/perder). Não havia `updateOpportunity` nenhum.
+
+Criado `src/server/actions/pipeline.schemas.ts` (`updateOpportunitySchema`, `opportunityProductSchema`) e três novas actions em `pipeline.ts`: `updateOpportunity` (edita título/diagnóstico/origem/valor estimado/valor negociado/probabilidade/previsão de fechamento, grava `activity`), `addOpportunityProduct` (upsert por `onConflictDoUpdate` na PK composta `[opportunityId, productId]`) e `removeOpportunityProduct`. Dois componentes novos na tela de detalhe (`opportunity-negotiation-form.tsx` — card somente-leitura que vira formulário editável; `opportunity-products-panel.tsx` — lista produtos vinculados com total calculado, formulário de vincular puxando preço base do catálogo como sugestão). Mantive o visual Tailwind cru **igual ao resto desta página específica** (não redesenhada nesta rodada) por consistência local — a página inteira de detalhe de oportunidade ainda precisa da mesma passada de design system que Contratos recebeu agora; registrado como débito abaixo.
+
+### Validação Zod em createContact/createCompany
+
+Só `update*` validava com Zod; `create*` aceitava o formato de dados sem checagem nenhuma. Ambas as funções passaram a aceitar `unknown` e validar com os mesmos schemas que `update*` já usa (`updateContactSchema`/`updateCompanySchema` de `contacts.schemas.ts`/`companies.schemas.ts`) — o formato exigido é idêntico entre criar e editar, então não criei schemas duplicados.
+
+### Validação real
+
+- `npx tsc --noEmit`: limpo em cada uma das 3 frentes, checado separadamente.
+- `npx biome check --write`: limpo (1 correção manual: `autoFocus` num input do formulário de cancelamento de contrato, proibido por regra de acessibilidade — trocado por foco natural do fluxo).
+- `npx vitest run`: 59/59.
+- `rm -rf .next && npx next build`: limpo, 32 rotas.
+- Não testado via clique real — mesma limitação já registrada na seção 22 (sem credenciais de admin neste checkout).
+
+### Débitos conhecidos
+
+- A página de detalhe da oportunidade (`crm/opportunities/[id]/page.tsx`) continua majoritariamente em Tailwind cru fora dos dois componentes novos — não é uma tela nova, então mantive consistência local em vez de miscigenar dois sistemas visuais na mesma página. Fica pra uma rodada dedicada, igual à que Contratos recebeu agora.
+- `opportunity_products` não tem desconto por item na UI de adicionar (só ao editar diretamente via ação, se algum fluxo futuro precisar) — o formulário de vincular só pede quantidade e valor unitário, seguindo o suficiente pro caso de uso atual.
+- "Configurações" e gestão de papéis/convite de usuário continuam como link morto — não abordado nesta rodada.
+- S3 (módulo Arquivos) e persistência correta do `BETTER_AUTH_SECRET` no Dokploy continuam bloqueados por falta de credenciais/acesso, não por trabalho técnico pendente.

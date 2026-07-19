@@ -9,10 +9,13 @@ import { AppShell } from "@/components/crm/app-shell";
 import { FilesPanel } from "@/components/crm/files-panel";
 import { ActivityTimeline } from "@/components/crm/pipeline/activity-timeline";
 import { NextActionForm } from "@/components/crm/pipeline/next-action-form";
+import { OpportunityNegotiationForm } from "@/components/crm/pipeline/opportunity-negotiation-form";
+import { OpportunityProductsPanel } from "@/components/crm/pipeline/opportunity-products-panel";
 import { WinLoseButtons } from "@/components/crm/pipeline/win-lose-buttons";
 import { getOpportunityActivities } from "@/server/actions/activities";
 import { getFilesForEntity } from "@/server/actions/files";
 import { getActiveOrganizationId } from "@/server/actions/organization";
+import { getProducts } from "@/server/actions/products";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db/connection";
 import {
@@ -67,6 +70,14 @@ export default async function OpportunityDetailsPage({
     occurredAt: a.occurredAt.toISOString(),
   }));
 
+  const [linkedProducts, catalog] = await Promise.all([
+    db.query.opportunityProducts.findMany({
+      where: (t, { eq }) => eq(t.opportunityId, opp.id),
+      with: { product: { columns: { name: true } } },
+    }),
+    getProducts(),
+  ]);
+
   // Reverse links that already exist in the schema but were never surfaced
   // anywhere on this page - if a briefing/proposal/contract/project was
   // created from this opportunity, show it here instead of leaving the
@@ -119,27 +130,13 @@ export default async function OpportunityDetailsPage({
         <div className="grid grid-cols-3 gap-8">
           <div className="col-span-2 space-y-8">
             {/* Main Content Area */}
-            <div className="bg-white border border-slate-200 rounded-xl p-8">
-              <h2 className="font-semibold text-lg mb-4">Informações da Negociação</h2>
-              <div className="space-y-4">
-                <div className="flex justify-between border-b border-slate-100 pb-4">
-                  <span className="text-slate-500">Valor Estimado</span>
-                  <span className="font-semibold text-slate-900">
-                    {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
-                      Number(opp.estimatedValue),
-                    )}
-                  </span>
-                </div>
-                <div className="flex justify-between border-b border-slate-100 pb-4">
-                  <span className="text-slate-500">Status</span>
-                  <span className="font-semibold text-slate-900 capitalize">{opp.status}</span>
-                </div>
-                <div className="flex justify-between pb-2">
-                  <span className="text-slate-500">Origem</span>
-                  <span className="font-semibold text-slate-900">{opp.source || "-"}</span>
-                </div>
-              </div>
-            </div>
+            <OpportunityNegotiationForm opportunity={opp} />
+
+            <OpportunityProductsPanel
+              opportunityId={opp.id}
+              linkedProducts={linkedProducts}
+              catalog={catalog}
+            />
 
             <div className="bg-white border border-slate-200 rounded-xl p-8">
               <h2 className="font-semibold text-lg mb-4">Próxima ação</h2>

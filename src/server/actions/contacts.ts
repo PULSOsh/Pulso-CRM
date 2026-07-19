@@ -33,44 +33,37 @@ export async function getContacts() {
     .orderBy(desc(contacts.createdAt));
 }
 
-export async function createContact(data: {
-  firstName: string;
-  lastName?: string;
-  email?: string;
-  phone?: string;
-  whatsapp?: string;
-  jobTitle?: string;
-  companyId?: string;
-}) {
+export async function createContact(input: unknown) {
   const { organizationId } = await requirePermission("contacts.create");
+  const parsed = updateContactSchema.parse(input);
 
   const [contact] = await db
     .insert(contacts)
     .values({
       organizationId,
-      firstName: data.firstName,
-      lastName: data.lastName,
-      email: data.email,
-      phone: data.phone,
-      whatsapp: data.whatsapp,
-      jobTitle: data.jobTitle,
+      firstName: parsed.firstName,
+      lastName: parsed.lastName,
+      email: parsed.email,
+      phone: parsed.phone,
+      whatsapp: parsed.whatsapp,
+      jobTitle: parsed.jobTitle,
     })
     .returning();
 
   let companyName: string | null = null;
-  if (data.companyId) {
+  if (parsed.companyId) {
     await db
       .insert(companyContacts)
-      .values({ companyId: data.companyId, contactId: contact.id, isPrimary: true });
+      .values({ companyId: parsed.companyId, contactId: contact.id, isPrimary: true });
     const company = await db.query.companies.findFirst({
-      where: eq(companies.id, data.companyId),
+      where: eq(companies.id, parsed.companyId),
       columns: { tradeName: true },
     });
     companyName = company?.tradeName ?? null;
   }
 
   revalidatePath("/crm/contatos");
-  return { ...contact, companyId: data.companyId ?? null, companyName };
+  return { ...contact, companyId: parsed.companyId || null, companyName };
 }
 
 export async function updateContact(contactId: string, input: unknown) {

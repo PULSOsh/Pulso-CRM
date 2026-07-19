@@ -16,26 +16,20 @@ export async function getCompanies() {
   });
 }
 
-export async function createCompany(data: {
-  tradeName: string;
-  legalName?: string;
-  documentNumber?: string;
-  email?: string;
-  phone?: string;
-  website?: string;
-}) {
+export async function createCompany(input: unknown) {
   const { organizationId } = await requirePermission("companies.create");
+  const parsed = updateCompanySchema.parse(input);
 
   const [company] = await db
     .insert(companies)
     .values({
       organizationId,
-      tradeName: data.tradeName,
-      legalName: data.legalName,
-      documentNumber: data.documentNumber,
-      email: data.email,
-      phone: data.phone,
-      website: data.website,
+      tradeName: parsed.tradeName,
+      legalName: parsed.legalName,
+      documentNumber: parsed.documentNumber,
+      email: parsed.email,
+      phone: parsed.phone,
+      website: parsed.website,
     })
     .returning();
 

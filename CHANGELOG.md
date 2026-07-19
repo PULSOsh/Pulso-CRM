@@ -541,6 +541,29 @@ Depois de uma auditoria pedida pelo responsável ("me diz oq falta"), ficou clar
 
 ---
 
+## [2026-07-19] — Contratos no design system, produto/diagnóstico na oportunidade, validação Zod em create*
+
+### Adicionado
+
+- `updateOpportunity`, `addOpportunityProduct`, `removeOpportunityProduct` (`pipeline.ts` + novo `pipeline.schemas.ts`) — oportunidade não tinha nenhuma forma de editar depois de criada; diagnóstico, valor negociado, probabilidade, previsão de fechamento e produto vinculado existiam no schema sem UI nenhuma.
+- `opportunity-negotiation-form.tsx` e `opportunity-products-panel.tsx` em `crm/opportunities/[id]`.
+
+### Alterado
+
+- `contracts-client.tsx`, `contract-details-client.tsx`, `generate-receivable-form.tsx`: Tailwind cru trocado pelas classes reais do design system (`.briefing-table`, `.status-pill` com 5 variantes novas em `globals.css`, `.builder-card`, `.field`, `.primary-button`/`.secondary-button`). Motivo de cancelamento de contrato deixou de usar `window.prompt()` nativo.
+- `createContact`/`createCompany` agora validam com Zod (reaproveitando `updateContactSchema`/`updateCompanySchema`, mesmo formato de dados entre criar e editar).
+
+### Testes
+
+- `tsc --noEmit`, `biome check --write`, `vitest run` (59/59), `rm -rf .next && next build` (32 rotas): limpos.
+
+### Débitos
+
+- Resto da página de detalhe da oportunidade continua em Tailwind cru fora dos dois componentes novos (consistência local escolhida deliberadamente; falta uma rodada dedicada).
+- "Configurações"/gestão de papéis continua link morto.
+
+---
+
 Formato recomendado por alteração:
 
 ```text
