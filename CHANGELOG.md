@@ -518,6 +518,29 @@ Depois de uma auditoria pedida pelo responsável ("me diz oq falta"), ficou clar
 
 ---
 
+## [2026-07-19] — Push, deploy e migrations 0003/0004 aplicadas em produção
+
+### Alterado
+
+- `git push origin main` (`386e854..38ee25d`, fast-forward, 11 commits). Dokploy reconstruiu e subiu o container automaticamente via webhook.
+
+### Migrações
+
+- Aplicadas em produção via `drizzle-kit migrate` por túnel SSH: `0003_cynical_forgotten_one.sql` (FK `tasks.project_id → projects.id`) e `0004_warm_spyke.sql` (tabelas `expense_categories`/`expenses`/`financial_settings`). A `0003` estava pendente desde a Fase 7 — não só a `0004` como o relatório da Fase 8 tinha registrado.
+- Backup `pg_dump -F c` do banco `pulsodb` feito antes de qualquer alteração (host da VPS + cópia local em `PULSO_CRM_V2/backups/`).
+- Verificado sem linha órfã em `tasks.project_id` antes da FK; tabelas novas e constraint confirmadas depois via `information_schema`/`pg_constraint`.
+
+### Testes
+
+- `/api/health`: 200. `/crm/lucratividade` sem sessão: 200 (redirect pro login, sem 500). Logs do serviço sem erro nos 10 min após o deploy.
+
+### Débitos
+
+- Backup foi pontual/manual, não rotina automatizada com retenção testada (pendente, `production-safety.md` §6).
+- `BETTER_AUTH_SECRET` continua fraco (débito pré-existente, não resolvido nesta sessão).
+
+---
+
 Formato recomendado por alteração:
 
 ```text

@@ -768,3 +768,46 @@ Inbox de briefings (`inbox-list.tsx`) reescrita para usar `.briefing-table`/`.br
 - Verificação visual real (screenshot ou clique autenticado) das 12 páginas com `AppShell` recém-adicionado e do novo `/crm/quotes/new` ainda não foi feita — só validação estática (tsc/biome/vitest/build) e leitura cuidadosa do CSS existente. Recomendo ao responsável abrir essas telas manualmente após o próximo deploy pra confirmar visualmente.
 - "Usar briefing" e "Preencher manualmente" no gerador de orçamento são placeholders desabilitados, não funcionalidade real — exigem decisão de produto sobre como uma proposta pode existir sem oportunidade vinculada (mudança de schema) antes de virar funcional.
 - Botão "Aceitar proposta" na prévia ao vivo do gerador de orçamento é decorativo (`disabled`), só ilustra como a proposta pública vai ficar — não é uma ação real.
+
+## 23. Push, deploy e aplicação de migrations pendentes em produção (concluído 19/07/2026)
+
+### Contexto
+
+Com o design validado (seção 22), o responsável autorizou explicitamente, em duas etapas separadas: primeiro "pode fazer" (push + deploy do código), depois "aplica a migration" (mudança de schema em produção) — as duas ações que `CLAUDE.md` §7 e `docs/runbooks/production-safety.md` §3 exigem autorização explícita e separada pra cada uma.
+
+### Push e deploy
+
+`git push origin main` — fast-forward limpo, `386e854..38ee25d`, 11 commits, sem divergência (`git log origin/main..HEAD`/`HEAD..origin/main` conferido antes). O Dokploy reconstruiu e subiu o container automaticamente via webhook (confirmado por SSH: `pulso-crm-bx9hht.1.5e36li6xrbf5rc0nr9kvse0d4` com `Up 25 minutes` pouco depois do push, sem intervenção manual).
+
+### Aplicação de migrations
+
+Antes de tocar em produção, segui o runbook (`docs/runbooks/migrations-and-deploy.md`): verifiquei a tabela `drizzle.__drizzle_migrations` real via SSH (`docker exec pulso-postgres psql`) e descobri que só 3 das 5 migrations locais estavam aplicadas (`0000`, `0001`, `0002` — hashes/timestamps batendo exatamente com `meta/_journal.json`). **`0003_cynical_forgotten_one.sql` também estava pendente, não só a `0004`** como o relatório da Fase 8 tinha registrado — a Fase 7 nunca tinha, de fato, sido migrada em produção.
+
+Li o conteúdo das duas migrations pendentes antes de aplicar: `0003` é uma única `ALTER TABLE` adicionando FK `tasks.project_id → projects.id` (`ON DELETE SET NULL`); `0004` é puramente aditiva (3 enums + 3 tabelas novas: `expense_categories`, `expenses`, `financial_settings`, todas com FK pra tabelas já existentes) — nenhuma das duas altera coluna existente nem apaga dado. Antes de aplicar a `0003`, conferi que não há linha órfã (`tasks.project_id` apontando pra `projects.id` inexistente): 0 linhas.
+
+**Backup**: `pg_dump -F c` do banco `pulsodb` inteiro, copiado do container pra `/home/pulso/backups/` no host da VPS e baixado também pra uma cópia local (`PULSO_CRM_V2/backups/pulsodb_backup_pre_migration_20260719.dump`, ~193 KB) antes de qualquer `ALTER`/`CREATE`.
+
+**Aplicação**: túnel SSH local (`ssh -N -L 5433:127.0.0.1:5432 pulso@191.96.251.124` — a porta do Postgres já é publicada pro host, `0.0.0.0:5432`, mas só acessível via túnel, não exposta publicamente) + `DATABASE_URL` apontando pro túnel + `npx drizzle-kit migrate` local. As duas migrations pendentes (`0003` e `0004`) foram aplicadas na mesma chamada, em ordem, pelo próprio `drizzle-kit`.
+
+### Validação pós-migration
+
+- `drizzle.__drizzle_migrations` agora tem 5 linhas, hashes/timestamps batendo com `meta/_journal.json` até a `0004`.
+- `expense_categories`/`expenses`/`financial_settings` confirmadas existentes via `information_schema.tables`.
+- Constraint `tasks_project_id_projects_id_fk` confirmada existente via `pg_constraint`.
+- `/api/health`: `200`, `{"status":"ok",...}`.
+- `/crm/lucratividade` sem sessão: `200` após redirect (pra `/login`), sem 500 — a tela que antes quebrava por tabela ausente agora não crasha mais o roteamento.
+- Logs do serviço (`docker service logs pulso-crm-bx9hht --since 10m`) sem `error`/`exception`.
+- Arquivos temporários de verificação e a cópia do backup dentro do container (`/tmp/*`) removidos depois de confirmado tudo; a cópia externa no host (`/home/pulso/backups/`) e a cópia local ficaram preservadas como backup real.
+
+### Gotcha de ambiente registrado
+
+O agente SSH nativo do Windows (`ssh-agent` como serviço, ativado com `Start-Service ssh-agent` + `ssh-add`) não é visível pro `ssh` do Git Bash (MSYS OpenSSH, que não fala com o named pipe `\\.\pipe\openssh-ssh-agent` por padrão, nem com `-o IdentityAgent` apontado pra ele). Todo comando `ssh`/`scp` desta sessão precisou rodar via PowerShell (que usa o `ssh.exe` nativo do Windows e enxerga o agente automaticamente), não via Bash. Também: nunca aninhar aspas simples de SQL dentro de aspas simples do `-c` do bash — quebra a string cedo demais; a saída confiável foi escrever o SQL num arquivo e rodar `psql -f arquivo.sql` via `docker cp` + `docker exec`.
+
+### Impacto em produção
+
+Banco de produção alterado: 2 migrations aplicadas (`0003`, `0004`), nenhuma perda de dado, aditivo/idempotente pra reaplicação futura (drizzle não reaplica o que já está na tabela de controle). `/crm/lucratividade` deixa de ser uma rota que crashava por schema ausente sempre que qualquer usuário clicasse nela.
+
+### Débitos conhecidos
+
+- Backup feito por `pg_dump` manual pontual, não por rotina automatizada — `docs/runbooks/production-safety.md` §6 pede retenção e teste de restauração periódicos, ainda não configurados.
+- `BETTER_AUTH_SECRET` continua com o valor fraco padrão do Dokploy (débito já registrado em memória de sessões anteriores, não resolvido aqui — precisa ser persistido corretamente no painel do Dokploy, fora do alcance de um `docker service update` isolado).
