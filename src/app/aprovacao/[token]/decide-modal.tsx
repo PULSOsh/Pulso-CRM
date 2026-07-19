@@ -41,111 +41,154 @@ export default function DecideModal({ token }: { token: string }) {
 
   return (
     <>
-      <div className="flex flex-wrap gap-4">
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
         <button
           type="button"
+          className="accept-button"
+          style={{ padding: "0 24px" }}
           onClick={() => setMode("approve")}
-          className="flex items-center gap-3 px-8 py-4 bg-emerald-600 text-white rounded-full font-semibold shadow-[0_0_40px_-10px_rgba(5,150,105,0.5)] hover:bg-emerald-500 hover:scale-105 transition-all duration-300"
         >
-          <CheckCircle2 size={24} />
+          <CheckCircle2 size={20} />
           Aprovar
         </button>
         <button
           type="button"
+          className="secondary-button"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            minHeight: 56,
+            padding: "0 20px",
+          }}
           onClick={() => setMode("approve_with_notes")}
-          className="flex items-center gap-3 px-6 py-4 bg-slate-800 text-white rounded-full font-semibold border border-white/10 hover:bg-slate-700 transition-colors"
         >
-          <MessageSquareWarning size={20} />
+          <MessageSquareWarning size={18} />
           Aprovar com observação
         </button>
         <button
           type="button"
+          className="secondary-button"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            minHeight: 56,
+            padding: "0 20px",
+            color: "var(--danger)",
+          }}
           onClick={() => setMode("reject")}
-          className="flex items-center gap-3 px-6 py-4 bg-slate-800 text-white rounded-full font-semibold border border-white/10 hover:bg-red-500/20 hover:border-red-500/40 transition-colors"
         >
-          <AlertTriangle size={20} />
+          <AlertTriangle size={18} />
           Solicitar ajuste
         </button>
       </div>
 
       {mode && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
-          <div className="bg-slate-900 border border-white/10 rounded-3xl w-full max-w-md p-8 animate-in zoom-in-95 duration-300 shadow-2xl">
-            <h3 className="text-2xl font-bold text-white mb-2">
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+            background: "rgb(22 22 22 / .45)",
+            backdropFilter: "blur(3px)",
+          }}
+        >
+          <div
+            style={{
+              width: "min(100%, 460px)",
+              padding: 28,
+              borderRadius: 16,
+              background: "var(--paper)",
+              boxShadow: "0 30px 90px rgb(0 0 0 / .2)",
+            }}
+          >
+            <h3 style={{ margin: "0 0 6px", fontSize: 26, letterSpacing: "-.03em" }}>
               {mode === "approve" && "Confirmar aprovação"}
               {mode === "approve_with_notes" && "Aprovar com observação"}
               {mode === "reject" && "Solicitar ajuste"}
             </h3>
-            <p className="text-slate-400 text-sm mb-8">
+            <p className="muted" style={{ margin: "0 0 24px" }}>
               {mode === "reject"
                 ? "Descreva o que precisa ser ajustado. Isso cria uma tarefa para a equipe."
                 : "Confirme seus dados para registrar sua decisão."}
             </p>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <label htmlFor="name" className="text-sm font-medium text-slate-300">
-                  Nome completo
-                </label>
+            <form onSubmit={handleSubmit} style={{ display: "grid", gap: 18 }}>
+              <label className="field">
+                <span>Nome completo</span>
                 <input
-                  id="name"
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
-                  className="w-full h-12 px-4 rounded-xl bg-slate-950 border border-white/10 text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
                 />
-              </div>
+              </label>
 
-              <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-medium text-slate-300">
-                  E-mail
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full h-12 px-4 rounded-xl bg-slate-950 border border-white/10 text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
-                />
-              </div>
+              <label className="field">
+                <span>E-mail</span>
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              </label>
 
               {mode !== "approve" && (
-                <div className="space-y-2">
-                  <label htmlFor="comment" className="text-sm font-medium text-slate-300">
-                    {mode === "reject" ? "O que precisa ser ajustado" : "Observação"}
-                  </label>
+                <label className="field">
+                  <span>{mode === "reject" ? "O que precisa ser ajustado" : "Observação"}</span>
                   <textarea
-                    id="comment"
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
                     required
                     rows={4}
-                    className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-white/10 text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+                    style={{
+                      width: "100%",
+                      padding: "12px 14px",
+                      border: "1px solid var(--border)",
+                      borderRadius: 8,
+                      background: "white",
+                      font: "inherit",
+                    }}
                   />
-                </div>
+                </label>
               )}
 
-              {error && <p className="text-sm text-red-400">{error}</p>}
+              {error && <p style={{ color: "var(--danger)", fontSize: 13, margin: 0 }}>{error}</p>}
 
-              <div className="flex gap-4 pt-4 border-t border-white/10">
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  paddingTop: 8,
+                  borderTop: "1px solid var(--border)",
+                }}
+              >
                 <button
                   type="button"
+                  className="secondary-button"
+                  style={{ flex: 1 }}
                   onClick={() => setMode(null)}
                   disabled={isPending}
-                  className="flex-1 px-6 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors font-medium"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
+                  className="primary-button"
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                  }}
                   disabled={isPending}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-500 transition-colors font-medium disabled:opacity-50"
                 >
                   {isPending ? (
-                    <Loader2 size={20} className="animate-spin" />
+                    <Loader2 size={18} className="animate-spin" />
                   ) : (
-                    <CheckCircle2 size={20} />
+                    <CheckCircle2 size={18} />
                   )}
                   Confirmar
                 </button>

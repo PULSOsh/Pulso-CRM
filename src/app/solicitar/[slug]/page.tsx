@@ -1,4 +1,6 @@
 import { eq } from "drizzle-orm";
+import { ShieldCheck } from "lucide-react";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { BriefingWizard } from "@/components/public/briefing-wizard";
 import { db } from "@/server/db/connection";
@@ -88,16 +90,30 @@ export default async function BriefingPublicPage({
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto mb-8 text-center">
-        <div className="w-16 h-16 bg-orange-600 text-white flex items-center justify-center rounded-xl mx-auto mb-6 font-bold text-2xl">
-          P
+    <div className="public-briefing-layout">
+      <aside className="public-briefing-brand">
+        <Image
+          src="/brand/pulso_horizontal_signal_white.svg"
+          alt="PULSO"
+          width={132}
+          height={36}
+          priority
+        />
+        <div>
+          <p className="eyebrow eyebrow-light">
+            BRIEFING · {template.publicTitle?.toUpperCase() ?? "PULSO"}
+          </p>
+          <h1>Vamos entender antes de construir.</h1>
+          <p>
+            {template.publicDescription ||
+              "Suas respostas ajudam a PULSO a recomendar o produto, o escopo e o investimento mais coerentes para o seu momento."}
+          </p>
         </div>
-        <h1 className="text-3xl font-bold text-slate-900 mb-4">{template.publicTitle}</h1>
-        {template.publicDescription && (
-          <p className="text-lg text-slate-600">{template.publicDescription}</p>
-        )}
-      </div>
+        <p className="privacy-note">
+          <ShieldCheck size={20} />
+          Seus dados são usados apenas para analisar e responder esta solicitação.
+        </p>
+      </aside>
 
       <BriefingWizard templateId={template.id} templateSlug={template.slug} sections={sections} />
     </div>

@@ -492,6 +492,32 @@ Depois de uma auditoria pedida pelo responsável ("me diz oq falta"), ficou clar
 
 ---
 
+## [2026-07-18] — Validação de design contra PREVIEWS/PROTOTIPO
+
+### Corrigido
+
+- **Crítico**: 12 páginas de `/crm/*` (incluindo o Kanban principal) renderizavam sem `AppShell` — sem sidebar nem topbar em produção. Todas corrigidas: `crm/pipeline`, `crm/quotes` (lista/novo/detalhe), `crm/opportunities/[id]`, `crm/products` (lista/novo/[id]), `crm/briefings/inbox` (lista/[id]), `crm/briefings/templates` (lista/[id]). `app-shell.tsx` ganhou `"products"`/`"profitability"` no union `ActiveKey`.
+- `proposta/[token]`, `contrato/[token]`, `aprovacao/[token]` + seus modais (`approve-modal.tsx`, `sign-modal.tsx`, `decide-modal.tsx`): tema escuro sem base na referência trocado pelo tema claro/creme com seções de contraste já definido em `globals.css` (`.public-proposal`, `.proposal-hero`, `.proposal-dark-section`, `.investment-section`).
+- `solicitar/[slug]`, `briefing-wizard.tsx`, `solicitar/[slug]/sucesso`: card branco genérico trocado por `.public-briefing-layout`/`.public-form-panel`/`.public-success`.
+- `inbox-list.tsx`: tabela reescrita com `.briefing-table`/`.briefing-row`/`.status-pill`.
+
+### Alterado
+
+- `crm/quotes/new/quote-builder-form.tsx`: reescrito de formulário Tailwind genérico de coluna única para o layout de duas colunas com prévia ao vivo de `gerador_orcamento.png` (`.proposal-builder-layout`, `.builder-card`, `.source-options`, `.proposal-item-row`, `.totals-box`, `.proposal-preview-card`, `.mini-proposal`). "Salvar rascunho"/"Publicar" agora redirecionam para `/crm/quotes/[id]` (antes não davam feedback nenhum de sucesso).
+- `getPublicProposal` (`public-quote.ts`): ganhou `preparedForName`/`preparedForContact` pro card "Preparada para" da proposta pública.
+
+### Débitos
+
+- Seletor "Origem dos dados" do gerador de orçamento mostra oportunidade/briefing/manual como no mockup, mas só "oportunidade" é funcional — as outras duas ficam desabilitadas ("Em breve") porque `createQuote` exige `opportunityId` obrigatório; importar de briefing ou criar sem oportunidade é mudança de schema/backend fora do escopo desta validação de design.
+- Botão "Visualizar" do gerador de orçamento fica desabilitado antes do primeiro rascunho salvo (não há nada pra visualizar ainda).
+- Verificação visual real (screenshot/clique autenticado) das 12 páginas com `AppShell` e do `/crm/quotes/new` novo não foi feita nesta sessão — sem credenciais de admin disponíveis no checkout local. Só validação estática (`tsc`/`biome`/`vitest`/`build`).
+
+### Testes
+
+- `tsc --noEmit`, `biome check --write`, `vitest run` (59/59), `rm -rf .next && next build` (32 rotas): limpos.
+
+---
+
 Formato recomendado por alteração:
 
 ```text

@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
+import { AppShell } from "@/components/crm/app-shell";
 import { SubmissionDetails } from "@/components/crm/briefings/submission-details";
 import { getBriefingSubmissionById } from "@/server/actions/briefing-submissions";
 import { auth } from "@/server/auth";
@@ -21,8 +22,10 @@ export default async function InboxDetailsPage({ params }: { params: Promise<{ i
   }
 
   return (
-    <div className="p-8">
-      <SubmissionDetails submission={submission} />
-    </div>
+    <AppShell active="briefings" eyebrow="CAPTAÇÃO" title={submission.protocol}>
+      <div className="p-4 md:p-8">
+        <SubmissionDetails submission={submission} />
+      </div>
+    </AppShell>
   );
 }

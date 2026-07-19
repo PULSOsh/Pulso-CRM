@@ -1,6 +1,6 @@
-import { Inbox } from "lucide-react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { AppShell } from "@/components/crm/app-shell";
 import { InboxList } from "@/components/crm/briefings/inbox-list";
 import { getBriefingSubmissions } from "@/server/actions/briefing-submissions";
 import { auth } from "@/server/auth";
@@ -17,18 +17,16 @@ export default async function InboxPage() {
   const submissions = await getBriefingSubmissions();
 
   return (
-    <div className="p-8">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <Inbox size={24} className="text-orange-600" />
-            Caixa de Entrada de Briefings
-          </h1>
-          <p className="text-slate-500 mt-1">Gerencie os envios públicos recebidos pelo site</p>
+    <AppShell active="briefings" eyebrow="CAPTAÇÃO" title="Briefings">
+      <div className="p-4 md:p-8">
+        <div className="mb-8">
+          <p className="muted">
+            Respostas públicas recebidas pelo site, prontas para virar oportunidade.
+          </p>
         </div>
-      </div>
 
-      <InboxList submissions={submissions} />
-    </div>
+        <InboxList submissions={submissions} />
+      </div>
+    </AppShell>
   );
 }

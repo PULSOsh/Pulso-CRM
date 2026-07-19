@@ -1,7 +1,6 @@
-import { ArrowLeft } from "lucide-react";
 import { headers } from "next/headers";
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AppShell } from "@/components/crm/app-shell";
 import { getProducts } from "@/server/actions/products";
 import { getOpenOpportunities } from "@/server/actions/quotes";
 import { auth } from "@/server/auth";
@@ -19,21 +18,10 @@ export default async function NewQuotePage() {
   const [opportunities, products] = await Promise.all([getOpenOpportunities(), getProducts()]);
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-8">
-      <div className="flex items-center gap-4">
-        <Link
-          href="/crm/quotes"
-          className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-slate-900 transition-colors"
-        >
-          <ArrowLeft size={20} />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Nova Proposta</h1>
-          <p className="text-slate-500 mt-1">Crie um orçamento vinculado a uma oportunidade</p>
-        </div>
+    <AppShell active="budgets" eyebrow="COMERCIAL" title="Gerador de orçamento">
+      <div className="p-4 md:p-8">
+        <QuoteBuilderForm opportunities={opportunities} products={products} />
       </div>
-
-      <QuoteBuilderForm opportunities={opportunities} products={products} />
-    </div>
+    </AppShell>
   );
 }

@@ -17,82 +17,72 @@ type Submission = {
   } | null;
 };
 
+const STATUS_LABEL: Record<string, string> = {
+  started: "Novo",
+  submitted: "Novo",
+  under_review: "Em análise",
+  linked: "Convertido",
+};
+
+const STATUS_CLASS: Record<string, string> = {
+  started: "status-novo",
+  submitted: "status-novo",
+  under_review: "status-em-análise",
+  linked: "status-qualificado",
+};
+
 export function InboxList({ submissions }: { submissions: Submission[] }) {
   if (submissions.length === 0) {
     return (
-      <div className="bg-white border border-slate-200 rounded-lg p-12 text-center">
-        <p className="text-slate-500">Nenhum briefing recebido ainda.</p>
+      <div className="briefing-table" style={{ padding: 48, textAlign: "center" }}>
+        <p className="muted">Nenhum briefing recebido ainda.</p>
       </div>
     );
   }
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "started":
-      case "submitted":
-        return (
-          <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
-            Novo
-          </span>
-        );
-      case "under_review":
-        return (
-          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-            Em Análise
-          </span>
-        );
-      case "linked":
-        return (
-          <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
-            Convertido
-          </span>
-        );
-      default:
-        return (
-          <span className="px-2 py-1 bg-slate-100 text-slate-800 rounded-full text-xs font-medium">
-            {status}
-          </span>
-        );
-    }
-  };
-
   return (
-    <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-      <table className="w-full text-left border-collapse">
-        <thead>
-          <tr className="bg-slate-50 border-b border-slate-200 text-sm text-slate-500">
-            <th className="p-4 font-medium">Protocolo</th>
-            <th className="p-4 font-medium">Contato</th>
-            <th className="p-4 font-medium">Empresa</th>
-            <th className="p-4 font-medium">Template (Serviço)</th>
-            <th className="p-4 font-medium">Data</th>
-            <th className="p-4 font-medium">Status</th>
-            <th className="p-4 font-medium text-right">Ações</th>
-          </tr>
-        </thead>
-        <tbody className="text-sm divide-y divide-slate-100">
-          {submissions.map((sub) => (
-            <tr key={sub.id} className="hover:bg-slate-50 transition-colors">
-              <td className="p-4 font-mono text-slate-900">{sub.protocol}</td>
-              <td className="p-4 font-medium text-slate-900">{sub.contactName}</td>
-              <td className="p-4 text-slate-600">{sub.companyName || "-"}</td>
-              <td className="p-4 text-slate-600">{sub.template?.name || "Desconhecido"}</td>
-              <td className="p-4 text-slate-600">
-                {format(sub.createdAt, "dd/MM/yyyy HH:mm", { locale: ptBR })}
-              </td>
-              <td className="p-4">{getStatusBadge(sub.status)}</td>
-              <td className="p-4 text-right">
-                <Link
-                  href={`/crm/briefings/inbox/${sub.id}`}
-                  className="text-orange-600 hover:text-orange-700 font-medium"
-                >
-                  Ver Detalhes
-                </Link>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="briefing-table">
+      <div className="briefing-row briefing-head">
+        <div>Contato</div>
+        <div>Serviço</div>
+        <div>Status</div>
+        <div>Enviado</div>
+        <div>Protocolo</div>
+        <div />
+      </div>
+      {submissions.map((sub) => (
+        <div className="briefing-row" key={sub.id}>
+          <div>
+            <strong>{sub.contactName || "Sem nome"}</strong>
+            <small>{sub.companyName || "Empresa não informada"}</small>
+          </div>
+          <div>
+            <strong>{sub.template?.publicTitle || sub.template?.name || "Desconhecido"}</strong>
+          </div>
+          <div>
+            <span className={`status-pill ${STATUS_CLASS[sub.status] ?? "status-novo"}`}>
+              {STATUS_LABEL[sub.status] ?? sub.status}
+            </span>
+          </div>
+          <div>
+            <strong className="mono" style={{ fontSize: 11 }}>
+              {format(sub.createdAt, "dd/MM/yyyy", { locale: ptBR })}
+            </strong>
+            <small>{format(sub.createdAt, "HH:mm", { locale: ptBR })}</small>
+          </div>
+          <div>
+            <small className="mono">{sub.protocol}</small>
+          </div>
+          <Link
+            href={`/crm/briefings/inbox/${sub.id}`}
+            className="icon-button"
+            aria-label={`Ver briefing de ${sub.contactName ?? sub.protocol}`}
+            style={{ textDecoration: "none", color: "var(--signal)" }}
+          >
+            →
+          </Link>
+        </div>
+      ))}
     </div>
   );
 }

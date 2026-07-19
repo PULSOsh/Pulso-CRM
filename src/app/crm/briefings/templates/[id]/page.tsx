@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { TemplateBuilder } from "@/components/briefings/builder/template-builder";
+import { AppShell } from "@/components/crm/app-shell";
 import { getBriefingTemplateById } from "@/server/actions/briefing-templates";
 import { auth } from "@/server/auth";
 
@@ -29,47 +30,49 @@ export default async function BriefingTemplateEditorPage({
   }
 
   return (
-    <div style={{ backgroundColor: "#f8fafc", minHeight: "100vh" }}>
-      <header
-        style={{
-          backgroundColor: "#fff",
-          borderBottom: "1px solid #e2e8f0",
-          padding: "16px 24px",
-          display: "flex",
-          gap: "24px",
-          alignItems: "center",
-        }}
-      >
-        <Link
-          href="/crm/briefings/templates"
+    <AppShell active="briefings" eyebrow="CAPTAÇÃO" title={template?.name || "Novo Template"}>
+      <div style={{ backgroundColor: "#f8fafc", minHeight: "100%" }}>
+        <header
           style={{
-            color: "#64748b",
-            textDecoration: "none",
+            backgroundColor: "#fff",
+            borderBottom: "1px solid #e2e8f0",
+            padding: "16px 24px",
             display: "flex",
+            gap: "24px",
             alignItems: "center",
-            gap: "8px",
           }}
         >
-          <ArrowLeft size={20} /> Voltar
-        </Link>
-        <div>
-          <h1 style={{ fontSize: "18px", fontWeight: 600, margin: 0 }}>
-            {template?.name || "Novo Template"}
-          </h1>
-          <p style={{ fontSize: "14px", color: "#64748b", margin: 0 }}>
-            Status: {template?.status === "published" ? "Publicado" : "Rascunho"}
-          </p>
-        </div>
-      </header>
+          <Link
+            href="/crm/briefings/templates"
+            style={{
+              color: "#64748b",
+              textDecoration: "none",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            <ArrowLeft size={20} /> Voltar
+          </Link>
+          <div>
+            <h1 style={{ fontSize: "18px", fontWeight: 600, margin: 0 }}>
+              {template?.name || "Novo Template"}
+            </h1>
+            <p style={{ fontSize: "14px", color: "#64748b", margin: 0 }}>
+              Status: {template?.status === "published" ? "Publicado" : "Rascunho"}
+            </p>
+          </div>
+        </header>
 
-      <main>
-        <TemplateBuilder
-          initialQuestions={[
-            { id: "1", title: "Qual o nome da sua empresa?", type: "text", isRequired: true },
-            { id: "2", title: "Possui logotipo?", type: "radio", isRequired: true },
-          ]}
-        />
-      </main>
-    </div>
+        <main>
+          <TemplateBuilder
+            initialQuestions={[
+              { id: "1", title: "Qual o nome da sua empresa?", type: "text", isRequired: true },
+              { id: "2", title: "Possui logotipo?", type: "radio", isRequired: true },
+            ]}
+          />
+        </main>
+      </div>
+    </AppShell>
   );
 }

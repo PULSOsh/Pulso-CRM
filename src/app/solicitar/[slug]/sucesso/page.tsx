@@ -11,30 +11,35 @@ export default async function BriefingSuccessPage({
   const protocol = protocolo || `PULSO-${Math.floor(100000 + Math.random() * 900000)}`;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
-        <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
-          <CheckCircle2 size={40} />
-        </div>
-
-        <h1 className="text-2xl font-bold text-slate-900 mb-2">Briefing Enviado!</h1>
-        <p className="text-slate-600 mb-6">
-          Recebemos suas respostas com sucesso. Nossa equipe já foi notificada e entrará em contato
-          em breve.
-        </p>
-
-        <div className="bg-slate-50 border border-slate-200 rounded-md p-4 mb-8">
-          <p className="text-sm text-slate-500 mb-1">Número do Protocolo</p>
-          <p className="font-mono font-bold text-lg text-slate-900">{protocol}</p>
-        </div>
-
-        <Link
-          href="/"
-          className="inline-block w-full px-6 py-3 bg-slate-900 text-white font-medium rounded-md hover:bg-slate-800 transition-colors"
-        >
-          Voltar para o site principal
-        </Link>
+    <div className="public-success">
+      <div className="success-mark">
+        <CheckCircle2 size={30} />
       </div>
+      <p className="eyebrow">BRIEFING ENVIADO</p>
+      <h1>Recebemos suas respostas.</h1>
+      <p>
+        Nossa equipe já foi notificada e entrará em contato em breve para dar sequência ao seu
+        projeto.
+      </p>
+      <div
+        style={{
+          padding: "16px 20px",
+          marginTop: 8,
+          border: "1px solid var(--border)",
+          borderRadius: 10,
+          background: "white",
+        }}
+      >
+        <p className="muted" style={{ margin: "0 0 4px", fontSize: 12 }}>
+          Número do protocolo
+        </p>
+        <p className="mono" style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
+          {protocol}
+        </p>
+      </div>
+      <Link href="/" className="primary-button" style={{ display: "inline-flex", marginTop: 8 }}>
+        Voltar para o site principal
+      </Link>
     </div>
   );
 }

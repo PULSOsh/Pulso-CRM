@@ -3,6 +3,8 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/connection";
 import {
+  companies,
+  contacts,
   opportunities,
   pipelineStages,
   proposalItems,
@@ -73,6 +75,31 @@ export async function getPublicProposal(token: string) {
 
   const files = await getPublicFilesForEntity(proposal.organizationId, "proposal", proposal.id);
 
+  // "Preparada para" card (docs/DESIGN_SYSTEM.md reference: proposta_publica.png) -
+  // resolved via opportunity -> company/contact, never sent by the client.
+  let preparedForName: string | null = null;
+  let preparedForContact: string | null = null;
+  if (proposal.opportunityId) {
+    const opp = await db.query.opportunities.findFirst({
+      where: eq(opportunities.id, proposal.opportunityId),
+      columns: { companyId: true, primaryContactId: true },
+    });
+    if (opp?.companyId) {
+      const company = await db.query.companies.findFirst({
+        where: eq(companies.id, opp.companyId),
+        columns: { tradeName: true },
+      });
+      preparedForName = company?.tradeName ?? null;
+    }
+    if (opp?.primaryContactId) {
+      const contact = await db.query.contacts.findFirst({
+        where: eq(contacts.id, opp.primaryContactId),
+        columns: { firstName: true, lastName: true },
+      });
+      preparedForContact = contact ? `${contact.firstName} ${contact.lastName ?? ""}`.trim() : null;
+    }
+  }
+
   // We return a safe, sanitized object containing only what the client needs to see
   return {
     code: proposal.code,
@@ -83,6 +110,8 @@ export async function getPublicProposal(token: string) {
     discount: proposal.discount,
     validUntil: proposal.validUntil,
     createdAt: proposal.createdAt,
+    preparedForName,
+    preparedForContact,
     version: {
       scope: version.scope,
       terms: version.terms,

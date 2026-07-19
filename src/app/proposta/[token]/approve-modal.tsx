@@ -12,11 +12,13 @@ export default function ApproveModal({ token }: { token: string }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   function handleApprove(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
     if (!acceptedTerms) {
-      alert("Você deve aceitar os termos para prosseguir.");
+      setError("Você deve aceitar os termos para prosseguir.");
       return;
     }
 
@@ -24,96 +26,127 @@ export default function ApproveModal({ token }: { token: string }) {
       const result = await approveProposal(token, { name, email });
       if (result.success) {
         setIsOpen(false);
-        router.refresh(); // Refresh the page to show approved status
+        router.refresh();
       } else {
-        alert(result.error || "Ocorreu um erro ao aprovar a proposta.");
+        setError(result.error || "Ocorreu um erro ao aprovar a proposta.");
       }
     });
   }
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => setIsOpen(true)}
-        className="flex items-center gap-3 px-8 py-4 bg-emerald-600 text-white rounded-full font-semibold shadow-[0_0_40px_-10px_rgba(5,150,105,0.5)] hover:bg-emerald-500 hover:scale-105 hover:shadow-[0_0_60px_-15px_rgba(5,150,105,0.7)] transition-all duration-300"
-      >
-        <PenTool size={24} />
-        Aprovar Proposta
+    <div className="investment-actions">
+      <button type="button" className="accept-button" onClick={() => setIsOpen(true)}>
+        <PenTool size={18} />
+        Aceitar proposta
       </button>
+      <small>Aceite registra nome, e-mail, data e IP como evidência.</small>
 
       {isOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
-          <div className="bg-slate-900 border border-white/10 rounded-3xl w-full max-w-md p-8 animate-in zoom-in-95 duration-300 shadow-2xl">
-            <h3 className="text-2xl font-bold text-white mb-2">Assinatura Digital</h3>
-            <p className="text-slate-400 text-sm mb-8">
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+            background: "rgb(22 22 22 / .45)",
+            backdropFilter: "blur(3px)",
+          }}
+        >
+          <div
+            style={{
+              width: "min(100%, 460px)",
+              padding: 28,
+              borderRadius: 16,
+              background: "var(--paper)",
+              boxShadow: "var(--shadow-lg, 0 30px 90px rgb(0 0 0 / .2))",
+            }}
+          >
+            <h3 style={{ margin: "0 0 6px", fontSize: 26, letterSpacing: "-.03em" }}>
+              Confirmar aceite
+            </h3>
+            <p className="muted" style={{ margin: "0 0 24px" }}>
               Confirme seus dados para aceitar os termos desta proposta.
             </p>
 
-            <form onSubmit={handleApprove} className="space-y-6">
-              <div className="space-y-2">
-                <label htmlFor="name" className="text-sm font-medium text-slate-300">
-                  Nome Completo
-                </label>
+            <form onSubmit={handleApprove} style={{ display: "grid", gap: 18 }}>
+              <label className="field">
+                <span>Nome completo</span>
                 <input
-                  id="name"
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
-                  className="w-full h-12 px-4 rounded-xl bg-slate-950 border border-white/10 text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
                   placeholder="Como você assina..."
                 />
-              </div>
+              </label>
 
-              <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-medium text-slate-300">
-                  E-mail Corporativo
-                </label>
+              <label className="field">
+                <span>E-mail</span>
                 <input
-                  id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full h-12 px-4 rounded-xl bg-slate-950 border border-white/10 text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
                   placeholder="seu@email.com"
                 />
-              </div>
+              </label>
 
-              <div className="flex items-start gap-3 pt-2">
+              <label
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  alignItems: "flex-start",
+                  fontSize: 13,
+                  color: "var(--mineral)",
+                }}
+              >
                 <input
                   type="checkbox"
-                  id="terms"
                   checked={acceptedTerms}
                   onChange={(e) => setAcceptedTerms(e.target.checked)}
-                  required
-                  className="mt-1 w-5 h-5 rounded bg-slate-950 border-white/10 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-900"
+                  style={{ marginTop: 3, accentColor: "var(--signal)" }}
                 />
-                <label htmlFor="terms" className="text-sm text-slate-400">
-                  Declaro que li e estou de acordo com o Escopo, o Investimento e os Termos e
-                  Condições estipulados nesta proposta.
-                </label>
-              </div>
+                Declaro que li e estou de acordo com o Escopo e o Investimento desta proposta.
+              </label>
 
-              <div className="flex gap-4 pt-4 border-t border-white/10">
+              {error && <p style={{ color: "var(--danger)", fontSize: 13, margin: 0 }}>{error}</p>}
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  paddingTop: 8,
+                  borderTop: "1px solid var(--border)",
+                }}
+              >
                 <button
                   type="button"
+                  className="secondary-button"
+                  style={{ flex: 1 }}
                   onClick={() => setIsOpen(false)}
                   disabled={isPending}
-                  className="flex-1 px-6 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors font-medium"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
+                  className="primary-button"
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                  }}
                   disabled={isPending}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-500 transition-colors font-medium disabled:opacity-50"
                 >
                   {isPending ? (
-                    <Loader2 size={20} className="animate-spin" />
+                    <Loader2 size={18} className="animate-spin" />
                   ) : (
-                    <CheckCircle2 size={20} />
+                    <CheckCircle2 size={18} />
                   )}
                   Confirmar
                 </button>
@@ -122,6 +155,6 @@ export default function ApproveModal({ token }: { token: string }) {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

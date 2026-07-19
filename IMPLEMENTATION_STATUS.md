@@ -732,3 +732,39 @@ O responsável enviou uma imagem de referência do funil/Kanban esperado e disse
 - Tag de produto no card fica vazia em qualquer oportunidade real até existir UI de vincular produto (débito já registrado na seção 19, ainda não resolvido).
 - Filtro/ordenação são só client-side sobre os dados já carregados no funil (sem busca/paginação no servidor).
 - Atalho de teclado real pro "⌘ K" da busca não foi implementado, só o indicador visual.
+
+## 22. Validação de design contra PREVIEWS/PROTOTIPO (concluído 18/07/2026)
+
+### Contexto
+
+O responsável pediu, antes de qualquer deploy: "valida tudo que for relacionado ao design, tem que estar de acordo com os anexos" — comparar toda a UI construída nas fases anteriores contra `PREVIEWS/*.png` (screenshots de referência) e `PROTOTIPO/` (CSS/HTML de referência, cujas variáveis já batem exatamente com `src/app/globals.css`).
+
+### Achado crítico: 12 páginas internas sem `AppShell`
+
+`globals.css` já continha um sistema de design pronto e completo (dezenas de classes específicas por tela) que várias páginas nunca adotaram, usando Tailwind ad-hoc genérico em vez disso. Pior: **12 páginas de `/crm/*`, incluindo o Kanban principal (`/crm/pipeline`)**, renderizavam sem nenhum wrapper `AppShell` — ou seja, sem sidebar nem topbar em produção. Não existe `layout.tsx` de route-group que aplique o shell automaticamente; cada `page.tsx` precisa importar e renderizar `<AppShell>` manualmente, e 12 delas não faziam isso. Confirmado com `grep -rL "AppShell" src/app/crm --include="page.tsx"` (vazio depois da correção). Arquivos corrigidos: `crm/pipeline`, `crm/quotes` (lista/novo/detalhe), `crm/opportunities/[id]`, `crm/products` (lista/novo/[id]), `crm/briefings/inbox` (lista/[id]), `crm/briefings/templates` (lista/[id]). `app-shell.tsx` ganhou `"products"` e `"profitability"` no union type `ActiveKey`, que faltavam.
+
+### Achado: páginas públicas com tema errado
+
+`proposta/[token]`, `contrato/[token]` e `aprovacao/[token]` (esta última construída nesta mesma sessão, Fase 3) usavam um tema escuro (`bg-slate-950`) sem base na referência real. `proposta_publica.png` e as classes já prontas em `globals.css` (`.public-proposal`, `.proposal-hero`, `.proposal-dark-section`, `.investment-section`, `.proposal-footer`) especificam um tema claro/creme com seções de contraste escuro pontuais, não a página inteira escura. Reescritas as 3 páginas + `approve-modal.tsx`, `sign-modal.tsx`, `decide-modal.tsx` (modais compostos com estilo inline já que não existe `.modal-*` pronta no `globals.css` real — só existe no `PROTOTIPO/styles.css` separado). `getPublicProposal` ganhou `preparedForName`/`preparedForContact` (consulta `opportunities`→`companies`/`contacts`) pro card "Preparada para" da proposta.
+
+Formulário público de briefing (`solicitar/[slug]`, `briefing-wizard.tsx`, `solicitar/[slug]/sucesso`) reescrito para usar `.public-briefing-layout`/`.public-form-panel`/`.public-success` em vez do card branco centralizado genérico anterior.
+
+Inbox de briefings (`inbox-list.tsx`) reescrita para usar `.briefing-table`/`.briefing-row`/`.status-pill` batendo com `briefings_inbox.png`.
+
+### Redesenho do gerador de orçamento (`/crm/quotes/new`)
+
+`gerador_orcamento.png` mostra um layout de duas colunas com cartões numerados ("1. Origem dos dados", "2. Cliente e contexto", "3. Produtos e investimento") e um painel de prévia ao vivo fixo (`sticky`) simulando um navegador com a proposta renderizando em tempo real — tudo já suportado por classes prontas em `globals.css` (`.proposal-builder-layout`, `.builder-card`, `.source-options`, `.proposal-item-row`, `.totals-box`, `.proposal-preview-card`, `.preview-browser`, `.mini-proposal`, `.preview-meta`) que nunca tinham sido usadas — `quote-builder-form.tsx` era um formulário Tailwind genérico de coluna única. Reescrito seguindo a referência, com uma diferença deliberada de escopo: o seletor "Origem dos dados" mostra as 3 opções do mockup (oportunidade / briefing / manual), mas só "Usar oportunidade" está funcional — as outras duas ficam desabilitadas com tooltip "Em breve", porque `createQuote` exige `opportunityId` obrigatório no schema atual e não existe lógica de importação de briefing nem criação sem oportunidade vinculada. Implementar isso de verdade é trabalho de backend novo, fora do escopo de uma validação de design. Botão "Visualizar" também fica desabilitado nesta tela (`/new`, antes de qualquer rascunho existir) — não há proposta salva pra visualizar ainda; "Salvar rascunho" e "Publicar" agora redirecionam para `/crm/quotes/[id]` após criar (antes não redirecionava nem dava feedback nenhum de sucesso).
+
+### Validação real
+
+- `npx tsc --noEmit`: limpo.
+- `npx biome check --write` em todos os arquivos alterados: limpo (2 avisos de `noLabelWithoutControl` corrigidos com `htmlFor`/`id` explícitos onde o `<label>` envolvia um componente customizado `<Select>`/`<Textarea>` que o linter não consegue enxergar através de).
+- `npx vitest run`: 59/59 passando.
+- `rm -rf .next && npx next build`: limpo, as 32 rotas compilam.
+- Não testado via clique real no navegador autenticado — as páginas internas exigem sessão (`SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` não estão definidos em nenhum `.env*` deste checkout, e a `DATABASE_URL` real não está em `.env.local`, sugerindo que o app local pode estar apontando pra um túnel de banco de produção como em sessões anteriores) — não tentei adivinhar credenciais nem redefinir a senha do admin sem autorização. As páginas públicas (`solicitar/[slug]`, `.../sucesso`) foram verificadas via `read_page`/`get_page_text` (a ferramenta de screenshot segue com o mesmo timeout de ambiente já registrado na seção 21).
+
+### Débitos conhecidos
+
+- Verificação visual real (screenshot ou clique autenticado) das 12 páginas com `AppShell` recém-adicionado e do novo `/crm/quotes/new` ainda não foi feita — só validação estática (tsc/biome/vitest/build) e leitura cuidadosa do CSS existente. Recomendo ao responsável abrir essas telas manualmente após o próximo deploy pra confirmar visualmente.
+- "Usar briefing" e "Preencher manualmente" no gerador de orçamento são placeholders desabilitados, não funcionalidade real — exigem decisão de produto sobre como uma proposta pode existir sem oportunidade vinculada (mudança de schema) antes de virar funcional.
+- Botão "Aceitar proposta" na prévia ao vivo do gerador de orçamento é decorativo (`disabled`), só ilustra como a proposta pública vai ficar — não é uma ação real.

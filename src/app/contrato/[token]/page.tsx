@@ -18,48 +18,85 @@ export default async function PublicContractPage({
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-orange-500/30">
-      <nav className="fixed top-0 left-0 right-0 h-16 bg-slate-900/80 backdrop-blur-md border-b border-white/5 z-50 flex items-center justify-between px-6 md:px-12">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded bg-orange-600 flex items-center justify-center font-bold text-white tracking-tighter">
-            P
-          </div>
-          <span className="font-semibold text-white tracking-wide">PULSO</span>
-        </div>
-        <div className="flex items-center gap-4 text-sm font-medium">
-          <span className="text-slate-400 hidden md:inline-block">Contrato Nº {contract.code}</span>
-          {contract.status === "signed" ? (
-            <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center gap-1.5">
-              <CheckCircle2 size={14} /> Assinado
-            </span>
-          ) : (
-            <span className="px-3 py-1 rounded-full bg-orange-500/10 text-orange-500 border border-orange-500/20">
-              Aguardando assinatura
-            </span>
-          )}
-        </div>
-      </nav>
+    <div className="public-proposal">
+      <header className="proposal-public-header">
+        <FileSignature size={22} color="var(--signal)" />
+        <nav>
+          <span className="mono muted" style={{ fontSize: 10 }}>
+            CONTRATO Nº {contract.code}
+          </span>
+        </nav>
+        {contract.status === "signed" ? (
+          <span
+            style={{
+              justifySelf: "end",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "5px 12px",
+              borderRadius: 999,
+              color: "var(--success)",
+              background: "#e4f2e9",
+              fontSize: 11,
+              fontWeight: 700,
+            }}
+          >
+            <CheckCircle2 size={13} /> Assinado
+          </span>
+        ) : (
+          <span
+            style={{
+              justifySelf: "end",
+              padding: "5px 12px",
+              borderRadius: 999,
+              color: "var(--signal-dark)",
+              background: "var(--signal-soft)",
+              fontSize: 11,
+              fontWeight: 700,
+            }}
+          >
+            Aguardando assinatura
+          </span>
+        )}
+      </header>
 
-      <main className="max-w-3xl mx-auto pt-32 pb-40 px-6">
-        <header className="mb-12 space-y-4">
-          <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight leading-tight flex items-center gap-3">
-            <FileSignature size={32} className="text-orange-500" />
-            {contract.title}
-          </h1>
-          <p className="text-slate-400 text-sm">
-            Emitido em{" "}
-            {format(new Date(contract.createdAt), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-          </p>
-        </header>
+      <section
+        className="proposal-section"
+        style={{ paddingBottom: contract.status === "sent" ? 160 : undefined }}
+      >
+        <p className="eyebrow">DOCUMENTO</p>
+        <h1
+          style={{
+            margin: "12px 0 8px",
+            fontSize: "clamp(32px, 4vw, 52px)",
+            letterSpacing: "-.045em",
+          }}
+        >
+          {contract.title}
+        </h1>
+        <p className="muted" style={{ fontSize: 13, marginBottom: 32 }}>
+          Emitido em{" "}
+          {format(new Date(contract.createdAt), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+        </p>
 
-        <section className="bg-slate-900 border border-white/5 rounded-2xl p-6 md:p-8 shadow-2xl">
-          <div className="whitespace-pre-wrap text-slate-300 text-sm md:text-base leading-relaxed">
-            {contract.content}
-          </div>
-        </section>
+        <div
+          style={{
+            padding: "32px",
+            border: "1px solid var(--border)",
+            borderRadius: 16,
+            background: "white",
+            whiteSpace: "pre-wrap",
+            color: "var(--carbon)",
+            fontSize: 14,
+            lineHeight: 1.75,
+            maxWidth: 780,
+          }}
+        >
+          {contract.content}
+        </div>
 
         {contract.signedAt && (
-          <p className="mt-6 text-sm text-emerald-400">
+          <p style={{ marginTop: 20, color: "var(--success)", fontSize: 13 }}>
             Assinado digitalmente em{" "}
             {format(new Date(contract.signedAt), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", {
               locale: ptBR,
@@ -67,13 +104,30 @@ export default async function PublicContractPage({
             .
           </p>
         )}
-      </main>
+      </section>
 
       {contract.status === "sent" && (
-        <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent flex justify-center items-center z-50">
+        <div
+          style={{
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 50,
+            display: "flex",
+            justifyContent: "center",
+            padding: 24,
+            background: "linear-gradient(to top, var(--paper) 55%, transparent)",
+          }}
+        >
           <SignModal token={token} />
         </div>
       )}
+
+      <footer className="proposal-footer">
+        <span>PULSO / Tecnologia para novas possibilidades.</span>
+        <span>{contract.code}</span>
+      </footer>
     </div>
   );
 }

@@ -1,6 +1,6 @@
-import { LayoutDashboard } from "lucide-react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { AppShell } from "@/components/crm/app-shell";
 import { KanbanBoard } from "@/components/crm/pipeline/kanban-board";
 import { getCompanies } from "@/server/actions/companies";
 import { getContacts } from "@/server/actions/contacts";
@@ -45,25 +45,19 @@ export default async function PipelinePage() {
   }));
 
   return (
-    <div className="p-8 h-screen flex flex-col">
-      <div className="mb-4 shrink-0">
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <LayoutDashboard size={24} className="text-orange-600" />
-          {data.pipeline.name}
-        </h1>
-        <p className="text-slate-500 mt-1">Gerencie suas negociações arrastando os cards</p>
+    <AppShell active="crm" eyebrow="COMERCIAL" title={data.pipeline.name}>
+      <div className="p-4 md:p-8 h-full flex flex-col">
+        <KanbanBoard
+          initialStages={mappedStages}
+          pipelineId={data.pipeline.id}
+          summary={data.summary}
+          companies={companies.map((c) => ({ id: c.id, name: c.tradeName }))}
+          contacts={contacts.map((c) => ({
+            id: c.id,
+            name: `${c.firstName} ${c.lastName || ""}`.trim(),
+          }))}
+        />
       </div>
-
-      <KanbanBoard
-        initialStages={mappedStages}
-        pipelineId={data.pipeline.id}
-        summary={data.summary}
-        companies={companies.map((c) => ({ id: c.id, name: c.tradeName }))}
-        contacts={contacts.map((c) => ({
-          id: c.id,
-          name: `${c.firstName} ${c.lastName || ""}`.trim(),
-        }))}
-      />
-    </div>
+    </AppShell>
   );
 }

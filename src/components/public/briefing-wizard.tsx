@@ -86,82 +86,88 @@ export function BriefingWizard({ templateSlug, templateId, sections }: BriefingW
   const progress = ((currentStep + 1) / sections.length) * 100;
 
   return (
-    <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      {/* Progress Bar */}
-      <div className="w-full bg-slate-100 h-2">
-        <div
-          className="bg-orange-600 h-full transition-all duration-300 ease-in-out"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
-
-      <div className="p-8">
-        <div className="mb-8">
-          <span className="text-sm font-semibold text-orange-600 mb-2 block">
+    <div className="public-form-panel">
+      <div className="public-form-header">
+        <div>
+          <span>
             Etapa {currentStep + 1} de {sections.length}
           </span>
-          <h2 className="text-2xl font-bold text-slate-900">{currentSection?.title}</h2>
-          {currentSection?.description && (
-            <p className="text-slate-500 mt-2">{currentSection.description}</p>
-          )}
+          <strong>{currentSection?.title}</strong>
+        </div>
+        <div className="public-progress">
+          <span style={{ width: `${progress}%` }} />
+        </div>
+      </div>
+
+      <div className="public-form">
+        <div className="form-intro">
+          <p className="eyebrow">{currentSection?.title.toUpperCase()}</p>
+          <h2>{currentSection?.description || currentSection?.title}</h2>
         </div>
 
         {error && (
-          <div className="p-4 mb-6 bg-red-50 border border-red-200 text-red-700 rounded-md">
+          <div
+            style={{
+              padding: 14,
+              borderRadius: 8,
+              background: "#f8dddd",
+              color: "var(--danger)",
+              fontSize: 13,
+            }}
+          >
             {error}
           </div>
         )}
 
-        <div className="space-y-8">
-          {currentSection?.questions.map((q) => (
-            <div key={q.id}>
-              <label htmlFor={q.id} className="block text-sm font-semibold text-slate-900 mb-1">
-                {q.title} {q.isRequired && <span className="text-red-500">*</span>}
-              </label>
-              <QuestionRenderer
-                question={q}
-                value={answers[q.id]}
-                onChange={(val) => setAnswers((prev) => ({ ...prev, [q.id]: val }))}
-              />
-            </div>
-          ))}
-        </div>
+        {currentSection?.questions.map((q) => (
+          <div className="field" key={q.id}>
+            <span>
+              {q.title} {q.isRequired && <span style={{ color: "var(--danger)" }}>*</span>}
+            </span>
+            <QuestionRenderer
+              question={q}
+              value={answers[q.id]}
+              onChange={(val) => setAnswers((prev) => ({ ...prev, [q.id]: val }))}
+            />
+          </div>
+        ))}
 
-        <div className="mt-12 flex items-center justify-between pt-6 border-t border-slate-100">
+        <div className="public-form-actions">
           <button
             type="button"
+            className="secondary-button"
             onClick={handlePrev}
             disabled={currentStep === 0 || isSubmitting}
-            className={`flex items-center gap-2 px-6 py-3 rounded-md font-medium transition-colors ${
-              currentStep === 0
-                ? "text-slate-400 cursor-not-allowed"
-                : "text-slate-700 hover:bg-slate-100"
-            }`}
+            style={{ display: "flex", alignItems: "center", gap: 8 }}
           >
             <ArrowLeft size={18} /> Voltar
           </button>
 
+          <span>Rascunho salvo automaticamente</span>
+
           {currentStep === sections.length - 1 ? (
             <button
               type="button"
+              className="primary-button"
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="flex items-center gap-2 px-6 py-3 bg-orange-600 text-white rounded-md font-medium hover:bg-orange-700 transition-colors disabled:opacity-50"
+              style={{ display: "flex", alignItems: "center", gap: 8 }}
             >
               {isSubmitting ? (
                 <Loader2 size={18} className="animate-spin" />
               ) : (
                 <CheckCircle2 size={18} />
               )}
-              Finalizar Envio
+              Finalizar envio
             </button>
           ) : (
             <button
               type="button"
+              className="primary-button"
               onClick={handleNext}
-              className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-md font-medium hover:bg-slate-800 transition-colors"
+              style={{ display: "flex", alignItems: "center", gap: 8 }}
             >
-              Avançar <ArrowRight size={18} />
+              Continuar <ArrowRight size={18} />
             </button>
           )}
         </div>

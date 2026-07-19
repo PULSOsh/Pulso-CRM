@@ -82,7 +82,8 @@ type ActiveKey =
   | "tasks"
   | "finance"
   | "reports"
-  | "profitability";
+  | "profitability"
+  | "products";
 
 type AppShellProps = {
   active: ActiveKey;

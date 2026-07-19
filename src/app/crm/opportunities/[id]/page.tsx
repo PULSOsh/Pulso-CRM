@@ -5,6 +5,7 @@ import { ArrowLeft, Building2, User } from "lucide-react";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { AppShell } from "@/components/crm/app-shell";
 import { FilesPanel } from "@/components/crm/files-panel";
 import { ActivityTimeline } from "@/components/crm/pipeline/activity-timeline";
 import { NextActionForm } from "@/components/crm/pipeline/next-action-form";
@@ -97,146 +98,148 @@ export default async function OpportunityDetailsPage({
   ]);
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-8">
-      <div className="flex items-center gap-4">
-        <Link
-          href="/crm/pipeline"
-          className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-slate-900 transition-colors"
-        >
-          <ArrowLeft size={20} />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">{opp.title}</h1>
-          <p className="text-slate-500">
-            Funil Atual: {stage?.name} • Criado em{" "}
-            {format(opp.createdAt, "dd/MM/yyyy", { locale: ptBR })}
-          </p>
+    <AppShell active="crm" eyebrow="COMERCIAL" title={opp.title}>
+      <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-8">
+        <div className="flex items-center gap-4">
+          <Link
+            href="/crm/pipeline"
+            className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-slate-900 transition-colors"
+          >
+            <ArrowLeft size={20} />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">{opp.title}</h1>
+            <p className="text-slate-500">
+              Funil Atual: {stage?.name} • Criado em{" "}
+              {format(opp.createdAt, "dd/MM/yyyy", { locale: ptBR })}
+            </p>
+          </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-3 gap-8">
-        <div className="col-span-2 space-y-8">
-          {/* Main Content Area */}
-          <div className="bg-white border border-slate-200 rounded-xl p-8">
-            <h2 className="font-semibold text-lg mb-4">Informações da Negociação</h2>
-            <div className="space-y-4">
-              <div className="flex justify-between border-b border-slate-100 pb-4">
-                <span className="text-slate-500">Valor Estimado</span>
-                <span className="font-semibold text-slate-900">
-                  {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
-                    Number(opp.estimatedValue),
+        <div className="grid grid-cols-3 gap-8">
+          <div className="col-span-2 space-y-8">
+            {/* Main Content Area */}
+            <div className="bg-white border border-slate-200 rounded-xl p-8">
+              <h2 className="font-semibold text-lg mb-4">Informações da Negociação</h2>
+              <div className="space-y-4">
+                <div className="flex justify-between border-b border-slate-100 pb-4">
+                  <span className="text-slate-500">Valor Estimado</span>
+                  <span className="font-semibold text-slate-900">
+                    {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+                      Number(opp.estimatedValue),
+                    )}
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-slate-100 pb-4">
+                  <span className="text-slate-500">Status</span>
+                  <span className="font-semibold text-slate-900 capitalize">{opp.status}</span>
+                </div>
+                <div className="flex justify-between pb-2">
+                  <span className="text-slate-500">Origem</span>
+                  <span className="font-semibold text-slate-900">{opp.source || "-"}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-xl p-8">
+              <h2 className="font-semibold text-lg mb-4">Próxima ação</h2>
+              <NextActionForm
+                opportunityId={opp.id}
+                initialAt={opp.nextActionAt ? opp.nextActionAt.toISOString() : null}
+                initialDescription={opp.nextActionDescription}
+              />
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-xl p-8">
+              <h2 className="font-semibold text-lg mb-4">Ações</h2>
+              <WinLoseButtons opportunityId={opp.id} status={opp.status} />
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-xl p-8">
+              <h2 className="font-semibold text-lg mb-4">Linha do tempo</h2>
+              <ActivityTimeline opportunityId={opp.id} activities={serializedActivities} />
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-xl p-8">
+              <h2 className="font-semibold text-lg mb-4">Arquivos</h2>
+              <FilesPanel entityType="opportunity" entityId={opp.id} initialFiles={files} />
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            {/* Side Panel Area */}
+            {primaryContact && (
+              <div className="bg-white border border-slate-200 rounded-xl p-6">
+                <h3 className="font-semibold flex items-center gap-2 mb-4">
+                  <User size={18} className="text-slate-400" />
+                  Contato Principal
+                </h3>
+                <p className="font-medium text-slate-900">
+                  {primaryContact.firstName} {primaryContact.lastName}
+                </p>
+                <p className="text-slate-500 text-sm mt-1">{primaryContact.email}</p>
+                <p className="text-slate-500 text-sm mt-1">
+                  {primaryContact.phone || "Sem telefone"}
+                </p>
+              </div>
+            )}
+
+            {company && (
+              <div className="bg-white border border-slate-200 rounded-xl p-6">
+                <h3 className="font-semibold flex items-center gap-2 mb-4">
+                  <Building2 size={18} className="text-slate-400" />
+                  Empresa
+                </h3>
+                <p className="font-medium text-slate-900">{company.tradeName}</p>
+                <p className="text-slate-500 text-sm mt-1">
+                  CNPJ: {company.documentNumber || "Não informado"}
+                </p>
+              </div>
+            )}
+
+            {(linkedBriefing || linkedProposal || linkedContract || linkedProject) && (
+              <div className="bg-white border border-slate-200 rounded-xl p-6">
+                <h3 className="font-semibold mb-4">Vínculos</h3>
+                <div className="space-y-3 text-sm">
+                  {linkedBriefing && (
+                    <Link
+                      href={`/crm/briefings/inbox/${linkedBriefing.id}`}
+                      className="flex items-center justify-between hover:text-orange-600"
+                    >
+                      <span>Briefing #{linkedBriefing.protocol}</span>
+                      <span className="text-slate-400 capitalize">{linkedBriefing.status}</span>
+                    </Link>
                   )}
-                </span>
+                  {linkedProposal && (
+                    <div className="flex items-center justify-between">
+                      <span>Proposta: {linkedProposal.title}</span>
+                      <span className="text-slate-400 capitalize">{linkedProposal.status}</span>
+                    </div>
+                  )}
+                  {linkedContract && (
+                    <Link
+                      href={`/crm/contratos/${linkedContract.id}`}
+                      className="flex items-center justify-between hover:text-orange-600"
+                    >
+                      <span>Contrato {linkedContract.code}</span>
+                      <span className="text-slate-400 capitalize">{linkedContract.status}</span>
+                    </Link>
+                  )}
+                  {linkedProject && (
+                    <Link
+                      href={`/crm/projetos/${linkedProject.id}`}
+                      className="flex items-center justify-between hover:text-orange-600"
+                    >
+                      <span>Projeto: {linkedProject.name}</span>
+                      <span className="text-slate-400 capitalize">{linkedProject.status}</span>
+                    </Link>
+                  )}
+                </div>
               </div>
-              <div className="flex justify-between border-b border-slate-100 pb-4">
-                <span className="text-slate-500">Status</span>
-                <span className="font-semibold text-slate-900 capitalize">{opp.status}</span>
-              </div>
-              <div className="flex justify-between pb-2">
-                <span className="text-slate-500">Origem</span>
-                <span className="font-semibold text-slate-900">{opp.source || "-"}</span>
-              </div>
-            </div>
+            )}
           </div>
-
-          <div className="bg-white border border-slate-200 rounded-xl p-8">
-            <h2 className="font-semibold text-lg mb-4">Próxima ação</h2>
-            <NextActionForm
-              opportunityId={opp.id}
-              initialAt={opp.nextActionAt ? opp.nextActionAt.toISOString() : null}
-              initialDescription={opp.nextActionDescription}
-            />
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-xl p-8">
-            <h2 className="font-semibold text-lg mb-4">Ações</h2>
-            <WinLoseButtons opportunityId={opp.id} status={opp.status} />
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-xl p-8">
-            <h2 className="font-semibold text-lg mb-4">Linha do tempo</h2>
-            <ActivityTimeline opportunityId={opp.id} activities={serializedActivities} />
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-xl p-8">
-            <h2 className="font-semibold text-lg mb-4">Arquivos</h2>
-            <FilesPanel entityType="opportunity" entityId={opp.id} initialFiles={files} />
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          {/* Side Panel Area */}
-          {primaryContact && (
-            <div className="bg-white border border-slate-200 rounded-xl p-6">
-              <h3 className="font-semibold flex items-center gap-2 mb-4">
-                <User size={18} className="text-slate-400" />
-                Contato Principal
-              </h3>
-              <p className="font-medium text-slate-900">
-                {primaryContact.firstName} {primaryContact.lastName}
-              </p>
-              <p className="text-slate-500 text-sm mt-1">{primaryContact.email}</p>
-              <p className="text-slate-500 text-sm mt-1">
-                {primaryContact.phone || "Sem telefone"}
-              </p>
-            </div>
-          )}
-
-          {company && (
-            <div className="bg-white border border-slate-200 rounded-xl p-6">
-              <h3 className="font-semibold flex items-center gap-2 mb-4">
-                <Building2 size={18} className="text-slate-400" />
-                Empresa
-              </h3>
-              <p className="font-medium text-slate-900">{company.tradeName}</p>
-              <p className="text-slate-500 text-sm mt-1">
-                CNPJ: {company.documentNumber || "Não informado"}
-              </p>
-            </div>
-          )}
-
-          {(linkedBriefing || linkedProposal || linkedContract || linkedProject) && (
-            <div className="bg-white border border-slate-200 rounded-xl p-6">
-              <h3 className="font-semibold mb-4">Vínculos</h3>
-              <div className="space-y-3 text-sm">
-                {linkedBriefing && (
-                  <Link
-                    href={`/crm/briefings/inbox/${linkedBriefing.id}`}
-                    className="flex items-center justify-between hover:text-orange-600"
-                  >
-                    <span>Briefing #{linkedBriefing.protocol}</span>
-                    <span className="text-slate-400 capitalize">{linkedBriefing.status}</span>
-                  </Link>
-                )}
-                {linkedProposal && (
-                  <div className="flex items-center justify-between">
-                    <span>Proposta: {linkedProposal.title}</span>
-                    <span className="text-slate-400 capitalize">{linkedProposal.status}</span>
-                  </div>
-                )}
-                {linkedContract && (
-                  <Link
-                    href={`/crm/contratos/${linkedContract.id}`}
-                    className="flex items-center justify-between hover:text-orange-600"
-                  >
-                    <span>Contrato {linkedContract.code}</span>
-                    <span className="text-slate-400 capitalize">{linkedContract.status}</span>
-                  </Link>
-                )}
-                {linkedProject && (
-                  <Link
-                    href={`/crm/projetos/${linkedProject.id}`}
-                    className="flex items-center justify-between hover:text-orange-600"
-                  >
-                    <span>Projeto: {linkedProject.name}</span>
-                    <span className="text-slate-400 capitalize">{linkedProject.status}</span>
-                  </Link>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
