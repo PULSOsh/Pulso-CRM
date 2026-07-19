@@ -69,7 +69,7 @@ export async function uploadFile(
     });
   });
 
-  revalidatePath("/crm");
+  revalidatePath("/crm", "layout");
   return { success: true, fileId };
 }
 
@@ -124,7 +124,7 @@ export async function deleteFile(attachmentId: string) {
   // (docs/MODULE_SPECIFICATIONS.md §10: "exclusão lógica" + "limpeza de órfãos").
   await db.delete(attachments).where(eq(attachments.id, attachmentId));
 
-  revalidatePath("/crm");
+  revalidatePath("/crm", "layout");
   return { success: true };
 }
 

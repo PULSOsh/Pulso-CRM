@@ -45,7 +45,7 @@ export async function markNotificationRead(id: string) {
       ),
     );
 
-  revalidatePath("/crm");
+  revalidatePath("/crm", "layout");
   return { success: true };
 }
 
@@ -63,6 +63,6 @@ export async function markAllNotificationsRead() {
       ),
     );
 
-  revalidatePath("/crm");
+  revalidatePath("/crm", "layout");
   return { success: true };
 }

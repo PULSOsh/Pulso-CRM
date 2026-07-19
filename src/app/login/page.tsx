@@ -25,7 +25,7 @@ export default function LoginPage() {
       if (error) {
         setError(error.message || "Erro ao realizar login");
       } else {
-        router.push("/crm");
+        router.push("/dashboard");
         router.refresh();
       }
     } catch (_err) {
