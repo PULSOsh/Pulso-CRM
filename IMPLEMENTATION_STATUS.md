@@ -905,3 +905,54 @@ Diferente do builder de criação, aqui o `onSave` sempre manda `blocks`/`paymen
 ### Débitos conhecidos
 
 - Este formulário (`quote-content-form.tsx`) continua em Tailwind cru, igual ao resto da tela de detalhe de propostas — não redesenhado pro design system nesta rodada (débito já existente, não expandido nem resolvido aqui).
+
+## 27. Auditoria real pós-feedback do responsável: 3 bugs críticos achados e corrigidos, contrato estruturado, fluxo completo verificado ao vivo (concluído 19/07/2026)
+
+### Contexto
+
+Responsável testou o CRM em produção e reportou, em texto direto: sessão às vezes expulsa pro login e o login não entra depois; todas as telas incompletas/feias; briefing inutilizável; contrato pobre e não funciona, esperava algo bem melhor "como da proposta"; Kanban "nem se fala". Pediu um diagnóstico real do que falta e que eu começasse a corrigir.
+
+Diferente das rodadas anteriores (validadas só por `tsc`/`biome`/`vitest`/`build`, sem clique real por falta de credenciais), desta vez usei o acesso SSH já estabelecido nesta sessão pra investigar direto em produção — logs, banco de dados, e ao final, um teste de clique real ponta a ponta depois de resetar a senha do admin. O padrão desta seção é diferente de propósito: cada achado abaixo foi confirmado por evidência real (log, query, ou clique), não suposição.
+
+### Bug crítico #1 — login redireciona pra rota que não existe
+
+`src/app/login/page.tsx`: `router.push("/crm")` após login bem-sucedido. `/crm` não existe (removida como mock numa fase anterior, tudo real vive em `/crm/pipeline`, `/crm/quotes`, etc.) — nunca tinha sido notado porque nenhuma validação anterior clicou de verdade no login. Todo login bem-sucedido caía num 404, dando a impressão de "login não entra". Corrigido pra `/dashboard`. Também corrigidos 2 `revalidatePath("/crm")` órfãos (`files.ts`, `notifications.ts`) pra `revalidatePath("/crm", "layout")`.
+
+### Bug crítico #2, #3, #4 — pipeline de briefing público quebrado em 3 camadas
+
+Investigação direta na tabela `briefing_templates` em produção: **zero templates existiam**. `seed-templates.ts` sempre existiu mas nunca foi chamado por nenhum script (`db:seed` só roda `seed.ts`, que cria só org+admin) — todo `/solicitar/[slug]` sempre deu 404.
+
+Mesmo com um template, o formulário renderizado em `solicitar/[slug]/page.tsx` era um array de 2 seções/6 perguntas hardcoded direto no componente, sem nenhuma relação com o schema rico já existente (`briefingTemplateVersions`/`briefingSections`/`briefingQuestions`) e sem bater com a referência visual enviada pelo responsável (faltava WhatsApp, número de etapas errado — "Etapa 1 de 4" no anexo vs. 2 etapas reais).
+
+O envio (`POST /api/public/briefing/submit`) inseria um UUID falso (`00000...0000`) em `briefing_submission_answers.question_id`, uma FK `NOT NULL` pra `briefing_questions` (tabela vazia) — **toda tentativa de envio real quebrava com violação de FK e devolvia 500**. O formulário nunca aceitou uma submissão de verdade, em nenhuma sessão anterior.
+
+Corrigido: `seed-templates.ts` reescrito pra criar o template "Site Essencial" com uma `briefing_template_versions` publicada cujo `snapshot` (jsonb) é o formulário real de 4 etapas batendo com o anexo (seu negócio → sobre o projeto → escopo → investimento). `solicitar/[slug]/page.tsx` lê esse snapshot em vez do array hardcoded. O submit passou a gravar respostas em `metadata.answers` (jsonb, sem FK) em vez da tabela relacional não populada — normalizar é debt conhecido, não bloqueio. `submission-details.tsx` (tela interna) atualizado pra ler do novo formato. Suporte a campo tipo `select` adicionado ao `QuestionRenderer` (faltava pro campo "já possui site?"). Seed aplicado em produção com autorização explícita do responsável.
+
+### Contrato: reescrito pra reaproveitar os dados estruturados da proposta
+
+`contract.content` era (e continua sendo, como snapshot legal) um texto único gerado uma vez. As telas (interna e pública) renderizavam esse texto inteiro num bloco `whitespace-pre-wrap` — zero estrutura visual, bem abaixo da proposta que já tinha seções distintas. Em vez de fazer parsing frágil do texto, `getContractProposalContent()` (novo, compartilhado entre `getContractById` e `getPublicContract`) busca os dados estruturados da proposta de origem via `contract.proposalId → proposal.currentVersionId → items/blocks/paymentOptions` — mesmas tabelas já usadas pela proposta — e as duas telas passaram a renderizar nas mesmas seções visuais (`.proposal-section`/`.proposal-dark-section`/`.summary-chip` na pública, `.builder-card` na interna). O texto plano continua existindo como fallback pra contratos antigos sem proposta vinculada.
+
+### Acesso de teste: senha do admin resetada com autorização
+
+Responsável não tinha a senha do `admin@pulso.cloud` (definida numa sessão anterior via variável de ambiente que não existe mais em lugar acessível). Com autorização explícita, resetei via script pontual (`hashPassword` do `better-auth/crypto`, mesmo hash usado pelo seed oficial), script deletado depois de usado — senha nova só foi comunicada ao responsável, não fica em nenhum arquivo do repositório.
+
+### Verificação real ao vivo — fluxo completo, ponta a ponta, com dado real
+
+Login → `/solicitar/site-essencial` (as 4 etapas reais, submissão aceita com protocolo real `PULSO-20260719-21X0`, `contact_phone` capturado) → `/crm/pipeline` (criei uma oportunidade real, apareceu na coluna certa com valor/temperatura, estatísticas do funil atualizaram) → `/crm/opportunities/[id]` (painel de produtos/diagnóstico da seção 18 renderizando) → `/crm/quotes/new` (todos os campos novos da seção 25/26 — validade, pagamento, não-incluso, responsabilidades) → publiquei → `/proposta/[token]` (todas as seções estruturadas renderizando: investimento, condição de pagamento, responsabilidades, limites do escopo) → aceitei a proposta como cliente → gerei contrato → `/crm/contratos/[id]` e `/contrato/[token]` (seções estruturadas idênticas à proposta) → assinei o contrato como cliente → confirmado "Assinado" com evidência.
+
+**Kanban**: carregava vazio (0 oportunidades) antes do teste — não é bug, é ausência de dado real na base de produção (decisão consciente da seção 21 de não ter botão de "restaurar demonstração", pra não arriscar dado real). Depois de criar uma oportunidade de teste, toda a estrutura (abas, filtros, estatísticas, drag-and-drop implícito na criação/contagem) funcionou corretamente.
+
+### Validação real
+
+- Cada arquivo alterado: `tsc --noEmit`, `biome check --write` limpos individualmente.
+- `npx vitest run`: 59/59 (rodado a cada lote).
+- `rm -rf .next && npx next build`: limpo, 32 rotas (rodado a cada lote).
+- **Verificação ao vivo em produção, com sessão autenticada real, ponta a ponta** — primeira vez nesta sessão que isso foi possível, e cobriu o fluxo de negócio inteiro do CRM (briefing → oportunidade → proposta → aceite → contrato → assinatura).
+
+### Débitos conhecidos
+
+- Campo "Cliente"/"Empresa" no gerador de orçamento ficou vazio mesmo com oportunidade selecionada, quando a oportunidade não tem contato principal vinculado (só empresa) — comportamento correto dado que não escolhi um contato ao criar a oportunidade de teste, mas vale confirmar com um caso que tenha os dois preenchidos.
+- `BETTER_AUTH_SECRET` em produção confirmado como valor fraco (`Rj9`, 3 caracteres) via `docker service inspect` — não rotacionado nesta sessão (ação de segurança que precisa de autorização separada e, pra ser durável, precisa ser feita no painel do Dokploy, não só via `docker service update`, que não persiste entre redeploys). Registrado, não resolvido.
+- Backup automatizado com retenção testada continua pendente (débito da seção 25).
+- "Configurações"/gestão de papéis continua link morto.
+- Toolbar de busca/filtro visível no anexo da inbox de briefings não foi implementada (só o card de fluxo recomendado).

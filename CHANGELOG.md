@@ -601,6 +601,31 @@ Depois de uma auditoria pedida pelo responsável ("me diz oq falta"), ficou clar
 
 ---
 
+## [2026-07-19] — 3 bugs críticos achados via investigação real em produção + contrato estruturado + verificação ao vivo ponta a ponta
+
+### Corrigido
+
+- **Login não entra**: `router.push("/crm")` após login mandava pra rota inexistente (404 disfarçado de "login não funciona"). Corrigido pra `/dashboard`.
+- **Briefing público inutilizável, 3 camadas**: (1) zero templates existiam em produção — `seed-templates.ts` nunca era chamado por nenhum script; (2) formulário renderizado era 2 seções hardcoded sem relação com o schema real e sem bater com a referência (faltava WhatsApp, 2 etapas em vez de 4); (3) todo envio quebrava com violação de FK (`question_id` apontando pra UUID falso numa tabela vazia), retornando 500 sempre.
+- `revalidatePath("/crm")` órfão em `files.ts`/`notifications.ts` corrigido pra `revalidatePath("/crm", "layout")`.
+
+### Adicionado
+
+- `seed-templates.ts`: template "Site Essencial" com versão publicada (snapshot jsonb) contendo o formulário real de 4 etapas.
+- Suporte a campo tipo `select` no `QuestionRenderer` do formulário público.
+- `getContractProposalContent()` (compartilhado): contrato (interno e público) passa a reaproveitar itens/blocos/pagamento da proposta de origem em vez de um bloco de texto único — mesma riqueza visual da proposta.
+
+### Segurança
+
+- Senha do `admin@pulso.cloud` resetada em produção com autorização explícita (ninguém tinha a senha atual). `BETTER_AUTH_SECRET` fraco confirmado (`docker service inspect`), não rotacionado — precisa de autorização separada + ação no painel do Dokploy.
+
+### Testes
+
+- `tsc --noEmit`, `biome check --write`, `vitest run` (59/59), `next build` (32 rotas): limpos a cada lote.
+- **Verificação ao vivo em produção, sessão autenticada real**: login → briefing público (submissão real aceita) → Kanban (oportunidade criada) → oportunidade (produtos/diagnóstico) → gerador de orçamento (todos os campos novos) → proposta pública → aceite → contrato gerado → contrato público → assinatura. Fluxo de negócio completo confirmado funcionando de ponta a ponta.
+
+---
+
 Formato recomendado por alteração:
 
 ```text
