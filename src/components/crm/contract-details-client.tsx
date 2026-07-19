@@ -15,7 +15,23 @@ type Contract = {
   content: string;
   publicToken: string;
   signedAt: Date | null;
+  scope: string | null;
+  items: { id: string; description: string; quantity: string; unitPrice: string; total: string }[];
+  blocks: { stableKey: string; title: string | null; body: string }[];
+  paymentPlan: {
+    description: string | null;
+    entryAmount: string;
+    installmentCount: number;
+    installmentAmount: string;
+    totalAmount: string;
+  } | null;
 };
+
+function currency(value: string | number) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+    Number(value),
+  );
+}
 
 const STATUS_LABEL: Record<string, string> = {
   draft: "Rascunho",
@@ -47,6 +63,10 @@ export function ContractDetailsClient({
   const [error, setError] = useState<string | null>(null);
   const [showCancelReason, setShowCancelReason] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+
+  const notIncluded = contract.blocks.find((b) => b.stableKey === "not_included");
+  const responsibilities = contract.blocks.find((b) => b.stableKey === "responsibilities");
+  const hasStructuredContent = contract.items.length > 0 || !!contract.scope;
 
   async function handleSend() {
     setLoading(true);
@@ -186,12 +206,128 @@ export function ContractDetailsClient({
         </div>
       )}
 
-      <div
-        className="builder-card"
-        style={{ whiteSpace: "pre-wrap", color: "var(--carbon)", fontSize: 14, lineHeight: 1.65 }}
-      >
-        {contract.content}
-      </div>
+      {hasStructuredContent ? (
+        <div style={{ display: "grid", gap: 20 }}>
+          {contract.scope && (
+            <div className="builder-card">
+              <strong style={{ fontSize: 13, display: "block", marginBottom: 10 }}>Escopo</strong>
+              <p
+                style={{
+                  margin: 0,
+                  color: "var(--mineral)",
+                  fontSize: 14,
+                  lineHeight: 1.7,
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {contract.scope}
+              </p>
+            </div>
+          )}
+
+          {contract.items.length > 0 && (
+            <div className="builder-card">
+              <strong style={{ fontSize: 13, display: "block", marginBottom: 14 }}>
+                Itens do contrato
+              </strong>
+              <div style={{ display: "grid", gap: 10 }}>
+                {contract.items.map((item) => (
+                  <div
+                    key={item.id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      fontSize: 13,
+                      paddingBottom: 8,
+                      borderBottom: "1px solid var(--border)",
+                    }}
+                  >
+                    <span>
+                      {item.description} ({Number(item.quantity)}× {currency(item.unitPrice)})
+                    </span>
+                    <strong>{currency(item.total)}</strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {contract.paymentPlan && (
+            <div className="builder-card">
+              <strong style={{ fontSize: 13, display: "block", marginBottom: 14 }}>
+                Condição de pagamento
+              </strong>
+              {contract.paymentPlan.description && (
+                <p style={{ fontSize: 13, color: "var(--mineral)", margin: "0 0 12px" }}>
+                  {contract.paymentPlan.description}
+                </p>
+              )}
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                {Number(contract.paymentPlan.entryAmount) > 0 && (
+                  <div className="summary-chip">
+                    <strong>{currency(contract.paymentPlan.entryAmount)}</strong>
+                    <span>ENTRADA</span>
+                  </div>
+                )}
+                {contract.paymentPlan.installmentCount > 0 && (
+                  <div className="summary-chip">
+                    <strong>
+                      {contract.paymentPlan.installmentCount}×{" "}
+                      {currency(contract.paymentPlan.installmentAmount)}
+                    </strong>
+                    <span>PARCELAS</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {responsibilities && (
+            <div className="builder-card">
+              <strong style={{ fontSize: 13, display: "block", marginBottom: 10 }}>
+                {responsibilities.title || "Responsabilidades do contratante"}
+              </strong>
+              <p
+                style={{
+                  margin: 0,
+                  color: "var(--mineral)",
+                  fontSize: 14,
+                  lineHeight: 1.7,
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {responsibilities.body}
+              </p>
+            </div>
+          )}
+
+          {notIncluded && (
+            <div className="builder-card">
+              <strong style={{ fontSize: 13, display: "block", marginBottom: 10 }}>
+                {notIncluded.title || "O que não está incluso"}
+              </strong>
+              <p
+                style={{
+                  margin: 0,
+                  color: "var(--mineral)",
+                  fontSize: 14,
+                  lineHeight: 1.7,
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {notIncluded.body}
+              </p>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div
+          className="builder-card"
+          style={{ whiteSpace: "pre-wrap", color: "var(--carbon)", fontSize: 14, lineHeight: 1.65 }}
+        >
+          {contract.content}
+        </div>
+      )}
 
       {contract.status === "signed" && (
         <GenerateReceivableForm

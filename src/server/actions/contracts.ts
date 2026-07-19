@@ -28,12 +28,83 @@ export async function getContracts() {
   });
 }
 
+/** Um contrato é gerado a partir de uma proposta aprovada (snapshot em texto
+ * preservado em `content`), mas telas internas/públicas reaproveitam os dados
+ * estruturados da proposta de origem (itens/blocos/pagamento) pra renderizar
+ * em seções, em vez de um bloco de texto único. */
+async function getContractProposalContent(proposalId: string | null) {
+  let items: {
+    id: string;
+    description: string;
+    quantity: string;
+    unitPrice: string;
+    total: string;
+  }[] = [];
+  let blocks: { stableKey: string; title: string | null; body: string }[] = [];
+  let paymentPlan: {
+    description: string | null;
+    entryAmount: string;
+    installmentCount: number;
+    installmentAmount: string;
+    totalAmount: string;
+  } | null = null;
+  let scope: string | null = null;
+
+  if (!proposalId) return { scope, items, blocks, paymentPlan };
+
+  const proposal = await db.query.proposals.findFirst({
+    where: eq(proposals.id, proposalId),
+    columns: { currentVersionId: true },
+  });
+  if (!proposal?.currentVersionId) return { scope, items, blocks, paymentPlan };
+
+  const version = await db.query.proposalVersions.findFirst({
+    where: eq(proposalVersions.id, proposal.currentVersionId),
+    columns: { scope: true },
+  });
+  scope = version?.scope ?? null;
+
+  items = await db.query.proposalItems.findMany({
+    where: eq(proposalItems.proposalVersionId, proposal.currentVersionId),
+    orderBy: (t, { asc }) => [asc(t.position)],
+  });
+
+  const rawBlocks = await db.query.proposalBlocks.findMany({
+    where: eq(proposalBlocks.proposalVersionId, proposal.currentVersionId),
+    orderBy: (t, { asc }) => [asc(t.position)],
+  });
+  blocks = rawBlocks.map((b) => ({
+    stableKey: b.stableKey,
+    title: b.title,
+    body: (b.content as { body?: string })?.body ?? "",
+  }));
+
+  const paymentOption = await db.query.proposalPaymentOptions.findFirst({
+    where: eq(proposalPaymentOptions.proposalVersionId, proposal.currentVersionId),
+  });
+  paymentPlan = paymentOption
+    ? {
+        description: paymentOption.description,
+        entryAmount: paymentOption.entryAmount,
+        installmentCount: paymentOption.installmentCount,
+        installmentAmount: paymentOption.installmentAmount,
+        totalAmount: paymentOption.totalAmount,
+      }
+    : null;
+
+  return { scope, items, blocks, paymentPlan };
+}
+
 export async function getContractById(id: string) {
   const { organizationId } = await requirePermission("contracts.read");
 
-  return await db.query.contracts.findFirst({
+  const contract = await db.query.contracts.findFirst({
     where: and(eq(contracts.id, id), eq(contracts.organizationId, organizationId)),
   });
+  if (!contract) return null;
+
+  const proposalContent = await getContractProposalContent(contract.proposalId);
+  return { ...contract, ...proposalContent };
 }
 
 async function nextContractCode(organizationId: string) {
@@ -281,6 +352,8 @@ export async function getPublicContract(token: string) {
 
   if (!contract?.publicAccessEnabled) return null;
 
+  const proposalContent = await getContractProposalContent(contract.proposalId);
+
   return {
     code: contract.code,
     title: contract.title,
@@ -288,6 +361,7 @@ export async function getPublicContract(token: string) {
     content: contract.content,
     signedAt: contract.signedAt,
     createdAt: contract.createdAt,
+    ...proposalContent,
   };
 }
 
