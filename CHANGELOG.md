@@ -626,6 +626,16 @@ Depois de uma auditoria pedida pelo responsável ("me diz oq falta"), ficou clar
 
 ---
 
+## [2026-07-19] — Senha do admin trocada de novo + BETTER_AUTH_SECRET rotacionado
+
+### Segurança
+
+- Senha do `admin@pulso.cloud` trocada novamente (definitiva, comunicada ao responsável fora do repositório).
+- `BETTER_AUTH_SECRET` rotacionado de um valor fraco (`Rj9`, 3 caracteres) pra 256 bits aleatórios, aplicado via `docker service update`. **Limite conhecido**: não persiste no próximo redeploy disparado por push, porque o Dokploy reaplica sua própria configuração salva — a correção durável exige editar a variável no painel web do Dokploy, não tentada aqui por exigir acesso a um banco de dados de outra aplicação no mesmo VPS.
+- Login testado ao vivo com a senha nova, após o restart do serviço: confirmado funcionando.
+
+---
+
 Formato recomendado por alteração:
 
 ```text

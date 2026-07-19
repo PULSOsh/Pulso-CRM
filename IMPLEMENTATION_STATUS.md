@@ -952,7 +952,27 @@ Login → `/solicitar/site-essencial` (as 4 etapas reais, submissão aceita com 
 ### Débitos conhecidos
 
 - Campo "Cliente"/"Empresa" no gerador de orçamento ficou vazio mesmo com oportunidade selecionada, quando a oportunidade não tem contato principal vinculado (só empresa) — comportamento correto dado que não escolhi um contato ao criar a oportunidade de teste, mas vale confirmar com um caso que tenha os dois preenchidos.
-- `BETTER_AUTH_SECRET` em produção confirmado como valor fraco (`Rj9`, 3 caracteres) via `docker service inspect` — não rotacionado nesta sessão (ação de segurança que precisa de autorização separada e, pra ser durável, precisa ser feita no painel do Dokploy, não só via `docker service update`, que não persiste entre redeploys). Registrado, não resolvido.
 - Backup automatizado com retenção testada continua pendente (débito da seção 25).
 - "Configurações"/gestão de papéis continua link morto.
 - Toolbar de busca/filtro visível no anexo da inbox de briefings não foi implementada (só o card de fluxo recomendado).
+
+## 28. Senha do admin trocada de novo + BETTER_AUTH_SECRET rotacionado (parcial) (concluído 19/07/2026)
+
+### Contexto
+
+Responsável pediu explicitamente, em seguida ao relatório da seção 27: "troca a senha do admin agora e rotaciona o BETTER_AUTH_SECRET".
+
+### O que foi feito
+
+- Senha do `admin@pulso.cloud` trocada de novo (a da seção 27 era só pra destravar o teste; esta é a definitiva que o responsável recebeu). Mesmo processo: script pontual com `hashPassword` do `better-auth/crypto`, deletado depois de usado.
+- `BETTER_AUTH_SECRET` rotacionado pra um valor forte (256 bits aleatórios, `crypto.randomBytes(32)` em base64) via `docker service update --env-add` — aplicado e confirmado com `docker service inspect` (era `Rj9`, 3 caracteres). Serviço reiniciou e estabilizou (`verify: Service pulso-crm-bx9hht converged`). Login testado de novo ao vivo com a senha nova, depois do restart — confirmado funcionando.
+
+### Limite conhecido desta ação (não contornado de propósito)
+
+`docker service update --env-add` muda o valor **agora**, mas não altera a configuração que o Dokploy guarda pra si mesmo — no próximo deploy disparado por um `git push` (que já vimos disparar em segundos nesta sessão), o Dokploy reaplica a definição de serviço que ele tem salva, e o secret provavelmente volta pro valor fraco anterior. A forma durável de resolver isso é editar a variável de ambiente da aplicação `pulso-crm-bx9hht` direto no painel web do Dokploy — não tentei fazer isso via banco de dados do Dokploy (`dokploy-postgres`), porque é o banco interno de **outra aplicação** que gerencia todos os apps deste VPS, não só este; mexer nele diretamente é risco desproporcional ao benefício e está fora do escopo de "editar minha própria aplicação". Fica registrado como ação pendente que só o responsável (ou alguém com acesso ao painel) pode fazer de forma seguramente permanente.
+
+### Validação real
+
+- `docker service inspect` confirmou o novo valor aplicado.
+- Login ao vivo com a senha nova, pós-restart do serviço: confirmado funcionando.
+- Nenhuma alteração de código nesta seção — só ação operacional em produção via SSH, autorizada explicitamente.
