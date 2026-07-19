@@ -10,7 +10,9 @@ import {
   contracts,
   opportunities,
   organizations,
+  proposalBlocks,
   proposalItems,
+  proposalPaymentOptions,
   proposals,
   proposalVersions,
 } from "../db/schema";
@@ -52,6 +54,14 @@ function buildContractContent(params: {
   total: string;
   scope: string | null;
   terms: string | null;
+  payment: {
+    description: string | null;
+    entryAmount: string;
+    installmentCount: number;
+    installmentAmount: string;
+  } | null;
+  responsibilities: string | null;
+  notIncluded: string | null;
 }) {
   const itemLines = params.items
     .map(
@@ -59,7 +69,22 @@ function buildContractContent(params: {
     )
     .join("\n");
 
-  return `CONTRATO DE PRESTAÇÃO DE SERVIÇOS
+  const paymentSection = params.payment
+    ? [
+        params.payment.description,
+        Number(params.payment.entryAmount) > 0
+          ? `- Entrada: R$ ${params.payment.entryAmount}`
+          : null,
+        params.payment.installmentCount > 0
+          ? `- ${params.payment.installmentCount}x de R$ ${params.payment.installmentAmount}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join("\n")
+    : "A definir entre as partes.";
+
+  const sections = [
+    `CONTRATO DE PRESTAÇÃO DE SERVIÇOS
 
 Contratada: ${params.organizationName}
 Referente à proposta: ${params.proposalCode} - ${params.proposalTitle}
@@ -73,10 +98,23 @@ ${itemLines || "- Nenhum item registrado na proposta."}
 VALOR TOTAL
 R$ ${params.total}
 
-CONDIÇÕES
+CONDIÇÃO DE PAGAMENTO
+${paymentSection}`,
+  ];
+
+  if (params.responsibilities) {
+    sections.push(`RESPONSABILIDADES DO CONTRATANTE\n${params.responsibilities}`);
+  }
+  if (params.notIncluded) {
+    sections.push(`O QUE NÃO ESTÁ INCLUSO NESTE CONTRATO\n${params.notIncluded}`);
+  }
+
+  sections.push(`CONDIÇÕES GERAIS
 ${params.terms || "A definir entre as partes."}
 
-Este documento reflete o snapshot da proposta aprovada no momento da geração do contrato.`;
+Este documento reflete o snapshot da proposta aprovada no momento da geração do contrato.`);
+
+  return sections.join("\n\n");
 }
 
 export async function createContractFromProposal(proposalId: string) {
@@ -110,6 +148,16 @@ export async function createContractFromProposal(proposalId: string) {
     orderBy: (t, { asc }) => [asc(t.position)],
   });
 
+  const blocks = await db.query.proposalBlocks.findMany({
+    where: eq(proposalBlocks.proposalVersionId, proposal.currentVersionId),
+  });
+  const responsibilitiesBlock = blocks.find((b) => b.stableKey === "responsibilities");
+  const notIncludedBlock = blocks.find((b) => b.stableKey === "not_included");
+
+  const paymentOption = await db.query.proposalPaymentOptions.findFirst({
+    where: eq(proposalPaymentOptions.proposalVersionId, proposal.currentVersionId),
+  });
+
   const organization = await db.query.organizations.findFirst({
     where: eq(organizations.id, organizationId),
   });
@@ -121,6 +169,16 @@ export async function createContractFromProposal(proposalId: string) {
     proposalCode: proposal.code,
     items,
     total: proposal.total,
+    payment: paymentOption
+      ? {
+          description: paymentOption.description,
+          entryAmount: paymentOption.entryAmount,
+          installmentCount: paymentOption.installmentCount,
+          installmentAmount: paymentOption.installmentAmount,
+        }
+      : null,
+    responsibilities: (responsibilitiesBlock?.content as { body?: string })?.body ?? null,
+    notIncluded: (notIncludedBlock?.content as { body?: string })?.body ?? null,
     scope: version?.scope ?? null,
     terms: version?.terms ?? null,
   });

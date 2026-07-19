@@ -7,7 +7,9 @@ import {
   contacts,
   opportunities,
   pipelineStages,
+  proposalBlocks,
   proposalItems,
+  proposalPaymentOptions,
   proposals,
   proposalVersions,
 } from "../db/schema";
@@ -47,6 +49,15 @@ export async function getPublicProposal(token: string) {
   const items = await db.query.proposalItems.findMany({
     where: eq(proposalItems.proposalVersionId, version.id),
     orderBy: (items, { asc }) => [asc(items.position)],
+  });
+
+  const blocks = await db.query.proposalBlocks.findMany({
+    where: eq(proposalBlocks.proposalVersionId, version.id),
+    orderBy: (t, { asc }) => [asc(t.position)],
+  });
+
+  const paymentOption = await db.query.proposalPaymentOptions.findFirst({
+    where: eq(proposalPaymentOptions.proposalVersionId, version.id),
   });
 
   // First view only - avoid writing on every reload/refresh of the same link.
@@ -123,6 +134,21 @@ export async function getPublicProposal(token: string) {
       unitPrice: item.unitPrice,
       total: item.total,
     })),
+    blocks: blocks.map((b) => ({
+      stableKey: b.stableKey,
+      title: b.title,
+      body: (b.content as { body?: string })?.body ?? "",
+    })),
+    paymentPlan: paymentOption
+      ? {
+          name: paymentOption.name,
+          description: paymentOption.description,
+          entryAmount: paymentOption.entryAmount,
+          installmentCount: paymentOption.installmentCount,
+          installmentAmount: paymentOption.installmentAmount,
+          totalAmount: paymentOption.totalAmount,
+        }
+      : null,
     files,
   };
 }

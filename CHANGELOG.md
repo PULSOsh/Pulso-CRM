@@ -564,6 +564,30 @@ Depois de uma auditoria pedida pelo responsável ("me diz oq falta"), ficou clar
 
 ---
 
+## [2026-07-19] — Proposta real: blocos de conteúdo, pagamento estruturado, contrato e briefing mais ricos
+
+### Adicionado
+
+- `quotes.schemas.ts`: schemas de bloco de proposta (não incluso/responsabilidades) e plano de pagamento (entrada + parcelas).
+- Gerador de orçamento ganha "Validade e pagamento", "O que não está incluso" e "Responsabilidades do cliente".
+- Proposta pública ganha seções "Condição de pagamento", "Responsabilidades" e "Limites do escopo".
+- Contrato gerado a partir da proposta aprovada agora inclui pagamento/responsabilidades/não-incluso, não só escopo e itens genéricos.
+- Inbox de briefings ganha o card "Fluxo recomendado" (4 passos) + contador de submissões novas, usando classes `.briefing-aside`/`.process-list` que já existiam em `globals.css` sem uso.
+
+### Alterado
+
+- `createQuote`/`updateQuoteDraft`/`createNewProposalVersion`/`getQuoteById` (`quotes.ts`) estendidos pra `validUntil`/blocos/plano de pagamento — não-destrutivo quando o chamador não manda esses campos, com herança automática da versão anterior ao criar nova versão.
+
+### Sem migração nova
+
+- `proposal_blocks` e `proposal_payment_options` já existiam desde a migration `0000` (aplicada em produção) sem nenhum código usando — a funcionalidade inteira desta entrada foi construída sobre elas.
+
+### Testes
+
+- `tsc --noEmit`, `biome check --write`, `vitest run` (59/59), `rm -rf .next && next build` (32 rotas): limpos.
+
+---
+
 Formato recomendado por alteração:
 
 ```text

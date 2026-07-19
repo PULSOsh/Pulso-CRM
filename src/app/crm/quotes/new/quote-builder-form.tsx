@@ -9,6 +9,12 @@ import type { getProducts } from "@/server/actions/products";
 import type { getOpenOpportunities } from "@/server/actions/quotes";
 import { createQuote, publishQuote, type QuoteItemInput } from "@/server/actions/quotes";
 
+function defaultValidUntil() {
+  const d = new Date();
+  d.setDate(d.getDate() + 10);
+  return d.toISOString().slice(0, 10);
+}
+
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 const itemInputStyle: CSSProperties = {
@@ -35,6 +41,15 @@ export default function QuoteBuilderForm({
   const [scope, setScope] = useState("");
   const [terms, setTerms] = useState("");
   const [items, setItems] = useState<QuoteItemInput[]>([]);
+  const [validUntil, setValidUntil] = useState(defaultValidUntil);
+  const [paymentEnabled, setPaymentEnabled] = useState(false);
+  const [paymentDescription, setPaymentDescription] = useState("");
+  const [entryAmount, setEntryAmount] = useState("");
+  const [installmentCount, setInstallmentCount] = useState("1");
+  const [notIncludedEnabled, setNotIncludedEnabled] = useState(false);
+  const [notIncludedText, setNotIncludedText] = useState("");
+  const [responsibilitiesEnabled, setResponsibilitiesEnabled] = useState(false);
+  const [responsibilitiesText, setResponsibilitiesText] = useState("");
 
   const selectedOpportunity = useMemo(
     () => opportunities.find((opp) => opp.id === opportunityId) ?? null,
@@ -44,6 +59,12 @@ export default function QuoteBuilderForm({
   const subtotal = items.reduce((acc, item) => acc + item.quantity * item.unitPrice, 0);
   const totalDiscount = items.reduce((acc, item) => acc + Number(item.discount), 0);
   const total = subtotal - totalDiscount;
+
+  const entryAmountNumber = Number(entryAmount || 0);
+  const installmentCountNumber = Number(installmentCount || 0);
+  const remainingAfterEntry = Math.max(total - entryAmountNumber, 0);
+  const installmentAmountComputed =
+    installmentCountNumber > 0 ? remainingAfterEntry / installmentCountNumber : 0;
 
   function handleAddProduct(productId: string) {
     if (!productId) return;
@@ -88,10 +109,44 @@ export default function QuoteBuilderForm({
     return true;
   }
 
+  function buildPayload() {
+    return {
+      opportunityId,
+      title,
+      scope,
+      terms,
+      items,
+      validUntil,
+      blocks: [
+        {
+          stableKey: "not_included" as const,
+          title: "O que não está incluso",
+          body: notIncludedText,
+          isEnabled: notIncludedEnabled,
+        },
+        {
+          stableKey: "responsibilities" as const,
+          title: "Responsabilidades do cliente",
+          body: responsibilitiesText,
+          isEnabled: responsibilitiesEnabled,
+        },
+      ],
+      paymentPlan: paymentEnabled
+        ? {
+            name: "Condição de pagamento",
+            description: paymentDescription,
+            entryAmount: entryAmountNumber,
+            installmentCount: installmentCountNumber,
+            installmentAmount: installmentAmountComputed,
+          }
+        : null,
+    };
+  }
+
   function handleSaveDraft() {
     if (!validate()) return;
     startTransition(async () => {
-      const result = await createQuote({ opportunityId, title, scope, terms, items });
+      const result = await createQuote(buildPayload());
       router.push(`/crm/quotes/${result.proposalId}`);
     });
   }
@@ -99,7 +154,7 @@ export default function QuoteBuilderForm({
   function handlePublish() {
     if (!validate()) return;
     startTransition(async () => {
-      const result = await createQuote({ opportunityId, title, scope, terms, items });
+      const result = await createQuote(buildPayload());
       await publishQuote(result.proposalId);
       router.push(`/crm/quotes/${result.proposalId}`);
     });
@@ -360,15 +415,173 @@ export default function QuoteBuilderForm({
             <span>4</span>
             <div>
               <strong>Termos e condições</strong>
-              <small>Prazos, validade e condições de pagamento.</small>
+              <small>Garantia, prazos de entrega e observações gerais.</small>
             </div>
           </header>
           <Textarea
             value={terms}
             onChange={(e) => setTerms(e.target.value)}
             rows={5}
-            placeholder="A proposta tem validade de 15 dias..."
+            placeholder="15 dias de garantia para correções relacionadas ao escopo aprovado..."
           />
+        </div>
+
+        <div className="builder-card">
+          <header>
+            <span>5</span>
+            <div>
+              <strong>Validade e pagamento</strong>
+              <small>Por quanto tempo a proposta vale e como o cliente paga.</small>
+            </div>
+          </header>
+
+          <label className="field" htmlFor="validUntil">
+            <span>Válida até</span>
+            <input
+              id="validUntil"
+              type="date"
+              value={validUntil}
+              onChange={(e) => setValidUntil(e.target.value)}
+            />
+          </label>
+
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginTop: 16,
+              fontSize: 13,
+              fontWeight: 750,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={paymentEnabled}
+              onChange={(e) => setPaymentEnabled(e.target.checked)}
+              style={{ accentColor: "var(--signal)" }}
+            />
+            Definir condição de pagamento estruturada
+          </label>
+
+          {paymentEnabled && (
+            <div style={{ display: "grid", gap: 14, marginTop: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <label className="field">
+                  <span>Entrada (R$)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={entryAmount}
+                    onChange={(e) => setEntryAmount(e.target.value)}
+                    placeholder="0,00"
+                  />
+                </label>
+                <label className="field">
+                  <span>Parcelas restantes</span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={installmentCount}
+                    onChange={(e) => setInstallmentCount(e.target.value)}
+                  />
+                </label>
+              </div>
+              <label className="field">
+                <span>Descrição da condição</span>
+                <input
+                  type="text"
+                  value={paymentDescription}
+                  onChange={(e) => setPaymentDescription(e.target.value)}
+                  placeholder="Ex: 50% na aprovação, 50% na entrega"
+                />
+              </label>
+              {entryAmountNumber > 0 || installmentCountNumber > 0 ? (
+                <p className="origin-note">
+                  Entrada de {currency.format(entryAmountNumber)} + {installmentCountNumber}
+                  {installmentCountNumber === 1 ? " parcela" : " parcelas"} de{" "}
+                  {currency.format(installmentAmountComputed)}
+                </p>
+              ) : null}
+            </div>
+          )}
+        </div>
+
+        <div className="builder-card">
+          <header>
+            <span>6</span>
+            <div>
+              <strong>O que não está incluso</strong>
+              <small>Deixe claro o limite do escopo pra evitar mal-entendido depois.</small>
+            </div>
+          </header>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 14,
+              fontSize: 13,
+              fontWeight: 750,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={notIncludedEnabled}
+              onChange={(e) => setNotIncludedEnabled(e.target.checked)}
+              style={{ accentColor: "var(--signal)" }}
+            />
+            Incluir esta seção na proposta
+          </label>
+          {notIncludedEnabled && (
+            <Textarea
+              value={notIncludedText}
+              onChange={(e) => setNotIncludedText(e.target.value)}
+              rows={4}
+              placeholder={
+                "Integrações automáticas não previstas no escopo\nAplicativos nativos para Android e iOS\nMigração de bases antigas"
+              }
+            />
+          )}
+        </div>
+
+        <div className="builder-card">
+          <header>
+            <span>7</span>
+            <div>
+              <strong>Responsabilidades do cliente</strong>
+              <small>O que o cliente precisa fornecer ou aprovar.</small>
+            </div>
+          </header>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 14,
+              fontSize: 13,
+              fontWeight: 750,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={responsibilitiesEnabled}
+              onChange={(e) => setResponsibilitiesEnabled(e.target.checked)}
+              style={{ accentColor: "var(--signal)" }}
+            />
+            Incluir esta seção na proposta
+          </label>
+          {responsibilitiesEnabled && (
+            <Textarea
+              value={responsibilitiesText}
+              onChange={(e) => setResponsibilitiesText(e.target.value)}
+              rows={4}
+              placeholder={
+                "Fornecimento de logo, cores, textos e informações do negócio\nAprovação das etapas dentro do cronograma"
+              }
+            />
+          )}
         </div>
       </div>
 
@@ -403,7 +616,7 @@ export default function QuoteBuilderForm({
           <span>
             {items.length} {items.length === 1 ? "bloco ativo" : "blocos ativos"}
           </span>
-          <span>Validade: 10 dias</span>
+          <span>Válida até {new Date(`${validUntil}T00:00:00`).toLocaleDateString("pt-BR")}</span>
           <span>Versão: rascunho</span>
         </div>
       </aside>

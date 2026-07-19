@@ -846,3 +846,38 @@ Só `update*` validava com Zod; `create*` aceitava o formato de dados sem checag
 - `opportunity_products` não tem desconto por item na UI de adicionar (só ao editar diretamente via ação, se algum fluxo futuro precisar) — o formulário de vincular só pede quantidade e valor unitário, seguindo o suficiente pro caso de uso atual.
 - "Configurações" e gestão de papéis/convite de usuário continuam como link morto — não abordado nesta rodada.
 - S3 (módulo Arquivos) e persistência correta do `BETTER_AUTH_SECRET` no Dokploy continuam bloqueados por falta de credenciais/acesso, não por trabalho técnico pendente.
+
+## 25. Proposta real (blocos + pagamento estruturado), briefing e contrato mais ricos (concluído 19/07/2026)
+
+### Contexto
+
+Responsável trouxe uma proposta comercial real da PULSO (PDF, cliente externo "Ermeson") e prints de referência (formulário de briefing, inbox de briefings, gerador de orçamento, Kanban, mapas de tela) com a instrução: "a proposta vai ser a real", "tá mt simples", usar o PDF como referência de conteúdo e as imagens como referência de tela. As imagens do gerador de orçamento e do Kanban já batiam com o que tinha sido construído nas seções 21/22 (confirma que aqueles redesenhos estavam corretos). A inbox de briefings e a proposta pública, porém, ficaram bem atrás do PDF de referência em riqueza de conteúdo.
+
+### Achado: `proposal_blocks` e `proposal_payment_options` existem desde a migration `0000` (já aplicada em produção) e nunca foram usados
+
+Igual ao padrão já visto com `globals.css` (seção 22) e `opportunity_products` (seção 24): duas tabelas inteiras — feitas sob medida pra exatamente este problema (seções de conteúdo flexíveis e opções de pagamento estruturadas numa proposta) — existiam no schema desde o início e nunca tinham nenhuma linha de código as usando. Isso permitiu construir a funcionalidade inteira **sem migration nova**.
+
+### O que foi feito
+
+- **`quotes.schemas.ts`** (novo): `proposalBlockSchema` (stableKey `not_included`/`responsibilities`, título, corpo, habilitado) e `paymentPlanSchema` (entrada, parcelas restantes, valor por parcela).
+- **`quotes.ts`**: `createQuote` ganhou `validUntil`/`blocks`/`paymentPlan` opcionais, persistidos na mesma transação de criação. `updateQuoteDraft` e `createNewProposalVersion` tratam blocos/pagamento como **opt-in e não-destrutivo** — só mexem nessas tabelas se o chamador explicitamente mandar o campo; a tela de detalhe legada (`quotes/[id]`, não tocada nesta rodada) continua funcionando sem apagar o que foi configurado na criação. `createNewProposalVersion` também **herda** blocos/pagamento da versão anterior quando o chamador não manda nada novo, pra não perder essa configuração ao criar uma nova versão depois de publicada. `getQuoteById` passou a retornar `blocks`/`paymentOptions`.
+- **`quote-builder-form.tsx`**: 3 cards novos — "Validade e pagamento" (data de validade real, antes só existia no schema sem nenhuma tela setando; entrada + parcelas restantes com valor calculado automaticamente), "O que não está incluso" e "Responsabilidades do cliente" (ambos com checkbox de habilitar + textarea de uma linha por item). Prévia ao vivo agora mostra a validade real em vez do texto fixo "10 dias".
+- **`public-quote.ts`** (`getPublicProposal`): retorna `blocks` e `paymentPlan` sanitizados.
+- **`proposta/[token]/page.tsx`**: 3 seções novas — "Condição de pagamento" (cards de entrada/parcelas/total reaproveitando `.summary-chip`), "Responsabilidades" e "Limites do escopo" (ambas como lista, só renderizam se o bloco existir).
+- **`contracts.ts`** (`buildContractContent`): o texto do contrato gerado a partir da proposta aprovada agora inclui a condição de pagamento estruturada, responsabilidades do contratante e o que não está incluso — antes só tinha escopo/itens/total/termos genéricos.
+- **`crm/briefings/inbox/page.tsx`**: card "Fluxo recomendado" (`.briefing-aside`/`.process-list`, também já prontos em `globals.css` sem uso) com os 4 passos do print de referência (Revisar respostas → Vincular ao CRM → Gerar orçamento → Publicar em site) e CTA "Criar orçamento" linkando pra `/crm/quotes/new`, mais um contador real de submissões novas no cabeçalho.
+
+### Validação real
+
+- `npx tsc --noEmit`: limpo a cada arquivo alterado.
+- `npx biome check --write`: limpo.
+- `npx vitest run`: 59/59.
+- `rm -rf .next && npx next build`: limpo, 32 rotas.
+- Não testado via clique real — mesma limitação de credenciais já registrada nas seções 22/23.
+
+### Débitos conhecidos
+
+- A tela de detalhe da proposta (`crm/quotes/[id]`, `QuoteDetailClient`) não foi estendida pra editar blocos/pagamento depois de criados — só o fluxo de criação (`quote-builder-form.tsx`) escreve esses campos. Editar uma proposta existente pra adicionar/mudar essas seções ainda não tem UI; ficou deliberadamente não-destrutivo (não apaga o que existe) em vez de forçar uma tela nova agora.
+- `proposal_payment_options` suporta múltiplas opções de pagamento por versão (é uma tabela "options", plural) mas só uma é usada — suficiente pro caso de uso atual (uma condição só, como no PDF de referência), mas o modelo já aguenta mais se um dia for pedido.
+- Toolbar de busca/filtro da inbox de briefings (visível no print de referência) não foi implementada — só o card de fluxo recomendado e o contador, que eram o pedido concreto.
+- "Usar briefing" continua desabilitado no gerador de orçamento (débito já registrado na seção 22) — o CTA "Criar orçamento" da inbox linka pro gerador em branco, não importa o briefing automaticamente ainda.

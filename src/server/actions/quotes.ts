@@ -9,11 +9,64 @@ import {
   companies,
   contacts,
   opportunities,
+  proposalBlocks,
   proposalItems,
+  proposalPaymentOptions,
   proposals,
   proposalVersions,
 } from "../db/schema";
 import { logActivity } from "../services/activity-log";
+import {
+  type PaymentPlanInput,
+  type ProposalBlockInput,
+  paymentPlanSchema,
+  proposalBlockSchema,
+} from "./quotes.schemas";
+
+type InsertOnlyDbClient = Pick<typeof db, "insert">;
+
+async function insertBlocksAndPayment(
+  tx: InsertOnlyDbClient,
+  versionId: string,
+  blocks: ProposalBlockInput[] | undefined,
+  paymentPlan: PaymentPlanInput | null | undefined,
+  finalTotal: number,
+) {
+  if (blocks) {
+    const parsedBlocks = blocks.map((b) => proposalBlockSchema.parse(b));
+    const enabledBlocks = parsedBlocks.filter((b) => b.isEnabled && b.body);
+    if (enabledBlocks.length > 0) {
+      await tx.insert(proposalBlocks).values(
+        enabledBlocks.map((b, index) => ({
+          proposalVersionId: versionId,
+          blockType: "text_list",
+          stableKey: b.stableKey,
+          title: b.title || null,
+          content: { body: b.body },
+          isEnabled: true,
+          position: index,
+        })),
+      );
+    }
+  }
+
+  if (paymentPlan) {
+    const parsed = paymentPlanSchema.parse(paymentPlan);
+    if (parsed.entryAmount > 0 || parsed.installmentCount > 0) {
+      await tx.insert(proposalPaymentOptions).values({
+        proposalVersionId: versionId,
+        name: parsed.name,
+        description: parsed.description || null,
+        entryAmount: parsed.entryAmount.toString(),
+        installmentCount: parsed.installmentCount,
+        installmentAmount: parsed.installmentAmount.toString(),
+        totalAmount: finalTotal.toString(),
+        isDefault: true,
+        position: 0,
+      });
+    }
+  }
+}
 
 // We need a short code like PRO-1234
 function generateProposalCode() {
@@ -126,6 +179,9 @@ export async function createQuote(data: {
   scope: string;
   terms: string;
   items: QuoteItemInput[];
+  validUntil?: string;
+  blocks?: ProposalBlockInput[];
+  paymentPlan?: PaymentPlanInput | null;
 }) {
   const { organizationId, userId } = await requirePermission("proposals.create");
 
@@ -146,6 +202,7 @@ export async function createQuote(data: {
       discount: totalDiscount.toString(),
       total: finalTotal.toString(),
       currentVersionId: versionId,
+      validUntil: data.validUntil ? new Date(data.validUntil) : undefined,
     });
 
     await tx.insert(proposalVersions).values({
@@ -176,6 +233,8 @@ export async function createQuote(data: {
         })),
       );
     }
+
+    await insertBlocksAndPayment(tx, versionId, data.blocks, data.paymentPlan, finalTotal);
 
     await logActivity(
       {
@@ -214,6 +273,20 @@ export async function getQuoteById(id: string) {
       })
     : [];
 
+  const blocks = version
+    ? await db.query.proposalBlocks.findMany({
+        where: eq(proposalBlocks.proposalVersionId, version.id),
+        orderBy: (t, { asc }) => [asc(t.position)],
+      })
+    : [];
+
+  const paymentOptions = version
+    ? await db.query.proposalPaymentOptions.findMany({
+        where: eq(proposalPaymentOptions.proposalVersionId, version.id),
+        orderBy: (t, { asc }) => [asc(t.position)],
+      })
+    : [];
+
   const allVersions = await db.query.proposalVersions.findMany({
     where: eq(proposalVersions.proposalId, id),
     orderBy: (t, { desc }) => [desc(t.versionNumber)],
@@ -234,7 +307,17 @@ export async function getQuoteById(id: string) {
       ? await db.query.contacts.findFirst({ where: eq(contacts.id, opportunity.primaryContactId) })
       : null;
 
-  return { proposal, version, items, allVersions, opportunity, company, contact };
+  return {
+    proposal,
+    version,
+    items,
+    blocks,
+    paymentOptions,
+    allVersions,
+    opportunity,
+    company,
+    contact,
+  };
 }
 
 export async function publishQuote(id: string) {
@@ -275,7 +358,15 @@ export async function publishQuote(id: string) {
  * em vez de criar uma nova (não há snapshot público pra preservar ainda). */
 export async function updateQuoteDraft(
   id: string,
-  data: { title: string; scope: string; terms: string; items: QuoteItemInput[] },
+  data: {
+    title: string;
+    scope: string;
+    terms: string;
+    items: QuoteItemInput[];
+    validUntil?: string;
+    blocks?: ProposalBlockInput[];
+    paymentPlan?: PaymentPlanInput | null;
+  },
 ) {
   const { organizationId } = await requirePermission("proposals.update");
 
@@ -302,6 +393,7 @@ export async function updateQuoteDraft(
         discount: totalDiscount.toString(),
         total: finalTotal.toString(),
         updatedAt: new Date(),
+        validUntil: data.validUntil ? new Date(data.validUntil) : undefined,
       })
       .where(eq(proposals.id, id));
 
@@ -334,6 +426,21 @@ export async function updateQuoteDraft(
         })),
       );
     }
+
+    // Blocos e plano de pagamento só são tocados se o chamador explicitamente
+    // os enviar - sem isso, uma edição que não sabe desses campos (ex: a tela
+    // de detalhe legada) não apaga o que já foi configurado na criação.
+    if (data.blocks !== undefined) {
+      await tx.delete(proposalBlocks).where(eq(proposalBlocks.proposalVersionId, versionId));
+    }
+    if (data.paymentPlan !== undefined) {
+      await tx
+        .delete(proposalPaymentOptions)
+        .where(eq(proposalPaymentOptions.proposalVersionId, versionId));
+    }
+    if (data.blocks !== undefined || data.paymentPlan !== undefined) {
+      await insertBlocksAndPayment(tx, versionId, data.blocks, data.paymentPlan, finalTotal);
+    }
   });
 
   revalidatePath(`/crm/quotes/${id}`);
@@ -344,7 +451,15 @@ export async function updateQuoteDraft(
  * uma nova, sem apagar a anterior (docs/MODULE_SPECIFICATIONS.md §7). */
 export async function createNewProposalVersion(
   id: string,
-  data: { title: string; scope: string; terms: string; items: QuoteItemInput[] },
+  data: {
+    title: string;
+    scope: string;
+    terms: string;
+    items: QuoteItemInput[];
+    validUntil?: string;
+    blocks?: ProposalBlockInput[];
+    paymentPlan?: PaymentPlanInput | null;
+  },
 ) {
   const { organizationId, userId } = await requirePermission("proposals.update");
 
@@ -364,6 +479,39 @@ export async function createNewProposalVersion(
     orderBy: (t, { desc }) => [desc(t.versionNumber)],
   });
   const nextVersionNumber = (latestVersion?.versionNumber ?? 0) + 1;
+
+  // Se o chamador não mandou blocos/pagamento novos, a versão nova herda o
+  // que já estava na versão anterior - senão, editar só o escopo/itens numa
+  // tela que não conhece esses campos apagaria essa configuração ao virar
+  // versão nova.
+  let carriedBlocks: ProposalBlockInput[] | undefined = data.blocks;
+  let carriedPayment: PaymentPlanInput | null | undefined = data.paymentPlan;
+  if (data.blocks === undefined && latestVersion) {
+    const previousBlocks = await db.query.proposalBlocks.findMany({
+      where: eq(proposalBlocks.proposalVersionId, latestVersion.id),
+      orderBy: (t, { asc }) => [asc(t.position)],
+    });
+    carriedBlocks = previousBlocks.map((b) => ({
+      stableKey: b.stableKey as ProposalBlockInput["stableKey"],
+      title: b.title ?? undefined,
+      body: (b.content as { body?: string })?.body ?? "",
+      isEnabled: b.isEnabled,
+    }));
+  }
+  if (data.paymentPlan === undefined && latestVersion) {
+    const previousPayment = await db.query.proposalPaymentOptions.findFirst({
+      where: eq(proposalPaymentOptions.proposalVersionId, latestVersion.id),
+    });
+    carriedPayment = previousPayment
+      ? {
+          name: previousPayment.name,
+          description: previousPayment.description ?? "",
+          entryAmount: Number(previousPayment.entryAmount),
+          installmentCount: previousPayment.installmentCount,
+          installmentAmount: Number(previousPayment.installmentAmount),
+        }
+      : null;
+  }
 
   const { subtotal, totalDiscount, finalTotal } = computeTotals(data.items);
   const newVersionId = crypto.randomUUID();
@@ -396,6 +544,15 @@ export async function createNewProposalVersion(
           position: index,
         })),
       );
+    }
+
+    await insertBlocksAndPayment(tx, newVersionId, carriedBlocks, carriedPayment, finalTotal);
+
+    if (data.validUntil) {
+      await tx
+        .update(proposals)
+        .set({ validUntil: new Date(data.validUntil) })
+        .where(eq(proposals.id, id));
     }
 
     await tx

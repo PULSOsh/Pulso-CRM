@@ -17,6 +17,9 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value));
 
   const isDecided = !["draft", "sent", "viewed"].includes(proposal.status);
+  const notIncluded = proposal.blocks.find((b) => b.stableKey === "not_included");
+  const responsibilities = proposal.blocks.find((b) => b.stableKey === "responsibilities");
+  const payment = proposal.paymentPlan;
 
   return (
     <div className="public-proposal">
@@ -89,9 +92,103 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
         </ul>
       </section>
 
+      {payment && (
+        <section className="proposal-section">
+          <p className="eyebrow">03 · CONDIÇÃO DE PAGAMENTO</p>
+          <h2>Como funciona o investimento</h2>
+          {payment.description && (
+            <p style={{ maxWidth: 720, marginTop: 16, color: "var(--mineral)", fontSize: 16 }}>
+              {payment.description}
+            </p>
+          )}
+          <div style={{ display: "flex", gap: 16, marginTop: 24, flexWrap: "wrap" }}>
+            {Number(payment.entryAmount) > 0 && (
+              <div className="summary-chip">
+                <strong>{formatCurrency(payment.entryAmount)}</strong>
+                <span>ENTRADA</span>
+              </div>
+            )}
+            {payment.installmentCount > 0 && (
+              <div className="summary-chip">
+                <strong>
+                  {payment.installmentCount}× {formatCurrency(payment.installmentAmount)}
+                </strong>
+                <span>
+                  {payment.installmentCount === 1 ? "PARCELA RESTANTE" : "PARCELAS RESTANTES"}
+                </span>
+              </div>
+            )}
+            <div className="summary-chip">
+              <strong>{formatCurrency(payment.totalAmount)}</strong>
+              <span>TOTAL</span>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {responsibilities && (
+        <section className="proposal-section">
+          <p className="eyebrow">04 · RESPONSABILIDADES</p>
+          <h2>{responsibilities.title || "Responsabilidades do cliente"}</h2>
+          <ul style={{ display: "grid", gap: 10, marginTop: 20, maxWidth: 720, padding: 0 }}>
+            {responsibilities.body
+              .split("\n")
+              .map((line) => line.trim())
+              .filter(Boolean)
+              .map((line) => (
+                <li
+                  key={line}
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    alignItems: "flex-start",
+                    color: "var(--mineral)",
+                    fontSize: 15,
+                    lineHeight: 1.6,
+                    listStyle: "none",
+                  }}
+                >
+                  <CheckCircle2 size={16} style={{ marginTop: 4, flexShrink: 0 }} />
+                  {line}
+                </li>
+              ))}
+          </ul>
+        </section>
+      )}
+
+      {notIncluded && (
+        <section className="proposal-section">
+          <p className="eyebrow">05 · LIMITES DO ESCOPO</p>
+          <h2>{notIncluded.title || "O que não está incluso"}</h2>
+          <ul style={{ display: "grid", gap: 10, marginTop: 20, maxWidth: 720, padding: 0 }}>
+            {notIncluded.body
+              .split("\n")
+              .map((line) => line.trim())
+              .filter(Boolean)
+              .map((line) => (
+                <li
+                  key={line}
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    alignItems: "flex-start",
+                    color: "var(--mineral)",
+                    fontSize: 15,
+                    lineHeight: 1.6,
+                    listStyle: "none",
+                  }}
+                >
+                  <span style={{ color: "var(--danger)", flexShrink: 0 }}>—</span>
+                  {line}
+                </li>
+              ))}
+          </ul>
+        </section>
+      )}
+
       {proposal.files.length > 0 && (
         <section className="proposal-section">
-          <p className="eyebrow">03 · ARQUIVOS</p>
+          <p className="eyebrow">06 · ARQUIVOS</p>
           <h2>Anexos</h2>
           <div style={{ display: "grid", gap: 10, marginTop: 20, maxWidth: 620 }}>
             {proposal.files.map((file) => (
