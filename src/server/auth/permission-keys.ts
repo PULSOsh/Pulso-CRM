@@ -28,6 +28,9 @@ export const PERMISSION_KEYS = [
   "contacts.delete",
   "contacts.restore",
 
+  "pipelines.read",
+  "pipelines.manage",
+
   "opportunities.read",
   "opportunities.create",
   "opportunities.update",
@@ -144,6 +147,8 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     "contacts.create",
     "contacts.update",
     "contacts.restore",
+    "pipelines.read",
+    "pipelines.manage",
     "opportunities.read",
     "opportunities.create",
     "opportunities.update",
@@ -169,6 +174,7 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
 
   projects: [
     "dashboard.read",
+    "pipelines.read",
     "opportunities.read",
     "tasks.read",
     "tasks.create",

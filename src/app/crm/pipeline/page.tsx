@@ -4,10 +4,14 @@ import { AppShell } from "@/components/crm/app-shell";
 import { KanbanBoard } from "@/components/crm/pipeline/kanban-board";
 import { getCompanies } from "@/server/actions/companies";
 import { getContacts } from "@/server/actions/contacts";
-import { getPipelineWithOpportunities } from "@/server/actions/pipeline";
+import { getPipelines, getPipelineWithOpportunities } from "@/server/actions/pipeline";
 import { auth } from "@/server/auth";
 
-export default async function PipelinePage() {
+export default async function PipelinePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ pipelineId?: string }>;
+}) {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -16,7 +20,11 @@ export default async function PipelinePage() {
     redirect("/login");
   }
 
-  const data = await getPipelineWithOpportunities();
+  const { pipelineId } = await searchParams;
+  const [data, pipelines] = await Promise.all([
+    getPipelineWithOpportunities(pipelineId),
+    getPipelines(),
+  ]);
   const companies = await getCompanies();
   const contacts = await getContacts();
 
@@ -50,6 +58,7 @@ export default async function PipelinePage() {
         <KanbanBoard
           initialStages={mappedStages}
           pipelineId={data.pipeline.id}
+          pipelines={pipelines.map((p) => ({ id: p.id, name: p.name, isDefault: p.isDefault }))}
           summary={data.summary}
           companies={companies.map((c) => ({ id: c.id, name: c.tradeName }))}
           contacts={contacts.map((c) => ({

@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+export const createPipelineSchema = z.object({
+  name: z.string().trim().min(1, "Nome do funil é obrigatório.").max(120),
+});
+
+export type CreatePipelineInput = z.infer<typeof createPipelineSchema>;
+
 export const updateOpportunitySchema = z.object({
   title: z.string().trim().min(1, "Título é obrigatório.").max(220),
   description: z.string().trim().max(4000).optional().or(z.literal("")),

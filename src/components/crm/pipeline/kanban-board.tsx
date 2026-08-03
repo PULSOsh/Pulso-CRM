@@ -14,16 +14,18 @@ import {
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
-import { createOpportunity, moveOpportunity } from "@/server/actions/pipeline";
+import { createOpportunity, createPipeline, moveOpportunity } from "@/server/actions/pipeline";
 import { KanbanCard, type OpportunityCardType } from "./kanban-card";
 import { KanbanColumn, type PipelineStageColumnType } from "./kanban-column";
 
 type SortOption = "position" | "value_desc" | "next_action";
+type PipelineTab = { id: string; name: string; isDefault: boolean };
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
@@ -31,16 +33,19 @@ const formatCurrency = (value: number) =>
 export function KanbanBoard({
   initialStages,
   pipelineId,
+  pipelines,
   companies,
   contacts,
   summary,
 }: {
   initialStages: PipelineStageColumnType[];
   pipelineId: string;
+  pipelines: PipelineTab[];
   companies: { id: string; name: string }[];
   contacts: { id: string; name: string }[];
   summary: { openCount: number; pipelineValue: number; weightedForecast: number };
 }) {
+  const router = useRouter();
   const [stages, setStages] = useState<PipelineStageColumnType[]>(initialStages);
   const [activeCard, setActiveCard] = useState<OpportunityCardType | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -48,6 +53,26 @@ export function KanbanBoard({
   const [temperatureFilter, setTemperatureFilter] = useState("all");
   const [ownerFilter, setOwnerFilter] = useState("all");
   const [sortBy, setSortBy] = useState<SortOption>("position");
+  const [isNewPipelineModalOpen, setIsNewPipelineModalOpen] = useState(false);
+  const [creatingPipeline, setCreatingPipeline] = useState(false);
+
+  async function handleCreatePipeline(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setCreatingPipeline(true);
+    const formData = new FormData(e.currentTarget);
+    const name = (formData.get("name") as string)?.trim();
+
+    try {
+      const created = await createPipeline({ name });
+      setIsNewPipelineModalOpen(false);
+      router.push(`/crm/pipeline?pipelineId=${created.id}`);
+    } catch (err) {
+      console.error("Failed to create pipeline", err);
+      alert("Erro ao criar funil.");
+    } finally {
+      setCreatingPipeline(false);
+    }
+  }
 
   const owners = useMemo(() => {
     const names = new Set<string>();
@@ -305,27 +330,29 @@ export function KanbanBoard({
       onDragEnd={onDragEnd}
     >
       <div className="mb-4 flex items-center gap-1 border-b border-slate-200 shrink-0">
+        {pipelines.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            onClick={() => {
+              if (p.id !== pipelineId) router.push(`/crm/pipeline?pipelineId=${p.id}`);
+            }}
+            className={
+              p.id === pipelineId
+                ? "px-4 py-2 text-sm font-medium border-b-2 border-orange-600 text-orange-600"
+                : "px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-800"
+            }
+          >
+            {p.name}
+          </button>
+        ))}
         <button
           type="button"
-          className="px-4 py-2 text-sm font-medium border-b-2 border-orange-600 text-orange-600"
+          title="Novo funil"
+          onClick={() => setIsNewPipelineModalOpen(true)}
+          className="px-3 py-2 text-sm font-medium text-slate-500 hover:text-slate-800"
         >
-          Comercial
-        </button>
-        <button
-          type="button"
-          disabled
-          title="Em breve"
-          className="px-4 py-2 text-sm font-medium text-slate-400 cursor-not-allowed"
-        >
-          Parcerias
-        </button>
-        <button
-          type="button"
-          disabled
-          title="Novo funil (em breve)"
-          className="px-3 py-2 text-sm font-medium text-slate-400 cursor-not-allowed"
-        >
-          +
+          <Plus size={16} />
         </button>
       </div>
 
@@ -490,6 +517,36 @@ export function KanbanBoard({
             </Button>
             <Button type="submit" disabled={loading} className="min-w-[100px]">
               {loading ? "Salvando..." : "Salvar"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        open={isNewPipelineModalOpen}
+        onClose={() => setIsNewPipelineModalOpen(false)}
+        title="Novo Funil"
+        description="Cria um funil comercial com as seis etapas padrão."
+      >
+        <form onSubmit={handleCreatePipeline} className="space-y-4">
+          <div>
+            <label htmlFor="pipeline-name" className="block text-sm font-medium mb-1">
+              Nome do Funil *
+            </label>
+            <Input id="pipeline-name" name="name" required placeholder="Ex: Parcerias" />
+          </div>
+
+          <div className="pt-2 flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsNewPipelineModalOpen(false)}
+              disabled={creatingPipeline}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={creatingPipeline} className="min-w-[100px]">
+              {creatingPipeline ? "Criando..." : "Criar"}
             </Button>
           </div>
         </form>

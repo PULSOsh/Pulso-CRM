@@ -15,18 +15,46 @@ import {
 } from "../db/schema";
 import { logActivity } from "../services/activity-log";
 import {
+  type CreatePipelineInput,
+  createPipelineSchema,
   type OpportunityProductInput,
   opportunityProductSchema,
   updateOpportunitySchema,
 } from "./pipeline.schemas";
 
-export async function getPipelineWithOpportunities() {
-  const { organizationId } = await requirePermission("opportunities.read");
+// Seis etapas comerciais padrão (docs/MODULE_SPECIFICATIONS.md seção 4 - "Funil
+// inicial"), usadas tanto para o funil default (bootstrap idempotente) quanto
+// para todo novo funil criado por createPipeline().
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-  // Fetch default pipeline for the organization
+const DEFAULT_STAGE_TEMPLATE = [
+  { name: "Lead", position: 1, color: "#64748b", probability: 10 },
+  { name: "Qualificação", position: 2, color: "#3b82f6", probability: 30 },
+  { name: "Proposta Enviada", position: 3, color: "#f59e0b", probability: 60 },
+  { name: "Negociação", position: 4, color: "#8b5cf6", probability: 80 },
+  { name: "Fechado", position: 5, color: "#10b981", probability: 100, isWon: true },
+  { name: "Perdido", position: 6, color: "#ef4444", probability: 0 },
+] as const;
+
+async function ensureDefaultPipeline(organizationId: string) {
   let defaultPipeline = await db.query.pipelines.findFirst({
-    where: eq(pipelines.organizationId, organizationId),
+    where: and(eq(pipelines.organizationId, organizationId), eq(pipelines.isDefault, true)),
   });
+
+  if (!defaultPipeline) {
+    // Organização antiga sem is_default marcado ainda: reaproveita o primeiro
+    // funil existente em vez de criar um segundo default.
+    defaultPipeline = await db.query.pipelines.findFirst({
+      where: eq(pipelines.organizationId, organizationId),
+      orderBy: [asc(pipelines.createdAt)],
+    });
+    if (defaultPipeline) {
+      await db
+        .update(pipelines)
+        .set({ isDefault: true })
+        .where(eq(pipelines.id, defaultPipeline.id));
+    }
+  }
 
   if (!defaultPipeline) {
     const [inserted] = await db
@@ -39,51 +67,9 @@ export async function getPipelineWithOpportunities() {
       .returning();
     defaultPipeline = inserted;
 
-    await db.insert(pipelineStages).values([
-      {
-        pipelineId: defaultPipeline.id,
-        name: "Lead",
-        position: 1,
-        color: "#64748b",
-        probability: 10,
-      },
-      {
-        pipelineId: defaultPipeline.id,
-        name: "Qualificação",
-        position: 2,
-        color: "#3b82f6",
-        probability: 30,
-      },
-      {
-        pipelineId: defaultPipeline.id,
-        name: "Proposta Enviada",
-        position: 3,
-        color: "#f59e0b",
-        probability: 60,
-      },
-      {
-        pipelineId: defaultPipeline.id,
-        name: "Negociação",
-        position: 4,
-        color: "#8b5cf6",
-        probability: 80,
-      },
-      {
-        pipelineId: defaultPipeline.id,
-        name: "Fechado",
-        position: 5,
-        color: "#10b981",
-        isWon: true,
-        probability: 100,
-      },
-      {
-        pipelineId: defaultPipeline.id,
-        name: "Perdido",
-        position: 6,
-        color: "#ef4444",
-        probability: 0,
-      },
-    ]);
+    await db
+      .insert(pipelineStages)
+      .values(DEFAULT_STAGE_TEMPLATE.map((stage) => ({ ...stage, pipelineId: inserted.id })));
   }
 
   // Backfill: pipelines created before the "Perdido" stage existed (or before
@@ -111,15 +97,65 @@ export async function getPipelineWithOpportunities() {
     });
   }
 
+  return defaultPipeline;
+}
+
+export async function getPipelines() {
+  const { organizationId } = await requirePermission("pipelines.read");
+
+  return db.query.pipelines.findMany({
+    where: and(eq(pipelines.organizationId, organizationId), eq(pipelines.isActive, true)),
+    orderBy: [desc(pipelines.isDefault), asc(pipelines.createdAt)],
+  });
+}
+
+export async function createPipeline(input: unknown) {
+  const { organizationId } = await requirePermission("pipelines.manage");
+  const parsed: CreatePipelineInput = createPipelineSchema.parse(input);
+
+  const [pipeline] = await db
+    .insert(pipelines)
+    .values({ organizationId, name: parsed.name })
+    .returning();
+
+  await db
+    .insert(pipelineStages)
+    .values(DEFAULT_STAGE_TEMPLATE.map((stage) => ({ ...stage, pipelineId: pipeline.id })));
+
+  revalidatePath("/crm/pipeline");
+  return pipeline;
+}
+
+export async function getPipelineWithOpportunities(pipelineId?: string) {
+  const { organizationId } = await requirePermission("opportunities.read");
+
+  // Seleção só é aceita se o funil pertencer à organização atual e estiver
+  // ativo; caso contrário (id inexistente, de outra organização, ou
+  // desativado) cai silenciosamente no funil padrão, sem expor se o id
+  // existe em outra organização.
+  let pipeline = pipelineId && UUID_PATTERN.test(pipelineId)
+    ? await db.query.pipelines.findFirst({
+        where: and(
+          eq(pipelines.id, pipelineId),
+          eq(pipelines.organizationId, organizationId),
+          eq(pipelines.isActive, true),
+        ),
+      })
+    : undefined;
+
+  if (!pipeline) {
+    pipeline = await ensureDefaultPipeline(organizationId);
+  }
+
   // Fetch stages ordered by position
   const stages = await db.query.pipelineStages.findMany({
-    where: eq(pipelineStages.pipelineId, defaultPipeline.id),
+    where: eq(pipelineStages.pipelineId, pipeline.id),
     orderBy: [asc(pipelineStages.position)],
   });
 
   // Fetch all OPEN opportunities for this pipeline
   const openOpportunities = await db.query.opportunities.findMany({
-    where: and(eq(opportunities.pipelineId, defaultPipeline.id), eq(opportunities.status, "open")),
+    where: and(eq(opportunities.pipelineId, pipeline.id), eq(opportunities.status, "open")),
     with: {
       company: {
         columns: {
@@ -187,7 +223,7 @@ export async function getPipelineWithOpportunities() {
   };
 
   return {
-    pipeline: defaultPipeline,
+    pipeline,
     stages: stagesWithOpportunities,
     summary,
   };
@@ -208,6 +244,16 @@ export async function moveOpportunity(
   });
 
   if (!opp) throw new Error("Oportunidade não encontrada");
+
+  // newStageId vem do cliente - confirma que pertence ao mesmo funil da
+  // oportunidade antes de gravar, para não deixar o registro com stageId de
+  // um funil (possivelmente de outra organização) diferente do seu próprio
+  // pipelineId.
+  const targetStage = await db.query.pipelineStages.findFirst({
+    where: and(eq(pipelineStages.id, newStageId), eq(pipelineStages.pipelineId, opp.pipelineId)),
+    columns: { id: true },
+  });
+  if (!targetStage) throw new Error("Etapa não encontrada neste funil.");
 
   const oldStageId = opp.stageId;
 
@@ -264,6 +310,23 @@ export async function createOpportunity(data: {
   temperature?: string;
 }) {
   const { organizationId, userId } = await requirePermission("opportunities.create");
+
+  // pipelineId/stageId chegam do cliente - confirma que o funil pertence à
+  // organização da sessão e que a etapa pertence a esse funil antes de
+  // inserir, para que uma oportunidade nunca fique vinculada a um funil de
+  // outra organização (o que a faria aparecer no Kanban alheio, já que
+  // getPipelineWithOpportunities filtra oportunidades só por pipelineId).
+  const pipeline = await db.query.pipelines.findFirst({
+    where: and(eq(pipelines.id, data.pipelineId), eq(pipelines.organizationId, organizationId)),
+    columns: { id: true },
+  });
+  if (!pipeline) throw new Error("Funil não encontrado.");
+
+  const stage = await db.query.pipelineStages.findFirst({
+    where: and(eq(pipelineStages.id, data.stageId), eq(pipelineStages.pipelineId, pipeline.id)),
+    columns: { id: true },
+  });
+  if (!stage) throw new Error("Etapa não encontrada neste funil.");
 
   const [lastInStage] = await db.query.opportunities.findMany({
     where: eq(opportunities.stageId, data.stageId),

@@ -976,3 +976,45 @@ Responsável pediu explicitamente, em seguida ao relatório da seção 27: "troc
 - `docker service inspect` confirmou o novo valor aplicado.
 - Login ao vivo com a senha nova, pós-restart do serviço: confirmado funcionando.
 - Nenhuma alteração de código nesta seção — só ação operacional em produção via SSH, autorizada explicitamente.
+
+## 31. Fase 0 — F0-02: Múltiplos funis comerciais (concluído 03/08/2026)
+
+### Contexto
+
+Retomada da sessão a partir de `docs/PLANO_MESTRE_EVOLUCAO_CRM.md` (novo plano diretor, adicionado nesta sessão em `docs/`), seguindo a "Ordem imediata recomendada" (seção 16 do plano): primeiro item elegível era F0-02. A story `docs/stories/CRM-F0-02-multiplos-funis.md` já existia como rascunho ("Ready for Dev") de uma sessão anterior, sem implementação.
+
+### Achado
+
+O schema (`pipelines`/`pipeline_stages`, com `isDefault`/`isActive`) já suportava múltiplos funis desde a fundação — igual ao padrão já visto várias vezes neste projeto (seções 22, 24, 25: tabela pronta, zero código usando). `getPipelineWithOpportunities()` sempre buscava "o" único funil da organização (`findFirst` sem filtro de `isDefault`), e a aba "Comercial" no Kanban era hardcoded ativa com "Parcerias" e "+" desabilitados ("Em breve"/"Novo funil (em breve)") desde o redesenho da seção 21.
+
+### O que foi feito
+
+- `src/server/auth/permission-keys.ts`: novas chaves `pipelines.read`/`pipelines.manage`. `owner`/`admin` ganham automaticamente (filtro geral). `commercial` ganha read+manage (é quem organiza funis no dia a dia). `projects` ganha só read. `viewer` ganha `pipelines.read` automaticamente (regra existente: qualquer chave terminada em `.read` entra no papel `viewer`).
+- `src/server/actions/pipeline.schemas.ts`: `createPipelineSchema` (nome obrigatório, trim, máx. 120).
+- `src/server/actions/pipeline.ts`: `ensureDefaultPipeline()` (helper extraído do bootstrap que já existia, com um caso novo — organização com funil(is) sem nenhum marcado `isDefault` reaproveita o mais antigo em vez de duplicar); `getPipelines()` (lista funis ativos da organização); `createPipeline()` (novo funil + 6 etapas padrão, permissão `pipelines.manage`); `getPipelineWithOpportunities(pipelineId?)` agora aceita seleção opcional — valida formato UUID e pertencimento à organização da sessão (`isActive = true`) antes de usar; qualquer seleção inválida cai silenciosamente no funil padrão via `ensureDefaultPipeline()`, sem consulta condicional que vaze existência em outra organização.
+- `src/app/crm/pipeline/page.tsx`: lê `pipelineId` de `searchParams` (Next 16, `Promise`), busca funil+oportunidades e lista de funis em paralelo, repassa ambos ao `KanbanBoard`.
+- `src/components/crm/pipeline/kanban-board.tsx`: abas dinâmicas por funil real (substituindo "Comercial"/"Parcerias" fixas), navegação via `router.push("/crm/pipeline?pipelineId=...")`, modal "Novo Funil" (nome → `createPipeline` → redireciona pro funil recém-criado).
+- `src/server/actions/pipeline.schemas.test.ts`: 5 testes novos para `createPipelineSchema`.
+
+### Bug de segurança encontrado e corrigido no caminho
+
+`createOpportunity`/`moveOpportunity` aceitavam `pipelineId`/`stageId`/`newStageId` do cliente sem confirmar que pertenciam à organização da sessão. Com um único funil por organização (estado antes desta story) isso era inofensivo; com múltiplos funis reais virou um vetor de vazamento entre organizações — uma oportunidade criada com o `pipelineId` de outra organização apareceria no Kanban alheio (`getPipelineWithOpportunities` filtra oportunidades só por `eq(opportunities.pipelineId, pipeline.id)`, sem `organizationId` na mesma query, confiando que todo `pipelineId` gravado em `opportunities` já foi validado no momento da escrita). Corrigido nas duas actions: `createOpportunity` agora busca o `pipeline` por `id` + `organizationId` e a `stage` por `id` + `pipelineId` antes de inserir (erro claro se qualquer um não bater); `moveOpportunity` confirma que `newStageId` pertence ao `pipelineId` já gravado na oportunidade antes de mover. Sem teste automatizado novo para este ponto específico (exigiria banco real ou mock de `db.query`, nenhum dos dois disponível nesta sessão) — validado por leitura de código e pelos testes de regressão existentes continuando verdes.
+
+### Validação real
+
+- `npx tsc --noEmit`: limpo.
+- `npx vitest run`: **64/64** (10 arquivos, +5 novos desta story).
+- `rm -rf .next && npx next build`: limpo, 31 rotas (sem rota nova — mudança de comportamento em `/crm/pipeline`, já dinâmica).
+- `npx biome check`/`npm run lint` nos arquivos tocados: 0 erros de regra real. O `npm run lint` do projeto inteiro segue reportando ~180 erros de `format` — confirmado (isolando arquivo por arquivo, incl. `opportunities.ts`, nunca tocado nesta sessão) que é 100% drift de fim-de-linha CRLF/LF pré-existente neste checkout Windows, já documentado desde a Fase 2 parte 1c (seção 14) e listado como dívida técnica no `PLANO_MESTRE_EVOLUCAO_CRM.md` §13 — não uma regressão desta story.
+- **Não validado com dado real / clique real**: sem `.env`/`DATABASE_URL` neste checkout (nenhum `.env` existe, só `.env.example`) e o `.claude/launch.json` da raiz `D:/PULSO` (compartilhado entre projetos) aponta o dev server `pipeline-crm-dev` para um checkout antigo e diferente (`D:/PULSO/CRM/.../PULSO_CRM_STARTER_V2`), não este worktree (`D:/PULSO/_work/pulso-crm-friendly-errors-clean`) — corrigir esse launch.json é config compartilhada fora do escopo desta story, não ajustado. Fluxo criar funil → alternar aba → criar oportunidade na aba nova não foi exercitado no navegador.
+
+### Débitos conhecidos
+
+- `.claude/launch.json` da raiz do usuário (`D:/PULSO/.claude/launch.json`) aponta pro checkout errado para este worktree — bloqueia verificação visual via preview automatizado até ser corrigido ou até este worktree ganhar seu próprio `.claude/launch.json` local válido.
+- CRLF/LF drift do projeto inteiro segue sem normalizar (mesma dívida da seção 14, agora também listada no `PLANO_MESTRE_EVOLUCAO_CRM.md` §13).
+- Excluir/desativar um funil (`isActive = false`) não tem UI nem action — só criação. Fora do escopo dos critérios de aceite da story (que pedia listar/criar/selecionar).
+- Nada commitado nem enviado ao GitHub nesta sessão — aguardando decisão do responsável.
+
+### Próxima story elegível
+
+Conforme a "Ordem imediata recomendada" do `PLANO_MESTRE_EVOLUCAO_CRM.md` §16: F0-03 (criação e edição de etapas do funil) é o próximo item, e se apoia diretamente no que esta story construiu (`pipelines.manage`, `pipelineId` selecionável).
