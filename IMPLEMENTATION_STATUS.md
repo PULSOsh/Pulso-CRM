@@ -1095,3 +1095,35 @@ Em vez de criar uma tabela de histórico dedicada para tarefas, a auditoria de c
 ### Próxima story elegível
 
 F0-05 (restauração de contatos e empresas) é o próximo item da "Ordem imediata recomendada" — mas **já está implementado** desde a Fase 3 parte 1 continuação (seção 19, Grupo 8: "restaurar contato/empresa excluído"). Ao começar a próxima sessão, confirmar esse estado antes de assumir que ainda é trabalho pendente, e seguir para F0-07 (auditoria multi-organização) ou F0-06 (calendário/recorrência de tarefas) conforme prioridade do responsável.
+
+## 34. Fase 0 — F0-06: Calendário e recorrência de tarefas (concluído 03/08/2026)
+
+### Contexto
+
+Continuação da seção 33, por pedido explícito do responsável de seguir direto para F0-06 e F0-07.
+
+### O que foi feito
+
+- Nova tabela `task_recurrences` (`src/server/db/schema/task-recurrences.ts`, +`taskRecurrenceFrequencyEnum` em `enums.ts`) em vez de reaproveitar `tasks.recurrenceRule` (texto livre nunca usado) — segue `docs/PLANO_MESTRE_EVOLUCAO_CRM.md` §6, que já lista essa entidade como prioritária. Migration `0006_parched_the_captain.sql` gerada, **não aplicada**.
+- `src/server/services/recurrence.ts::calculateNextDueDate` — função pura (diário/semanal/mensal × intervalo), 5 testes.
+- `src/server/actions/tasks.ts`: `setTaskRecurrence`/`clearTaskRecurrence` (config por tarefa); `getTasksForMonth` (tarefas `todo` do usuário num intervalo de datas); `completeTask` passou a rodar dentro de uma `db.transaction` (não estava) e, se a tarefa tinha recorrência ativa, gera automaticamente a próxima ocorrência (nova `task`, `dueAt` calculada) e move a regra de recorrência pra apontar pra ela.
+- `/crm/tarefas/calendario` (novo): grade mensal (semana começando domingo), navegação mês anterior/seguinte, tarefas do dia com indicador de prioridade por cor.
+- `/crm/tarefas`: link "Calendário" e opção "Repetir" (frequência/intervalo/data-limite opcional) no formulário de criar tarefa.
+
+### Validação real
+
+- `tsc --noEmit`: limpo.
+- `vitest run`: **86/86** (+10 testes novos: `calculateNextDueDate` e `taskRecurrenceSchema`).
+- `next build`: verde, **32 rotas** (+1, `/crm/tarefas/calendario`).
+- `biome lint` nos arquivos tocados: 0 erros.
+- **Não validado com dado real nem visualmente**: mesma limitação de `.env`/`DATABASE_URL`. Tentativa de preview no navegador falhou — o `.claude/launch.json` compartilhado em `D:/PULSO` (fora deste projeto) aponta a config `pulso-crm-dev` para um checkout antigo diferente que ainda existe no disco (`D:/PULSO/CRM/.../PULSO_CRM_STARTER_V2`). Não corrigido por ser configuração compartilhada entre projetos — fica para decisão do responsável (apontar pra este worktree ou remover a entrada obsoleta).
+
+### Débitos conhecidos
+
+- Sem drag-and-drop no calendário (só visualização) — decisão de escopo registrada na story.
+- `completeTask`/recorrência não testados com banco real (geração automática de ocorrência só validada por leitura de código + tipos).
+- Migration `0006` soma-se a `0003`/`0004`/`0005` como pendente de autorização explícita.
+
+### Próxima story elegível
+
+F0-07 (auditoria de autorização multi-organização) — próximo pedido explícito do responsável.

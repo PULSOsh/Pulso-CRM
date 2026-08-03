@@ -33,6 +33,12 @@ export const taskStatusEnum = pgEnum("task_status", ["todo", "doing", "done", "c
 
 export const taskPriorityEnum = pgEnum("task_priority", ["low", "normal", "high", "urgent"]);
 
+export const taskRecurrenceFrequencyEnum = pgEnum("task_recurrence_frequency", [
+  "daily",
+  "weekly",
+  "monthly",
+]);
+
 export const proposalStatusEnum = pgEnum("proposal_status", [
   "draft",
   "sent",

@@ -24,5 +24,6 @@ export * from "./proposals";
 export * from "./relations";
 export * from "./roles";
 export * from "./tags";
+export * from "./task-recurrences";
 export * from "./tasks";
 export * from "./users";
