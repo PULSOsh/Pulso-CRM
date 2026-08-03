@@ -116,7 +116,7 @@ export async function loseOpportunity(opportunityId: string, input: { lostReason
     }
 
     const lostStage = await tx.query.pipelineStages.findFirst({
-      where: and(eq(pipelineStages.pipelineId, opp.pipelineId), eq(pipelineStages.name, "Perdido")),
+      where: and(eq(pipelineStages.pipelineId, opp.pipelineId), eq(pipelineStages.isLost, true)),
     });
 
     await tx

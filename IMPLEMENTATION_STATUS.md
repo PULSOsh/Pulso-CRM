@@ -1018,3 +1018,40 @@ O schema (`pipelines`/`pipeline_stages`, com `isDefault`/`isActive`) já suporta
 ### Próxima story elegível
 
 Conforme a "Ordem imediata recomendada" do `PLANO_MESTRE_EVOLUCAO_CRM.md` §16: F0-03 (criação e edição de etapas do funil) é o próximo item, e se apoia diretamente no que esta story construiu (`pipelines.manage`, `pipelineId` selecionável).
+
+## 32. Fase 0 — F0-03: Etapas configuráveis do funil (concluído 03/08/2026)
+
+### Contexto
+
+Continuação imediata da seção 31, seguindo a "Ordem imediata recomendada" do plano — F0-03 é o item seguinte a F0-02 e depende diretamente dele (etapas pertencem a um funil selecionável).
+
+### Achado
+
+`winOpportunity` já resolvia a etapa de destino pela flag `isWon` (correto), mas `loseOpportunity` dependia do **nome literal `"Perdido"`** — inofensivo enquanto etapas não podiam ser renomeadas, mas uma quebra silenciosa real assim que a gestão de etapas desta story permitisse renomear. `isLost` já existia na coluna desde a fundação, só nunca tinha sido escrita por nenhum código (mesmo padrão de tabela-pronta-sem-uso já visto várias vezes neste projeto).
+
+### O que foi feito
+
+- `src/server/actions/pipeline.schemas.ts`: `createStageSchema`/`updateStageSchema` (nome obrigatório, cor hexadecimal opcional, probabilidade 0-100).
+- `src/server/actions/pipeline.ts`: `findOwnedStage()` (resolve etapa → funil → confirma organização, sem depender de relations do Drizzle — duas queries simples em vez de `with:`, evitando o gotcha de relations não declaradas que já mordeu este projeto antes); `createStage()`, `updateStage()`, `reorderStage()` (troca de posição em transação com valor temporário `-1` para não violar a constraint `unique(pipelineId, position)`), `deleteStage()` (bloqueia se houver oportunidade vinculada ou se for a última etapa do funil). `DEFAULT_STAGE_TEMPLATE` e o backfill da etapa "Perdido" em `ensureDefaultPipeline` passam a gravar `isLost: true`.
+- `src/server/actions/opportunities.ts`: `loseOpportunity()` corrigido para buscar a etapa de destino por `isLost = true`, no mesmo padrão que `winOpportunity` já usava com `isWon`.
+- `src/components/crm/pipeline/manage-stages-modal.tsx` (novo): modal "Gerenciar Etapas" — editar nome/cor/probabilidade por etapa, subir/descer, excluir (confirmação inline, sem `window.confirm`), criar etapa nova.
+- `src/components/crm/pipeline/kanban-board.tsx`: botão "Gerenciar Etapas" ao lado de "Nova Oportunidade".
+- `src/app/crm/pipeline/page.tsx`: monta `stageDetails` (campos de gestão) a partir de `data.stages`, sem alterar o formato usado pelo Kanban/drag-and-drop (`initialStages`) — o modal de gestão usa `router.refresh()` após cada ação em vez de tentar sincronizar manualmente o estado otimista do DnD, mais simples e sem risco de dessincronizar o Kanban.
+
+### Validação real
+
+- `tsc --noEmit`: limpo.
+- `vitest run`: **72/72** (+8 testes novos de `createStageSchema`/`updateStageSchema`).
+- `next build`: verde, 31 rotas (sem rota nova).
+- `biome lint` nos arquivos tocados: 0 erros.
+- **Não validado com dado real**: mesma limitação de `.env`/`DATABASE_URL`/`launch.json` já registrada na seção 31.
+
+### Débitos conhecidos
+
+- Sem drag-and-drop para reordenar etapas (só botões subir/descer) — suficiente para o volume esperado de etapas por funil, decisão de escopo registrada na story.
+- Nenhum bloqueio de servidor impede excluir a própria etapa `isWon`/`isLost` (só a mensagem de contexto na UI) — se isso acontecer, `winOpportunity`/`loseOpportunity` simplesmente não movem a oportunidade visualmente (comportamento já existente, não piora).
+- Mesmos débitos de verificação visual/launch.json da seção 31.
+
+### Próxima story elegível
+
+F0-04 (conclusão, reabertura e histórico de tarefas) é o próximo item da "Ordem imediata recomendada" do plano.

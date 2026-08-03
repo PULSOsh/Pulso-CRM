@@ -23,6 +23,7 @@ import { Select } from "@/components/ui/select";
 import { createOpportunity, createPipeline, moveOpportunity } from "@/server/actions/pipeline";
 import { KanbanCard, type OpportunityCardType } from "./kanban-card";
 import { KanbanColumn, type PipelineStageColumnType } from "./kanban-column";
+import { ManageStagesModal, type StageDetail } from "./manage-stages-modal";
 
 type SortOption = "position" | "value_desc" | "next_action";
 type PipelineTab = { id: string; name: string; isDefault: boolean };
@@ -34,6 +35,7 @@ export function KanbanBoard({
   initialStages,
   pipelineId,
   pipelines,
+  stageDetails,
   companies,
   contacts,
   summary,
@@ -41,6 +43,7 @@ export function KanbanBoard({
   initialStages: PipelineStageColumnType[];
   pipelineId: string;
   pipelines: PipelineTab[];
+  stageDetails: StageDetail[];
   companies: { id: string; name: string }[];
   contacts: { id: string; name: string }[];
   summary: { openCount: number; pipelineValue: number; weightedForecast: number };
@@ -55,6 +58,7 @@ export function KanbanBoard({
   const [sortBy, setSortBy] = useState<SortOption>("position");
   const [isNewPipelineModalOpen, setIsNewPipelineModalOpen] = useState(false);
   const [creatingPipeline, setCreatingPipeline] = useState(false);
+  const [isManageStagesOpen, setIsManageStagesOpen] = useState(false);
 
   async function handleCreatePipeline(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -406,10 +410,15 @@ export function KanbanBoard({
           </Select>
         </div>
 
-        <Button onClick={() => setIsModalOpen(true)}>
-          <Plus size={20} />
-          Nova Oportunidade
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setIsManageStagesOpen(true)}>
+            Gerenciar Etapas
+          </Button>
+          <Button onClick={() => setIsModalOpen(true)}>
+            <Plus size={20} />
+            Nova Oportunidade
+          </Button>
+        </div>
       </div>
 
       <div className="flex gap-6 overflow-x-auto pb-8 h-[calc(100vh-300px)]">
@@ -551,6 +560,13 @@ export function KanbanBoard({
           </div>
         </form>
       </Modal>
+
+      <ManageStagesModal
+        open={isManageStagesOpen}
+        onClose={() => setIsManageStagesOpen(false)}
+        pipelineId={pipelineId}
+        stages={stageDetails}
+      />
     </DndContext>
   );
 }

@@ -17,9 +17,13 @@ import { logActivity } from "../services/activity-log";
 import {
   type CreatePipelineInput,
   createPipelineSchema,
+  type CreateStageInput,
+  createStageSchema,
   type OpportunityProductInput,
   opportunityProductSchema,
+  type UpdateStageInput,
   updateOpportunitySchema,
+  updateStageSchema,
 } from "./pipeline.schemas";
 
 // Seis etapas comerciais padrão (docs/MODULE_SPECIFICATIONS.md seção 4 - "Funil
@@ -33,7 +37,7 @@ const DEFAULT_STAGE_TEMPLATE = [
   { name: "Proposta Enviada", position: 3, color: "#f59e0b", probability: 60 },
   { name: "Negociação", position: 4, color: "#8b5cf6", probability: 80 },
   { name: "Fechado", position: 5, color: "#10b981", probability: 100, isWon: true },
-  { name: "Perdido", position: 6, color: "#ef4444", probability: 0 },
+  { name: "Perdido", position: 6, color: "#ef4444", probability: 0, isLost: true },
 ] as const;
 
 async function ensureDefaultPipeline(organizationId: string) {
@@ -76,13 +80,13 @@ async function ensureDefaultPipeline(organizationId: string) {
   // this idempotent check was added) won't have it - add it once, without
   // touching any existing stage. Needed for loseOpportunity() to have a
   // stage to move the card into.
-  const hasLostStage = await db.query.pipelineStages.findFirst({
+  const lostStage = await db.query.pipelineStages.findFirst({
     where: and(
       eq(pipelineStages.pipelineId, defaultPipeline.id),
       eq(pipelineStages.name, "Perdido"),
     ),
   });
-  if (!hasLostStage) {
+  if (!lostStage) {
     const [lastStage] = await db.query.pipelineStages.findMany({
       where: eq(pipelineStages.pipelineId, defaultPipeline.id),
       orderBy: [desc(pipelineStages.position)],
@@ -94,7 +98,13 @@ async function ensureDefaultPipeline(organizationId: string) {
       position: (lastStage?.position ?? 0) + 1,
       color: "#ef4444",
       probability: 0,
+      isLost: true,
     });
+  } else if (!lostStage.isLost) {
+    // Backfill: etapa "Perdido" criada antes de isLost existir ser escrita
+    // (ver CRM-F0-03) - marca a flag sem tocar em mais nada, pra
+    // loseOpportunity() parar de depender do nome literal da etapa.
+    await db.update(pipelineStages).set({ isLost: true }).where(eq(pipelineStages.id, lostStage.id));
   }
 
   return defaultPipeline;
@@ -124,6 +134,136 @@ export async function createPipeline(input: unknown) {
 
   revalidatePath("/crm/pipeline");
   return pipeline;
+}
+
+async function findOwnedStage(stageId: string, organizationId: string) {
+  const stage = await db.query.pipelineStages.findFirst({
+    where: eq(pipelineStages.id, stageId),
+  });
+  if (!stage) return null;
+
+  const pipeline = await db.query.pipelines.findFirst({
+    where: and(eq(pipelines.id, stage.pipelineId), eq(pipelines.organizationId, organizationId)),
+    columns: { id: true },
+  });
+  if (!pipeline) return null;
+
+  return stage;
+}
+
+export async function createStage(pipelineId: string, input: unknown) {
+  const { organizationId } = await requirePermission("pipelines.manage");
+  const parsed: CreateStageInput = createStageSchema.parse(input);
+
+  const pipeline = await db.query.pipelines.findFirst({
+    where: and(eq(pipelines.id, pipelineId), eq(pipelines.organizationId, organizationId)),
+    columns: { id: true },
+  });
+  if (!pipeline) throw new Error("Funil não encontrado.");
+
+  const [lastStage] = await db.query.pipelineStages.findMany({
+    where: eq(pipelineStages.pipelineId, pipeline.id),
+    orderBy: [desc(pipelineStages.position)],
+    limit: 1,
+  });
+
+  const [stage] = await db
+    .insert(pipelineStages)
+    .values({
+      pipelineId: pipeline.id,
+      name: parsed.name,
+      color: parsed.color || null,
+      probability: parsed.probability,
+      position: (lastStage?.position ?? 0) + 1,
+    })
+    .returning();
+
+  revalidatePath("/crm/pipeline");
+  return stage;
+}
+
+export async function updateStage(stageId: string, input: unknown) {
+  const { organizationId } = await requirePermission("pipelines.manage");
+  const parsed: UpdateStageInput = updateStageSchema.parse(input);
+
+  const stage = await findOwnedStage(stageId, organizationId);
+  if (!stage) throw new Error("Etapa não encontrada.");
+
+  await db
+    .update(pipelineStages)
+    .set({
+      name: parsed.name,
+      color: parsed.color || null,
+      probability: parsed.probability,
+      updatedAt: new Date(),
+    })
+    .where(eq(pipelineStages.id, stageId));
+
+  revalidatePath("/crm/pipeline");
+  return { success: true };
+}
+
+export async function reorderStage(stageId: string, direction: "up" | "down") {
+  const { organizationId } = await requirePermission("pipelines.manage");
+
+  const stage = await findOwnedStage(stageId, organizationId);
+  if (!stage) throw new Error("Etapa não encontrada.");
+
+  const siblings = await db.query.pipelineStages.findMany({
+    where: eq(pipelineStages.pipelineId, stage.pipelineId),
+    orderBy: [asc(pipelineStages.position)],
+  });
+
+  const index = siblings.findIndex((s) => s.id === stageId);
+  const neighborIndex = direction === "up" ? index - 1 : index + 1;
+  const neighbor = siblings[neighborIndex];
+  if (!neighbor) return { success: true }; // already at the edge, no-op
+
+  // Troca as posições em 3 passos (via posição temporária -1, fora da faixa
+  // válida) para não violar a constraint unique(pipelineId, position) ao
+  // gravar duas linhas com a mesma posição simultaneamente.
+  await db.transaction(async (tx) => {
+    await tx.update(pipelineStages).set({ position: -1 }).where(eq(pipelineStages.id, stage.id));
+    await tx
+      .update(pipelineStages)
+      .set({ position: stage.position })
+      .where(eq(pipelineStages.id, neighbor.id));
+    await tx
+      .update(pipelineStages)
+      .set({ position: neighbor.position })
+      .where(eq(pipelineStages.id, stage.id));
+  });
+
+  revalidatePath("/crm/pipeline");
+  return { success: true };
+}
+
+export async function deleteStage(stageId: string) {
+  const { organizationId } = await requirePermission("pipelines.manage");
+
+  const stage = await findOwnedStage(stageId, organizationId);
+  if (!stage) throw new Error("Etapa não encontrada.");
+
+  const hasOpportunities = await db.query.opportunities.findFirst({
+    where: eq(opportunities.stageId, stageId),
+    columns: { id: true },
+  });
+  if (hasOpportunities) {
+    throw new Error("Não é possível excluir uma etapa com oportunidades vinculadas.");
+  }
+
+  const siblingStages = await db.query.pipelineStages.findMany({
+    where: eq(pipelineStages.pipelineId, stage.pipelineId),
+    columns: { id: true },
+  });
+  if (siblingStages.length <= 1) {
+    throw new Error("O funil precisa de ao menos uma etapa.");
+  }
+
+  await db.delete(pipelineStages).where(eq(pipelineStages.id, stageId));
+
+  revalidatePath("/crm/pipeline");
+  return { success: true };
 }
 
 export async function getPipelineWithOpportunities(pipelineId?: string) {

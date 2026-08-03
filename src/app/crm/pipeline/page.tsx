@@ -52,6 +52,15 @@ export default async function PipelinePage({
     })),
   }));
 
+  const stageDetails = data.stages.map((stage) => ({
+    id: stage.id,
+    name: stage.name,
+    color: stage.color,
+    probability: stage.probability,
+    isWon: stage.isWon,
+    isLost: stage.isLost,
+  }));
+
   return (
     <AppShell active="crm" eyebrow="COMERCIAL" title={data.pipeline.name}>
       <div className="p-4 md:p-8 h-full flex flex-col">
@@ -59,6 +68,7 @@ export default async function PipelinePage({
           initialStages={mappedStages}
           pipelineId={data.pipeline.id}
           pipelines={pipelines.map((p) => ({ id: p.id, name: p.name, isDefault: p.isDefault }))}
+          stageDetails={stageDetails}
           summary={data.summary}
           companies={companies.map((c) => ({ id: c.id, name: c.tradeName }))}
           contacts={contacts.map((c) => ({
