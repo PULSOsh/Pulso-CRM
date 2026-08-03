@@ -12,3 +12,9 @@ export const createTaskSchema = z.object({
 });
 
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
+
+export const reopenTaskSchema = z.object({
+  reason: z.string().trim().min(3, "Motivo é obrigatório.").max(500),
+});
+
+export type ReopenTaskInput = z.infer<typeof reopenTaskSchema>;

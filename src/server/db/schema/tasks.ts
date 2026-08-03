@@ -28,6 +28,7 @@ export const tasks = pgTable(
     priority: taskPriorityEnum("priority").notNull().default("normal"),
     dueAt: timestamp("due_at", { withTimezone: true, mode: "date" }),
     completedAt: timestamp("completed_at", { withTimezone: true, mode: "date" }),
+    completedBy: uuid("completed_by").references(() => users.id, { onDelete: "set null" }),
     reminderAt: timestamp("reminder_at", { withTimezone: true, mode: "date" }),
     recurrenceRule: text("recurrence_rule"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createTaskSchema } from "./tasks.schemas";
+import { createTaskSchema, reopenTaskSchema } from "./tasks.schemas";
 
 describe("createTaskSchema", () => {
   it("exige título", () => {
@@ -32,5 +32,23 @@ describe("createTaskSchema", () => {
   it("rejeita opportunityId que não seja um uuid válido", () => {
     const result = createTaskSchema.safeParse({ title: "X", opportunityId: "not-a-uuid" });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("reopenTaskSchema", () => {
+  it("exige motivo", () => {
+    expect(reopenTaskSchema.safeParse({ reason: "" }).success).toBe(false);
+  });
+
+  it("rejeita motivo muito curto", () => {
+    expect(reopenTaskSchema.safeParse({ reason: "ok" }).success).toBe(false);
+  });
+
+  it("aceita motivo válido", () => {
+    expect(reopenTaskSchema.safeParse({ reason: "Cliente pediu para reabrir" }).success).toBe(true);
+  });
+
+  it("rejeita motivo maior que 500 caracteres", () => {
+    expect(reopenTaskSchema.safeParse({ reason: "a".repeat(501) }).success).toBe(false);
   });
 });

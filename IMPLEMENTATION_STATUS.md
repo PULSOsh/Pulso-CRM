@@ -1055,3 +1055,43 @@ Continuação imediata da seção 31, seguindo a "Ordem imediata recomendada" do
 ### Próxima story elegível
 
 F0-04 (conclusão, reabertura e histórico de tarefas) é o próximo item da "Ordem imediata recomendada" do plano.
+
+## 33. Fase 0 — F0-04: Conclusão, reabertura e histórico de tarefas (concluído 03/08/2026)
+
+### Contexto
+
+Continuação da seção 32, seguindo a "Ordem imediata recomendada" do `PLANO_MESTRE_EVOLUCAO_CRM.md` §16 — F0-04 é o item seguinte a F0-03.
+
+### Achado
+
+`docs/MODULE_SPECIFICATIONS.md` §5 é explícito: "Conclusão registra autor e horário. Reabertura é auditada." `completeTask()` só gravava o horário (`completedAt`), sem autor, e não escrevia nenhum log (nem `activities` nem `audit_logs`). Não existia `reopenTask()` nem visão "Concluídas" na tela — uma tarefa concluída simplesmente desaparecia da UI (`getMyTasks`/`getOverdueTasks` só retornam `status = "todo"`).
+
+### O que foi feito
+
+- `src/server/db/schema/tasks.ts`: nova coluna `completedBy` (uuid, FK `users.id`, `on delete set null`). Migration `0005_square_sugar_man.sql` gerada via `drizzle-kit generate` (`ALTER TABLE` aditivo + FK), **não aplicada em nenhum ambiente**.
+- `src/server/actions/tasks.schemas.ts`: `reopenTaskSchema` (motivo obrigatório, 3-500 caracteres).
+- `src/server/actions/tasks.ts`: `getCompletedTasks()` (mesmo padrão de `getMyTasks`, filtrando `status = "done"`); `completeTask()` reescrito para gravar `completedBy` e escrever em `audit_logs` (`writeAuditLog`, ação `task.completed`) e em `activities` quando a tarefa tem `opportunityId` (mesma condição já usada em `createTask`); `reopenTask()` novo — só reabre tarefa com `status = "done"`, limpa `completedAt`/`completedBy`, grava `audit_logs` (`task.reopened`, motivo no `after`) e `activities` condicional.
+- `src/components/crm/tasks/tasks-client.tsx`: nova aba "Concluídas"; `ReopenControl` (motivo inline, sem `window.prompt`, mesmo padrão já estabelecido no projeto para telas novas).
+- `src/app/crm/tarefas/page.tsx`: busca `getCompletedTasks()` em paralelo com as outras duas listas.
+
+### Reaproveitamento deliberado
+
+Em vez de criar uma tabela de histórico dedicada para tarefas, a auditoria de conclusão/reabertura reaproveita `audit_logs`/`writeAuditLog` — o mesmo serviço já usado em 4 pontos críticos desde a Fase 7 (aceite de proposta, assinatura de contrato, decisão de aprovação, baixa/estorno de parcela). Segue a regra do plano mestre de reutilizar tabelas/actions/padrões existentes em vez de multiplicar abstrações.
+
+### Validação real
+
+- `tsc --noEmit`: limpo.
+- `vitest run`: **76/76** (+4 testes novos de `reopenTaskSchema`).
+- `next build`: verde, 31 rotas (sem rota nova).
+- `biome lint` nos arquivos tocados: 0 erros.
+- **Não validado com dado real**: mesma limitação de `.env`/`DATABASE_URL`/`launch.json` das seções 31/32.
+
+### Débitos conhecidos
+
+- `completeTask`/`reopenTask` não checam `assignedTo` na cláusula `where` (só `organizationId`) — comportamento pré-existente de `completeTask`, não uma regressão desta story; qualquer membro com `tasks.complete` pode agir sobre a tarefa de outro colega. Fica registrado como candidato a uma futura auditoria de autorização (F0-07), não corrigido aqui.
+- Migration `0005` soma-se a `0003`/`0004` como pendente de autorização explícita antes de aplicar em qualquer ambiente com dado real.
+- Checklist de tarefa, recorrência real, calendário e lembretes continuam fora de escopo (débitos já registrados em sessões anteriores).
+
+### Próxima story elegível
+
+F0-05 (restauração de contatos e empresas) é o próximo item da "Ordem imediata recomendada" — mas **já está implementado** desde a Fase 3 parte 1 continuação (seção 19, Grupo 8: "restaurar contato/empresa excluído"). Ao começar a próxima sessão, confirmar esse estado antes de assumir que ainda é trabalho pendente, e seguir para F0-07 (auditoria multi-organização) ou F0-06 (calendário/recorrência de tarefas) conforme prioridade do responsável.

@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { completeTask, createTask } from "@/server/actions/tasks";
+import { completeTask, createTask, reopenTask } from "@/server/actions/tasks";
 
 type TaskItem = {
   id: string;
@@ -17,21 +17,65 @@ type TaskItem = {
   opportunity: { title: string } | null;
 };
 
+function ReopenControl({
+  taskId,
+  isPending,
+  onReopen,
+}: {
+  taskId: string;
+  isPending: boolean;
+  onReopen: (taskId: string, reason: string) => void;
+}) {
+  const [reasonOpen, setReasonOpen] = useState(false);
+  const [reason, setReason] = useState("");
+
+  if (!reasonOpen) {
+    return (
+      <Button variant="ghost" size="sm" onClick={() => setReasonOpen(true)} disabled={isPending}>
+        Reabrir
+      </Button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <Input
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        placeholder="Motivo da reabertura..."
+        className="w-56"
+      />
+      <Button
+        size="sm"
+        disabled={isPending || reason.trim().length < 3}
+        onClick={() => onReopen(taskId, reason.trim())}
+      >
+        Confirmar
+      </Button>
+      <Button variant="outline" size="sm" onClick={() => setReasonOpen(false)} disabled={isPending}>
+        Cancelar
+      </Button>
+    </div>
+  );
+}
+
 export function TasksClient({
   myTasks,
   overdueTasks,
+  completedTasks,
 }: {
   myTasks: TaskItem[];
   overdueTasks: TaskItem[];
+  completedTasks: TaskItem[];
 }) {
   const router = useRouter();
-  const [view, setView] = useState<"mine" | "overdue">("mine");
+  const [view, setView] = useState<"mine" | "overdue" | "completed">("mine");
   const [isPending, startTransition] = useTransition();
   const [newTitle, setNewTitle] = useState("");
   const [newDueAt, setNewDueAt] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const tasks = view === "mine" ? myTasks : overdueTasks;
+  const tasks = view === "mine" ? myTasks : view === "overdue" ? overdueTasks : completedTasks;
 
   function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -58,6 +102,17 @@ export function TasksClient({
         router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Erro ao concluir tarefa.");
+      }
+    });
+  }
+
+  function handleReopen(taskId: string, reason: string) {
+    startTransition(async () => {
+      try {
+        await reopenTask(taskId, { reason });
+        router.refresh();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Erro ao reabrir tarefa.");
       }
     });
   }
@@ -115,6 +170,15 @@ export function TasksClient({
         >
           Atrasadas ({overdueTasks.length})
         </button>
+        <button
+          type="button"
+          onClick={() => setView("completed")}
+          className={`px-3 py-1.5 rounded-md text-sm font-medium ${
+            view === "completed" ? "bg-green-700 text-white" : "bg-slate-100 text-green-700"
+          }`}
+        >
+          Concluídas ({completedTasks.length})
+        </button>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100">
@@ -132,15 +196,19 @@ export function TasksClient({
                     : "Sem prazo"}
                 </p>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleComplete(task.id)}
-                disabled={isPending}
-                className="text-green-700 hover:bg-green-50"
-              >
-                Concluir
-              </Button>
+              {view === "completed" ? (
+                <ReopenControl taskId={task.id} isPending={isPending} onReopen={handleReopen} />
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleComplete(task.id)}
+                  disabled={isPending}
+                  className="text-green-700 hover:bg-green-50"
+                >
+                  Concluir
+                </Button>
+              )}
             </div>
           ))
         )}
