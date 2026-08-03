@@ -28,9 +28,25 @@ export async function getContacts() {
       companyContacts,
       and(eq(companyContacts.contactId, contacts.id), eq(companyContacts.isPrimary, true)),
     )
-    .leftJoin(companies, eq(companies.id, companyContacts.companyId))
+    .leftJoin(
+      companies,
+      and(eq(companies.id, companyContacts.companyId), eq(companies.organizationId, organizationId)),
+    )
     .where(and(eq(contacts.organizationId, organizationId), isNull(contacts.deletedAt)))
     .orderBy(desc(contacts.createdAt));
+}
+
+// companyId vem do cliente em createContact/updateContact - resolve o nome só
+// depois de confirmar que a empresa pertence à organização da sessão, senão
+// um usuário poderia vincular (e a UI mostraria o nome de) uma empresa de
+// outra organização.
+async function findOwnedCompanyName(companyId: string, organizationId: string) {
+  const company = await db.query.companies.findFirst({
+    where: and(eq(companies.id, companyId), eq(companies.organizationId, organizationId)),
+    columns: { tradeName: true },
+  });
+  if (!company) throw new Error("Empresa não encontrada.");
+  return company.tradeName;
 }
 
 export async function createContact(input: unknown) {
@@ -52,14 +68,10 @@ export async function createContact(input: unknown) {
 
   let companyName: string | null = null;
   if (parsed.companyId) {
+    companyName = await findOwnedCompanyName(parsed.companyId, organizationId);
     await db
       .insert(companyContacts)
       .values({ companyId: parsed.companyId, contactId: contact.id, isPrimary: true });
-    const company = await db.query.companies.findFirst({
-      where: eq(companies.id, parsed.companyId),
-      columns: { tradeName: true },
-    });
-    companyName = company?.tradeName ?? null;
   }
 
   revalidatePath("/crm/contatos");
@@ -91,14 +103,10 @@ export async function updateContact(contactId: string, input: unknown) {
   await db.delete(companyContacts).where(eq(companyContacts.contactId, contactId));
   let companyName: string | null = null;
   if (parsed.companyId) {
+    companyName = await findOwnedCompanyName(parsed.companyId, organizationId);
     await db
       .insert(companyContacts)
       .values({ companyId: parsed.companyId, contactId, isPrimary: true });
-    const company = await db.query.companies.findFirst({
-      where: eq(companies.id, parsed.companyId),
-      columns: { tradeName: true },
-    });
-    companyName = company?.tradeName ?? null;
   }
 
   revalidatePath("/crm/contatos");

@@ -6,9 +6,106 @@ import { revalidatePath } from "next/cache";
 import { ATTACHABLE_ENTITY_TYPES, type AttachableEntityType } from "../attachable-entity-types";
 import { requirePermission } from "../auth/require-permission";
 import { db } from "../db/connection";
-import { attachments, storedFiles } from "../db/schema";
+import {
+  approvals,
+  attachments,
+  briefingSubmissions,
+  companies,
+  contacts,
+  contracts,
+  expenses,
+  installments,
+  opportunities,
+  projects,
+  proposals,
+  receivables,
+  storedFiles,
+} from "../db/schema";
 import { deleteObject, getSignedDownloadUrl, uploadObject } from "../storage/s3";
 import { exceedsMaxUploadSize, isAllowedMimeType, sanitizeFileName } from "./files.validation";
+
+// entityId vem do cliente - antes de gravar um attachment, confirma que a
+// entidade referenciada realmente pertence à organização da sessão. Sem essa
+// checagem, um usuário poderia vincular um anexo a um registro de outra
+// organização (mesma classe de bug já corrigida em pipeline.ts/quotes.ts/
+// contacts.ts/projects.ts).
+async function entityBelongsToOrganization(
+  entityType: AttachableEntityType,
+  entityId: string,
+  organizationId: string,
+): Promise<boolean> {
+  switch (entityType) {
+    case "contact":
+      return !!(await db.query.contacts.findFirst({
+        where: and(eq(contacts.id, entityId), eq(contacts.organizationId, organizationId)),
+        columns: { id: true },
+      }));
+    case "company":
+      return !!(await db.query.companies.findFirst({
+        where: and(eq(companies.id, entityId), eq(companies.organizationId, organizationId)),
+        columns: { id: true },
+      }));
+    case "opportunity":
+      return !!(await db.query.opportunities.findFirst({
+        where: and(eq(opportunities.id, entityId), eq(opportunities.organizationId, organizationId)),
+        columns: { id: true },
+      }));
+    case "briefing":
+      return !!(await db.query.briefingSubmissions.findFirst({
+        where: and(
+          eq(briefingSubmissions.id, entityId),
+          eq(briefingSubmissions.organizationId, organizationId),
+        ),
+        columns: { id: true },
+      }));
+    case "proposal":
+      return !!(await db.query.proposals.findFirst({
+        where: and(eq(proposals.id, entityId), eq(proposals.organizationId, organizationId)),
+        columns: { id: true },
+      }));
+    case "contract":
+      return !!(await db.query.contracts.findFirst({
+        where: and(eq(contracts.id, entityId), eq(contracts.organizationId, organizationId)),
+        columns: { id: true },
+      }));
+    case "project":
+      return !!(await db.query.projects.findFirst({
+        where: and(eq(projects.id, entityId), eq(projects.organizationId, organizationId)),
+        columns: { id: true },
+      }));
+    case "approval":
+      return !!(await db.query.approvals.findFirst({
+        where: and(eq(approvals.id, entityId), eq(approvals.organizationId, organizationId)),
+        columns: { id: true },
+      }));
+    case "receivable":
+      return !!(await db.query.receivables.findFirst({
+        where: and(eq(receivables.id, entityId), eq(receivables.organizationId, organizationId)),
+        columns: { id: true },
+      }));
+    case "expense":
+      return !!(await db.query.expenses.findFirst({
+        where: and(eq(expenses.id, entityId), eq(expenses.organizationId, organizationId)),
+        columns: { id: true },
+      }));
+    case "installment": {
+      // installments não tem organizationId próprio - a organização é
+      // resolvida via receivables.organizationId.
+      const installment = await db.query.installments.findFirst({
+        where: eq(installments.id, entityId),
+        columns: { receivableId: true },
+      });
+      if (!installment) return false;
+      return !!(await db.query.receivables.findFirst({
+        where: and(
+          eq(receivables.id, installment.receivableId),
+          eq(receivables.organizationId, organizationId),
+        ),
+        columns: { id: true },
+      }));
+    }
+  }
+}
 
 export async function uploadFile(
   entityType: AttachableEntityType,
@@ -19,6 +116,9 @@ export async function uploadFile(
 
   if (!ATTACHABLE_ENTITY_TYPES.includes(entityType)) {
     throw new Error("Tipo de entidade inválido.");
+  }
+  if (!(await entityBelongsToOrganization(entityType, entityId, organizationId))) {
+    throw new Error("Registro não encontrado.");
   }
 
   const file = formData.get("file");

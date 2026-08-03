@@ -185,6 +185,17 @@ export async function createQuote(data: {
 }) {
   const { organizationId, userId } = await requirePermission("proposals.create");
 
+  // opportunityId vem do cliente - confirma que pertence à organização da
+  // sessão antes de vincular a proposta a ela. Sem essa checagem, toda
+  // leitura que hoje confia em proposals.opportunityId sem refiltrar por
+  // organizationId (getQuotes, getQuoteById, getPublicProposal) vazaria
+  // título/valor/empresa/contato de uma oportunidade de outra organização.
+  const opportunity = await db.query.opportunities.findFirst({
+    where: and(eq(opportunities.id, data.opportunityId), eq(opportunities.organizationId, organizationId)),
+    columns: { id: true },
+  });
+  if (!opportunity) throw new Error("Oportunidade não encontrada.");
+
   const proposalId = crypto.randomUUID();
   const versionId = crypto.randomUUID();
   const { subtotal, totalDiscount, finalTotal } = computeTotals(data.items);

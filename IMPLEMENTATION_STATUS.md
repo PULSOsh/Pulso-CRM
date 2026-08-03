@@ -1127,3 +1127,38 @@ Continuação da seção 33, por pedido explícito do responsável de seguir dir
 ### Próxima story elegível
 
 F0-07 (auditoria de autorização multi-organização) — próximo pedido explícito do responsável.
+
+## 35. Fase 0 — F0-07: Auditoria de autorização multi-organização (concluído 03/08/2026)
+
+### Contexto
+
+Pedido explícito do responsável para continuar direto de F0-06 para F0-07. Hipótese de partida: a classe de bug encontrada e corrigida em `CRM-F0-02` (`pipeline.ts::createOpportunity`/`moveOpportunity` — id de entidade vindo do cliente gravado sem checar organização) poderia se repetir em outras actions que também linkam entidades entre si.
+
+### Método
+
+Delegada a leitura de ~19 arquivos de action (excluindo `pipeline.ts`, já corrigido, e `tasks.ts`, já revisado nesta sessão) a um agente de exploração com 3 critérios: (1) toda função chama `requirePermission()`; (2) toda leitura/escrita é filtrada por `organizationId` da sessão, direta ou transitivamente; (3) todo id de entidade vindo do cliente é validado contra `organizationId` antes de gravar. Cada achado reportado foi conferido manualmente lendo o arquivo real antes de corrigir. Complementarmente, inspecionei pessoalmente `finance.ts`, `approvals.ts`, `contracts.ts` e `activities.ts` (maior risco por ligarem entidades) e confirmei que já validam corretamente.
+
+### Achados confirmados e corrigidos
+
+1. **`quotes.ts::createQuote`** — `opportunityId` do cliente gravado em `proposals` sem checar organização; vazava transitivamente em `getQuotes`/`getQuoteById`/fluxo público. Corrigido: valida a oportunidade antes do insert.
+2. **`contacts.ts::createContact`/`updateContact`** — `companyId` do cliente vinculado via `companyContacts` sem checar organização; `getContacts()` também sem filtrar `companies.organizationId` no join. Corrigido: helper `findOwnedCompanyName()` + join corrigido.
+3. **`projects.ts::updateProjectStage`** — `stageId` do cliente gravado em `projects.stageId` sem checar organização (mesma classe exata do bug original). Corrigido: valida a etapa antes do update.
+4. **`files.ts::uploadFile`** — `entityId` do cliente gravado em `attachments` sem checar organização (risco menor, leituras já eram escopadas corretamente, mas permitia "plantar" referência cruzada). Corrigido: `entityBelongsToOrganization()` cobrindo os 11 tipos de entidade anexável.
+
+Confirmado correto sem alteração: `finance.ts::createReceivableFromContract`, `approvals.ts::createApprovalRequest`, `contracts.ts::createContractFromProposal`, `activities.ts::addNote`/`getOpportunityActivities`, `public-quote.ts`/`public-approval.ts`.
+
+### Validação real
+
+- `tsc --noEmit`: limpo. `vitest run`: 86/86 (suíte de regressão, sem testes novos — fixes são checagens em código existente). `next build`: verde, 32 rotas (sem rota nova). `biome lint` nos 4 arquivos alterados: 0 erros.
+- **Sem teste de integração cross-organização real** (exigiria duas organizações e banco de teste, indisponível nesta sessão) — validação por leitura de código, tipos e regressão.
+
+### Débitos conhecidos
+
+- Auditoria cobriu os arquivos de maior risco (achados do agente + inspeção pessoal de 4 arquivos adicionais), não every linha de todo arquivo de action lida pessoalmente — confiança alta, não prova formal. Uma auditoria mais formal (ou testes de integração com organizações de teste reais) é o próximo passo natural quando houver banco disponível.
+- Mesma limitação de `.env`/`DATABASE_URL`/`launch.json` das seções 31-34 — nenhuma das 7 stories desta sessão (F0-02 a F0-07) foi validada com dado real ou clique real no navegador.
+
+### Estado da sessão ao final
+
+7 stories implementadas (F0-02, F0-03, F0-04, F0-06, F0-07 nesta sessão; F0-01 e F0-05 já estavam prontas de sessões anteriores, confirmado antes de assumir pendência). 4 migrations geradas nesta sessão (`0005`, `0006`) somadas às 2 já pendentes de sessões anteriores (`0003`, `0004`) — nenhuma aplicada em nenhum ambiente, todas aditivas. Commits locais desta sessão: 5 (F0-02 a F0-07, ver seções 31-35). Nada enviado ao GitHub.
+
+Próximo item da "Ordem imediata recomendada" (`PLANO_MESTRE_EVOLUCAO_CRM.md` §16): F0-08 (E2E dos módulos atuais) — mas o projeto não tem Playwright/Cypress configurado (confirmado na Fase 0 original, seção 7: "E2E (playwright): não configurado no projeto; script não existe"). Configurar E2E do zero é uma decisão de investimento maior (escolher ferramenta, CI, ambiente de teste) que vale confirmar com o responsável antes de iniciar, diferente das stories anteriores que só estenderam código já existente.

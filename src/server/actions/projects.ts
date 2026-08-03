@@ -144,6 +144,16 @@ export async function createProjectFromContract(contractId: string) {
 export async function updateProjectStage(id: string, stageId: string) {
   const { organizationId } = await requirePermission("projects.update");
 
+  // stageId vem do cliente - confirma que pertence à organização da sessão
+  // antes de gravar, mesma classe de bug já corrigida em pipeline.ts
+  // (createOpportunity/moveOpportunity): sem essa checagem o projeto ficaria
+  // com uma etapa de outra organização.
+  const stage = await db.query.projectStages.findFirst({
+    where: and(eq(projectStages.id, stageId), eq(projectStages.organizationId, organizationId)),
+    columns: { id: true },
+  });
+  if (!stage) throw new Error("Etapa não encontrada.");
+
   await db
     .update(projects)
     .set({ stageId, updatedAt: new Date() })
