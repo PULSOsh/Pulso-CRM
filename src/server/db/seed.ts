@@ -32,8 +32,8 @@ async function runSeed() {
         slug: "pulso-cloud",
         legalName: "PULSO Tecnologia LTDA",
         documentNumber: "12345678000199",
-        email: "contato@pulso.cloud",
-        website: "https://pulso.cloud",
+        email: ADMIN_EMAIL,
+        website: "https://pulsosh.cloud",
       })
       .returning();
     organization = inserted;
@@ -55,47 +55,79 @@ async function runSeed() {
     throw new Error("Papel owner ausente após seedPermissionsAndRoles");
   }
 
-  // 3. Create Admin User (idempotent)
+  // 3. Create or reuse Admin User
   const existingUser = await db.query.users.findFirst({
     where: eq(users.email, ADMIN_EMAIL),
   });
+  const userId = existingUser?.id ?? crypto.randomUUID();
 
-  if (existingUser) {
-    console.log(`↷ Admin user ${ADMIN_EMAIL} already exists, skipping`);
-    process.exit(0);
+  if (!existingUser) {
+    await db.insert(users).values({
+      id: userId,
+      name: ADMIN_NAME,
+      email: ADMIN_EMAIL,
+      emailVerified: false,
+    });
+    console.log(`✅ Created Admin User: ${ADMIN_EMAIL}`);
+  } else {
+    console.log(`↷ Admin user ${ADMIN_EMAIL} already exists, reusing`);
   }
 
-  const userId = crypto.randomUUID();
-  await db.insert(users).values({
-    id: userId,
-    name: ADMIN_NAME,
-    email: ADMIN_EMAIL,
-    emailVerified: false,
-  });
-
-  // 4. Create Credential Account
+  // 4. Create Credential Account only when missing. Existing passwords are preserved.
   // Must use better-auth's own hasher (scrypt-based) — bcrypt hashes are rejected
   // by better-auth's verifyPassword with an "Invalid password hash" error.
-  const hashedPassword = await hashPassword(ADMIN_PASSWORD);
-  await db.insert(accounts).values({
-    id: crypto.randomUUID(),
-    userId,
-    accountId: userId,
-    providerId: "credential",
-    password: hashedPassword,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+  const credentialAccount = await db.query.accounts.findFirst({
+    where: and(eq(accounts.userId, userId), eq(accounts.providerId, "credential")),
   });
 
-  // 5. Add user to Organization
-  await db.insert(organizationMembers).values({
-    organizationId: orgId,
-    userId,
-    roleId: ownerRole.id,
-    status: "active",
+  if (!credentialAccount) {
+    const hashedPassword = await hashPassword(ADMIN_PASSWORD);
+    await db.insert(accounts).values({
+      id: crypto.randomUUID(),
+      userId,
+      accountId: userId,
+      providerId: "credential",
+      password: hashedPassword,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    console.log("✅ Created credential account");
+  } else {
+    console.log("↷ Credential account already exists, preserving password");
+  }
+
+  // 5. Create or repair the owner's organization membership.
+  const existingMembership = await db.query.organizationMembers.findFirst({
+    where: and(
+      eq(organizationMembers.organizationId, orgId),
+      eq(organizationMembers.userId, userId),
+    ),
   });
 
-  console.log(`✅ Created Admin User: ${ADMIN_EMAIL}`);
+  const now = new Date();
+  if (existingMembership) {
+    await db
+      .update(organizationMembers)
+      .set({
+        roleId: ownerRole.id,
+        status: "active",
+        joinedAt: existingMembership.joinedAt ?? now,
+        updatedAt: now,
+      })
+      .where(eq(organizationMembers.id, existingMembership.id));
+    console.log("✅ Repaired owner membership");
+  } else {
+    await db.insert(organizationMembers).values({
+      organizationId: orgId,
+      userId,
+      roleId: ownerRole.id,
+      status: "active",
+      joinedAt: now,
+    });
+    console.log("✅ Created owner membership");
+  }
+
+  console.log(`✅ Seed completed for: ${ADMIN_EMAIL}`);
   process.exit(0);
 }
 
