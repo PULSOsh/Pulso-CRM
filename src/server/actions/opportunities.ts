@@ -4,7 +4,12 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "../auth/require-permission";
 import { db } from "../db/connection";
-import { opportunities, opportunityStageHistory, pipelineStages } from "../db/schema";
+import {
+  opportunities,
+  opportunityStageHistory,
+  pipelineLossReasons,
+  pipelineStages,
+} from "../db/schema";
 import { logActivity } from "../services/activity-log";
 import { loseOpportunitySchema, nextActionSchema } from "./opportunities.schemas";
 
@@ -99,9 +104,23 @@ export async function winOpportunity(opportunityId: string) {
   return { success: true };
 }
 
-export async function loseOpportunity(opportunityId: string, input: { lostReason: string }) {
+export async function loseOpportunity(opportunityId: string, input: unknown) {
   const { organizationId, userId } = await requirePermission("opportunities.lose");
   const parsed = loseOpportunitySchema.parse(input);
+
+  // lostReasonId vem do cliente - confirma que pertence à organização da
+  // sessão antes de gravar (mesma classe de checagem já aplicada a
+  // pipelineId/stageId em pipeline.ts).
+  if (parsed.lostReasonId) {
+    const reason = await db.query.pipelineLossReasons.findFirst({
+      where: and(
+        eq(pipelineLossReasons.id, parsed.lostReasonId),
+        eq(pipelineLossReasons.organizationId, organizationId),
+      ),
+      columns: { id: true },
+    });
+    if (!reason) throw new Error("Motivo de perda não encontrado.");
+  }
 
   await db.transaction(async (tx) => {
     const opp = await tx.query.opportunities.findFirst({
@@ -125,6 +144,7 @@ export async function loseOpportunity(opportunityId: string, input: { lostReason
         status: "lost",
         lostAt: new Date(),
         lostReason: parsed.lostReason,
+        lostReasonId: parsed.lostReasonId ?? null,
         stageId: lostStage?.id ?? opp.stageId,
         updatedAt: new Date(),
       })

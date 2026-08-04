@@ -14,6 +14,7 @@ import { OpportunityProductsPanel } from "@/components/crm/pipeline/opportunity-
 import { WinLoseButtons } from "@/components/crm/pipeline/win-lose-buttons";
 import { getOpportunityActivities } from "@/server/actions/activities";
 import { getFilesForEntity } from "@/server/actions/files";
+import { getLossReasons } from "@/server/actions/loss-reasons";
 import { getActiveOrganizationId } from "@/server/actions/organization";
 import { getProducts } from "@/server/actions/products";
 import { auth } from "@/server/auth";
@@ -70,12 +71,13 @@ export default async function OpportunityDetailsPage({
     occurredAt: a.occurredAt.toISOString(),
   }));
 
-  const [linkedProducts, catalog] = await Promise.all([
+  const [linkedProducts, catalog, lossReasons] = await Promise.all([
     db.query.opportunityProducts.findMany({
       where: (t, { eq }) => eq(t.opportunityId, opp.id),
       with: { product: { columns: { name: true } } },
     }),
     getProducts(),
+    getLossReasons(),
   ]);
 
   // Reverse links that already exist in the schema but were never surfaced
@@ -149,7 +151,11 @@ export default async function OpportunityDetailsPage({
 
             <div className="bg-white border border-slate-200 rounded-xl p-8">
               <h2 className="font-semibold text-lg mb-4">Ações</h2>
-              <WinLoseButtons opportunityId={opp.id} status={opp.status} />
+              <WinLoseButtons
+                opportunityId={opp.id}
+                status={opp.status}
+                lossReasons={lossReasons.map((r) => ({ id: r.id, label: r.label }))}
+              />
             </div>
 
             <div className="bg-white border border-slate-200 rounded-xl p-8">

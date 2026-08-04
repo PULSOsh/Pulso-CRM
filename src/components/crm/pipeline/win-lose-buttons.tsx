@@ -3,19 +3,24 @@
 import { CheckCircle2, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { createLossReason } from "@/server/actions/loss-reasons";
 import { loseOpportunity, winOpportunity } from "@/server/actions/opportunities";
 
 export function WinLoseButtons({
   opportunityId,
   status,
+  lossReasons,
 }: {
   opportunityId: string;
   status: string;
+  lossReasons: { id: string; label: string }[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [showLoseModal, setShowLoseModal] = useState(false);
+  const [lostReasonId, setLostReasonId] = useState("");
   const [lostReason, setLostReason] = useState("");
+  const [saveAsNewReason, setSaveAsNewReason] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (status !== "open") {
@@ -43,13 +48,24 @@ export function WinLoseButtons({
     setError(null);
     startTransition(async () => {
       try {
-        await loseOpportunity(opportunityId, { lostReason });
+        let reasonId = lostReasonId || undefined;
+        if (saveAsNewReason && !reasonId) {
+          const created = await createLossReason(lostReason);
+          reasonId = created.id;
+        }
+        await loseOpportunity(opportunityId, { lostReason, lostReasonId: reasonId });
         setShowLoseModal(false);
         router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Erro ao marcar como perdido.");
       }
     });
+  }
+
+  function handleReasonSelect(id: string) {
+    setLostReasonId(id);
+    const reason = lossReasons.find((r) => r.id === id);
+    if (reason) setLostReason(reason.label);
   }
 
   return (
@@ -81,15 +97,42 @@ export function WinLoseButtons({
             className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4"
           >
             <h3 className="font-semibold text-lg">Motivo da perda</h3>
+            {lossReasons.length > 0 && (
+              <select
+                value={lostReasonId}
+                onChange={(e) => handleReasonSelect(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+              >
+                <option value="">-- Selecione um motivo (opcional) --</option>
+                {lossReasons.map((reason) => (
+                  <option key={reason.id} value={reason.id}>
+                    {reason.label}
+                  </option>
+                ))}
+              </select>
+            )}
             <textarea
               value={lostReason}
-              onChange={(e) => setLostReason(e.target.value)}
+              onChange={(e) => {
+                setLostReason(e.target.value);
+                setLostReasonId("");
+              }}
               required
               maxLength={180}
               rows={3}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg"
               placeholder="Ex: Cliente escolheu concorrente por preço"
             />
+            {!lostReasonId && lostReason.trim().length > 0 && (
+              <label className="flex items-center gap-2 text-sm text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={saveAsNewReason}
+                  onChange={(e) => setSaveAsNewReason(e.target.checked)}
+                />
+                Adicionar "{lostReason.trim()}" à lista de motivos
+              </label>
+            )}
             <div className="flex justify-end gap-3">
               <button
                 type="button"

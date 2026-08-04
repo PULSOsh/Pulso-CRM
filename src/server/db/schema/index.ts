@@ -12,6 +12,7 @@ export * from "./files";
 export * from "./finance";
 export * from "./idempotency";
 export * from "./integrations";
+export * from "./loss-reasons";
 export * from "./members";
 export * from "./notifications";
 export * from "./opportunities";

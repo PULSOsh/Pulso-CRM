@@ -1272,3 +1272,30 @@ Pedido explícito do responsável para avançar pra Fase 1. Levantamento rápido
 ### Próxima story elegível
 
 F1-02 (motivos de perda configuráveis) ou F1-03 (vincular briefing à oportunidade), a critério do responsável.
+
+## 39. Fase 1 — F1-02: Motivos de perda configuráveis (concluído 04/08/2026)
+
+### Contexto
+
+Pedido explícito do responsável para seguir com F1-02 e F1-03. `docs/PLANO_MESTRE_EVOLUCAO_CRM.md` §6 já listava `pipeline_loss_reasons` como entidade nova prioritária — confirmando que uma tabela dedicada, não só texto livre, era o design pretendido.
+
+### O que foi feito
+
+- Nova tabela `pipeline_loss_reasons` (label único por org, `isActive`) + `getLossReasons()`/`createLossReason()`/`deactivateLossReason()` (`src/server/actions/loss-reasons.ts`). Semeia 6 motivos padrão na primeira chamada de cada organização.
+- `opportunities.lostReasonId` (nova coluna, FK nullable) — `lostReason` (texto) continua sempre gravado, por compatibilidade; `lostReasonId` é adicional, pra agregação futura em relatórios.
+- `loseOpportunity` valida `lostReasonId` contra a organização antes de gravar (mesma classe de checagem já aplicada a `pipelineId`/`stageId` em `CRM-F0-02`/`CRM-F0-07`).
+- UI (`win-lose-buttons.tsx`): select de motivos configurados (preenche o texto, editável); editar depois de escolher desvincula o id; opção "Adicionar à lista" cria o motivo novo antes de gravar a perda.
+
+### Validação real
+
+- `tsc --noEmit`: limpo. `vitest run`: **103/103** (+3 novos). `next build`: verde, 32 rotas. `biome lint`: 0 erros. `npx playwright test`: 6/6.
+- **Não validado com dado real**: mesma limitação de toda a sessão.
+
+### Débitos conhecidos
+
+- Sem tela dedicada de gestão de motivos — só criação inline no fluxo de perda.
+- Migration `0007` soma-se a `0003`-`0006` como pendente de autorização.
+
+### Próxima story elegível
+
+F1-03 (vincular briefing à oportunidade) — próximo pedido explícito do responsável.

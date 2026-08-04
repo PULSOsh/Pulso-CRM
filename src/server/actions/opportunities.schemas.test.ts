@@ -68,4 +68,25 @@ describe("loseOpportunitySchema", () => {
     const result = loseOpportunitySchema.safeParse({ lostReason: "a".repeat(181) });
     expect(result.success).toBe(false);
   });
+
+  it("aceita lostReasonId opcional (uuid válido)", () => {
+    const result = loseOpportunitySchema.safeParse({
+      lostReason: "Preço",
+      lostReasonId: "123e4567-e89b-12d3-a456-426614174000",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejeita lostReasonId que não seja um uuid válido", () => {
+    const result = loseOpportunitySchema.safeParse({
+      lostReason: "Preço",
+      lostReasonId: "not-a-uuid",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("funciona sem lostReasonId (compatibilidade com o comportamento anterior)", () => {
+    const result = loseOpportunitySchema.safeParse({ lostReason: "Preço" });
+    expect(result.success).toBe(true);
+  });
 });

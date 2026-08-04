@@ -13,6 +13,7 @@ import {
 import { companies } from "./companies";
 import { contacts } from "./contacts";
 import { opportunityStatusEnum } from "./enums";
+import { pipelineLossReasons } from "./loss-reasons";
 import { organizations } from "./organizations";
 import { pipelineStages, pipelines } from "./pipelines";
 import { products } from "./products";
@@ -48,6 +49,9 @@ export const opportunities = pgTable(
     nextActionAt: timestamp("next_action_at", { withTimezone: true, mode: "date" }),
     nextActionDescription: varchar("next_action_description", { length: 240 }),
     lostReason: varchar("lost_reason", { length: 180 }),
+    lostReasonId: uuid("lost_reason_id").references(() => pipelineLossReasons.id, {
+      onDelete: "set null",
+    }),
     wonAt: timestamp("won_at", { withTimezone: true, mode: "date" }),
     lostAt: timestamp("lost_at", { withTimezone: true, mode: "date" }),
     position: numeric("position", { precision: 18, scale: 8 }).notNull().default("1000"),
