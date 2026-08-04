@@ -1447,3 +1447,46 @@ F1-10 (encadear contrato/projeto/recebível automaticamente no aceite) — últi
 ### Estado da sessão ao final (Fase 0 + Fase 1 completas até aqui)
 
 16 stories implementadas nesta sessão (F0-02 a F0-10, F1-01 a F1-08, F1-10; F1-03/F1-09 confirmadas já implementadas por auditoria, sem código novo). Commits locais desta sessão: 15. Nada enviado ao GitHub. 6 migrations aditivas pendentes de autorização explícita (`0003`-`0009`, todas geradas mas nunca aplicadas em nenhum ambiente).
+
+## 46. Fase 2 — Operação e entrega, completa (F2-01 a F2-08) (concluído 04/08/2026)
+
+### Contexto
+
+Pedido explícito do responsável: "implementa tudo dela" (Fase 2 inteira). Gate da fase (`PLANO_MESTRE_EVOLUCAO_CRM.md` §7): "projeto completo executado com escopo, prazo, custo, aprovações e aceite final rastreáveis".
+
+### Achado prévio confirmado
+
+Nenhuma das 8 entidades da Fase 2 (templates, marcos, apontamento de horas, versionamento de anexo, alteração de escopo, portal do cliente, encerramento/satisfação) existia no schema antes desta sessão — diferente de fases anteriores, aqui não havia "tabela pronta sem uso" pra reaproveitar; tudo foi desenhado do zero. Aprovações (F2-06, parte) já existiam desde a Fase 3 de uma sessão anterior.
+
+### O que foi feito (resumo — detalhe completo em cada `docs/stories/CRM-F2-0X-*.md`)
+
+- **F2-01 Templates de projeto**: `project_templates`/`project_template_checklist_items`, seletor + criação inline no modal "Gerar Projeto".
+- **F2-02 Marcos e dependências**: `milestones` com `dependsOnMilestoneId` (auto-FK) — conclusão bloqueada se a dependência não estiver concluída; exclusão bloqueada se outro marco depende.
+- **F2-03 Responsáveis e calendário**: `assignedTo` em checklist/marcos; primeiro uso real de `members.read` (`getOrganizationMembers`, adicionada a `commercial`/`projects`); marcos passam a aparecer no calendário compartilhado com tarefas (`/crm/tarefas/calendario`, generalizado pra dois tipos de item).
+- **F2-04 Apontamento de horas**: `time_entries`, painel com total, exclusão restrita ao próprio autor.
+- **F2-05 Arquivos versionados**: `attachments` ganha `versionNumber`/`rootAttachmentId`/`isCurrent`; nova versão nunca sobrescreve a anterior; histórico consultável.
+- **F2-06 Alteração de escopo**: `project_scope_changes`, aprovar de fato soma `valueDelta`/desloca `dueDate` do projeto (transação + activity + audit log).
+- **F2-07 Portal do cliente**: `/portal/[token]` público (mesmo padrão de token revogável de proposta/contrato/aprovação), nunca expõe valor financeiro/margem.
+- **F2-08 Encerramento e satisfação**: `closeProject` marca conclusão e solicita avaliação; `submitSatisfaction` (pública, mesmo token do portal) grava nota 1-5 + comentário.
+
+### Validação real
+
+- `tsc --noEmit`: limpo em cada lote. `vitest run`: **127/127** (19 arquivos, +21 novos nesta fase). `next build`: verde, **33 rotas** (+1, `/portal/[token]`). `biome lint`: 0 erros em todos os arquivos tocados. `npx playwright test`: 6/6 (guard/login inalterado).
+- Tentativa de abrir `/portal/[token]` com token inválido no navegador local confirmou o caminho de erro correto (query real disparada, falha por `ECONNREFUSED` — sem banco neste ambiente — logada corretamente com o mesmo padrão estruturado de `F0-09`), não um bug de código.
+- **Não validado com dado real**: mesma limitação de `.env`/`DATABASE_URL` de toda a sessão — nenhum fluxo completo (criar marco → concluir → ver no calendário; ativar portal → cliente avalia; etc.) foi exercitado contra um banco de verdade.
+
+### Débitos conhecidos (agregados — detalhe em cada story)
+
+- Sem tela dedicada de gestão de templates de projeto (só criação inline).
+- Dependência de marco é 1:1, não um grafo.
+- Apontamento de horas sem edição (só criar/excluir) nem aprovação por gestor.
+- Sem diff de conteúdo nem "reverter versão" nos arquivos versionados.
+- Alteração de escopo é decisão só interna (cliente não decide via portal).
+- Portal do cliente usa token único por projeto (não por visita) — mesmo modelo de risco já aceito pra proposta/contrato/aprovação.
+- Sem envio automático de e-mail em nenhum ponto desta fase (portal, avaliação) — todo compartilhamento é manual (copiar link), mesmo padrão já estabelecido.
+
+### Estado da sessão ao final (Fase 0 + Fase 1 + Fase 2 completas)
+
+**24 stories implementadas nesta sessão** (F0-02 a F0-10, F1-01 a F1-10, F2-01 a F2-08; F1-03/F1-09/F0-05/F0-01 confirmadas já implementadas por auditoria antes de construir algo novo). Migrations aditivas geradas nesta sessão: `0003` a `0010` (8 no total), nenhuma aplicada em nenhum ambiente. Nada enviado ao GitHub.
+
+Próximo item do plano mestre: **Fase 3 — Financeiro empresarial** (contas financeiras, contas a pagar, categorias/centros de custo, fornecedores, conciliação, fluxo de caixa, DRE), a critério do responsável.

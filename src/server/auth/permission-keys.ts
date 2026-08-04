@@ -170,6 +170,7 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     "contracts.update",
     "contracts.send",
     "reports.read",
+    "members.read",
   ],
 
   projects: [
@@ -190,6 +191,7 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     "approvals.create",
     "approvals.decide",
     "reports.read",
+    "members.read",
   ],
 
   finance: [

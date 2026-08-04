@@ -18,11 +18,12 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 
-type CalendarTask = {
+type CalendarItem = {
   id: string;
   title: string;
-  priority: string;
   dueAt: string | null;
+  priority?: string;
+  href?: string;
 };
 
 const WEEKDAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -36,10 +37,12 @@ const PRIORITY_DOT: Record<string, string> = {
 
 export function CalendarClient({
   tasks,
+  milestones = [],
   year,
   month,
 }: {
-  tasks: CalendarTask[];
+  tasks: CalendarItem[];
+  milestones?: CalendarItem[];
   year: number;
   month: number;
 }) {
@@ -51,17 +54,21 @@ export function CalendarClient({
     return eachDayOfInterval({ start: gridStart, end: gridEnd });
   }, [refDate]);
 
-  const tasksByDay = useMemo(() => {
-    const map = new Map<string, CalendarTask[]>();
-    for (const task of tasks) {
-      if (!task.dueAt) continue;
-      const key = format(new Date(task.dueAt), "yyyy-MM-dd");
-      const existing = map.get(key) ?? [];
-      existing.push(task);
-      map.set(key, existing);
-    }
+  const itemsByDay = useMemo(() => {
+    const map = new Map<string, { item: CalendarItem; kind: "task" | "milestone" }[]>();
+    const addAll = (items: CalendarItem[], kind: "task" | "milestone") => {
+      for (const item of items) {
+        if (!item.dueAt) continue;
+        const key = format(new Date(item.dueAt), "yyyy-MM-dd");
+        const existing = map.get(key) ?? [];
+        existing.push({ item, kind });
+        map.set(key, existing);
+      }
+    };
+    addAll(tasks, "task");
+    addAll(milestones, "milestone");
     return map;
-  }, [tasks]);
+  }, [tasks, milestones]);
 
   const prev = subMonths(refDate, 1);
   const next = addMonths(refDate, 1);
@@ -97,7 +104,7 @@ export function CalendarClient({
       <div className="grid grid-cols-7 gap-px bg-slate-200 border border-t-0 border-slate-200 rounded-b-lg overflow-hidden flex-1">
         {days.map((day) => {
           const key = format(day, "yyyy-MM-dd");
-          const dayTasks = tasksByDay.get(key) ?? [];
+          const dayItems = itemsByDay.get(key) ?? [];
           const inMonth = isSameMonth(day, refDate);
 
           return (
@@ -114,14 +121,40 @@ export function CalendarClient({
               >
                 {format(day, "d")}
               </span>
-              {dayTasks.slice(0, 3).map((task) => (
-                <span key={task.id} className="flex items-center gap-1 text-[11px] text-slate-700 truncate">
-                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${PRIORITY_DOT[task.priority] ?? "bg-slate-400"}`} />
-                  <span className="truncate">{task.title}</span>
-                </span>
-              ))}
-              {dayTasks.length > 3 && (
-                <span className="text-[11px] text-slate-400">+{dayTasks.length - 3} mais</span>
+              {dayItems.slice(0, 3).map(({ item, kind }) =>
+                item.href ? (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    className="flex items-center gap-1 text-[11px] text-slate-700 truncate"
+                  >
+                    {kind === "milestone" ? (
+                      <span className="shrink-0">🚩</span>
+                    ) : (
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${PRIORITY_DOT[item.priority ?? "normal"] ?? "bg-slate-400"}`}
+                      />
+                    )}
+                    <span className="truncate">{item.title}</span>
+                  </Link>
+                ) : (
+                  <span
+                    key={item.id}
+                    className="flex items-center gap-1 text-[11px] text-slate-700 truncate"
+                  >
+                    {kind === "milestone" ? (
+                      <span className="shrink-0">🚩</span>
+                    ) : (
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${PRIORITY_DOT[item.priority ?? "normal"] ?? "bg-slate-400"}`}
+                      />
+                    )}
+                    <span className="truncate">{item.title}</span>
+                  </span>
+                ),
+              )}
+              {dayItems.length > 3 && (
+                <span className="text-[11px] text-slate-400">+{dayItems.length - 3} mais</span>
               )}
             </div>
           );

@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/crm/app-shell";
 import { CalendarClient } from "@/components/crm/tasks/calendar-client";
+import { getMilestonesForMonth } from "@/server/actions/milestones";
 import { getTasksForMonth } from "@/server/actions/tasks";
 import { auth } from "@/server/auth";
 
@@ -25,7 +26,10 @@ export default async function TarefasCalendarioPage({
   const gridStart = startOfWeek(startOfMonth(refDate), { weekStartsOn: 0 });
   const gridEnd = endOfWeek(endOfMonth(refDate), { weekStartsOn: 0 });
 
-  const tasks = await getTasksForMonth(gridStart.toISOString(), gridEnd.toISOString());
+  const [tasks, milestones] = await Promise.all([
+    getTasksForMonth(gridStart.toISOString(), gridEnd.toISOString()),
+    getMilestonesForMonth(gridStart.toISOString(), gridEnd.toISOString()),
+  ]);
 
   const serializedTasks = tasks.map((t) => ({
     id: t.id,
@@ -34,9 +38,16 @@ export default async function TarefasCalendarioPage({
     dueAt: t.dueAt ? t.dueAt.toISOString() : null,
   }));
 
+  const serializedMilestones = milestones.map((m) => ({
+    id: m.id,
+    title: `${m.title} (${m.projectName})`,
+    dueAt: m.dueDate ? m.dueDate.toISOString() : null,
+    href: `/crm/projetos/${m.projectId}`,
+  }));
+
   return (
     <AppShell active="tasks" eyebrow="OPERAÇÃO" title="Calendário de Tarefas">
-      <CalendarClient tasks={serializedTasks} year={year} month={month} />
+      <CalendarClient tasks={serializedTasks} milestones={serializedMilestones} year={year} month={month} />
     </AppShell>
   );
 }

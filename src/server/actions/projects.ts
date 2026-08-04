@@ -4,7 +4,14 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "../auth/require-permission";
 import { db } from "../db/connection";
-import { contracts, projectChecklistItems, projectStages, projects } from "../db/schema";
+import {
+  contracts,
+  projectChecklistItems,
+  projectStages,
+  projectTemplateChecklistItems,
+  projectTemplates,
+  projects,
+} from "../db/schema";
 import { logger } from "../logger";
 
 const DEFAULT_STAGES = [
@@ -105,6 +112,7 @@ async function createProjectForSignedContract(
   organizationId: string,
   contractId: string,
   ownerUserId: string | null,
+  templateId?: string,
 ) {
   const contract = await db.query.contracts.findFirst({
     where: and(eq(contracts.id, contractId), eq(contracts.organizationId, organizationId)),
@@ -122,6 +130,24 @@ async function createProjectForSignedContract(
   const stages = await getOrCreateDefaultStages(organizationId);
   const firstStage = stages[0];
 
+  // CRM-F2-01: template opcional vindo do cliente - confirma que pertence à
+  // organização antes de usar seus itens (mesma classe de checagem já
+  // aplicada a pipelineId/stageId em pipeline.ts).
+  let checklistTitles: string[] = DEFAULT_CHECKLIST;
+  if (templateId) {
+    const template = await db.query.projectTemplates.findFirst({
+      where: and(eq(projectTemplates.id, templateId), eq(projectTemplates.organizationId, organizationId)),
+      columns: { id: true },
+    });
+    if (!template) throw new Error("Template não encontrado.");
+
+    const templateItems = await db.query.projectTemplateChecklistItems.findMany({
+      where: eq(projectTemplateChecklistItems.templateId, templateId),
+      orderBy: [asc(projectTemplateChecklistItems.position)],
+    });
+    checklistTitles = templateItems.map((item) => item.title);
+  }
+
   const [project] = await db
     .insert(projects)
     .values({
@@ -135,20 +161,22 @@ async function createProjectForSignedContract(
     })
     .returning();
 
-  await db.insert(projectChecklistItems).values(
-    DEFAULT_CHECKLIST.map((title, index) => ({
-      projectId: project.id,
-      title,
-      position: index,
-    })),
-  );
+  if (checklistTitles.length > 0) {
+    await db.insert(projectChecklistItems).values(
+      checklistTitles.map((title, index) => ({
+        projectId: project.id,
+        title,
+        position: index,
+      })),
+    );
+  }
 
   return project;
 }
 
-export async function createProjectFromContract(contractId: string) {
+export async function createProjectFromContract(contractId: string, templateId?: string) {
   const { organizationId, userId } = await requirePermission("projects.create");
-  const project = await createProjectForSignedContract(organizationId, contractId, userId);
+  const project = await createProjectForSignedContract(organizationId, contractId, userId, templateId);
   if (!project) throw new Error("Este contrato já possui um projeto vinculado");
 
   revalidatePath("/crm/projetos");
@@ -199,6 +227,26 @@ export async function updateProjectStage(id: string, stageId: string) {
 
   revalidatePath("/crm/projetos");
   revalidatePath(`/crm/projetos/${id}`);
+  return { success: true };
+}
+
+export async function assignChecklistItem(itemId: string, projectId: string, userId: string | null) {
+  const { organizationId } = await requirePermission("projects.update");
+
+  const project = await db.query.projects.findFirst({
+    where: and(eq(projects.id, projectId), eq(projects.organizationId, organizationId)),
+    columns: { id: true },
+  });
+  if (!project) throw new Error("Projeto não encontrado");
+
+  await db
+    .update(projectChecklistItems)
+    .set({ assignedTo: userId })
+    .where(
+      and(eq(projectChecklistItems.id, itemId), eq(projectChecklistItems.projectId, projectId)),
+    );
+
+  revalidatePath(`/crm/projetos/${projectId}`);
   return { success: true };
 }
 

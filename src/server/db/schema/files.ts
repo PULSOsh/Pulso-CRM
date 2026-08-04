@@ -1,7 +1,9 @@
 import {
+  type AnyPgColumn,
   bigint,
   boolean,
   index,
+  integer,
   pgTable,
   text,
   timestamp,
@@ -41,6 +43,15 @@ export const attachments = pgTable(
     entityType: varchar("entity_type", { length: 40 }).notNull(),
     entityId: uuid("entity_id").notNull(),
     label: varchar("label", { length: 120 }),
+    // CRM-F2-05: versionamento - uma nova versão de um anexo existente cria
+    // uma linha nova (nunca edita a anterior, "histórico confiável")
+    // apontando pra raiz da cadeia via rootAttachmentId, com isCurrent
+    // marcando qual é a versão vigente pra listagens padrão.
+    versionNumber: integer("version_number").notNull().default(1),
+    rootAttachmentId: uuid("root_attachment_id").references((): AnyPgColumn => attachments.id, {
+      onDelete: "set null",
+    }),
+    isCurrent: boolean("is_current").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (t) => [index("attachments_entity_idx").on(t.organizationId, t.entityType, t.entityId)],

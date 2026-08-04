@@ -4,6 +4,7 @@ import { KanbanSquare, Plus } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { Select } from "@/components/ui/select";
+import { createProjectTemplate } from "@/server/actions/project-templates";
 import { createProjectFromContract } from "@/server/actions/projects";
 
 type Project = {
@@ -33,22 +34,55 @@ const statusLabels: Record<string, string> = {
 export function ProjectsClient({
   initialProjects,
   availableContracts,
+  templates: initialTemplates,
 }: {
   initialProjects: Project[];
   availableContracts: AvailableContract[];
+  templates: { id: string; name: string }[];
 }) {
   const [projects, setProjects] = useState(initialProjects);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedContractId, setSelectedContractId] = useState("");
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [templates, setTemplates] = useState(initialTemplates);
+  const [isCreatingTemplate, setIsCreatingTemplate] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [newTemplateChecklist, setNewTemplateChecklist] = useState("");
+
+  async function handleCreateTemplate() {
+    setLoading(true);
+    setError(null);
+    try {
+      const template = await createProjectTemplate({
+        name: newTemplateName,
+        checklistTitles: newTemplateChecklist
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean),
+      });
+      setTemplates([...templates, { id: template.id, name: template.name }]);
+      setSelectedTemplateId(template.id);
+      setIsCreatingTemplate(false);
+      setNewTemplateName("");
+      setNewTemplateChecklist("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao criar template.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleGenerate() {
     if (!selectedContractId) return;
     setLoading(true);
     setError(null);
     try {
-      const project = await createProjectFromContract(selectedContractId);
+      const project = await createProjectFromContract(
+        selectedContractId,
+        selectedTemplateId || undefined,
+      );
       setProjects([
         {
           id: project.id,
@@ -63,6 +97,7 @@ export function ProjectsClient({
       ]);
       setIsModalOpen(false);
       setSelectedContractId("");
+      setSelectedTemplateId("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao gerar projeto.");
     } finally {
@@ -176,6 +211,59 @@ export function ProjectsClient({
                   </option>
                 ))}
               </Select>
+              <Select value={selectedTemplateId} onChange={(e) => setSelectedTemplateId(e.target.value)}>
+                <option value="">Checklist padrão (sem template)</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </Select>
+
+              {!isCreatingTemplate ? (
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingTemplate(true)}
+                  className="text-sm text-orange-600 hover:underline text-left"
+                >
+                  + Criar novo template
+                </button>
+              ) : (
+                <div className="space-y-2 border border-slate-200 rounded-md p-3">
+                  <input
+                    type="text"
+                    value={newTemplateName}
+                    onChange={(e) => setNewTemplateName(e.target.value)}
+                    placeholder="Nome do template"
+                    className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm"
+                  />
+                  <textarea
+                    value={newTemplateChecklist}
+                    onChange={(e) => setNewTemplateChecklist(e.target.value)}
+                    placeholder={"Um item de checklist por linha"}
+                    rows={4}
+                    className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsCreatingTemplate(false)}
+                      className="flex-1 px-3 py-1.5 text-sm text-slate-600 border border-slate-300 rounded-md"
+                      disabled={loading}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCreateTemplate}
+                      disabled={loading || !newTemplateName.trim()}
+                      className="flex-1 px-3 py-1.5 text-sm bg-orange-600 text-white rounded-md disabled:opacity-50"
+                    >
+                      Salvar template
+                    </button>
+                  </div>
+                </div>
+              )}
               {error && <p className="text-sm text-red-600">{error}</p>}
             </div>
             <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">

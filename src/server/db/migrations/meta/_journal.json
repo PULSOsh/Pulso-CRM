@@ -71,6 +71,13 @@
       "when": 1785869441919,
       "tag": "0009_heavy_dark_beast",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785871236006,
+      "tag": "0010_lonely_cardiac",
+      "breakpoints": true
     }
   ]
 }

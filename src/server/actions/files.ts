@@ -111,6 +111,7 @@ export async function uploadFile(
   entityType: AttachableEntityType,
   entityId: string,
   formData: FormData,
+  supersedesAttachmentId?: string,
 ) {
   const { organizationId, userId } = await requirePermission("files.upload");
 
@@ -119,6 +120,27 @@ export async function uploadFile(
   }
   if (!(await entityBelongsToOrganization(entityType, entityId, organizationId))) {
     throw new Error("Registro não encontrado.");
+  }
+
+  // CRM-F2-05: nova versão de um anexo existente - confirma que o anexo
+  // anterior pertence à mesma organização/entidade antes de encadear (mesma
+  // classe de checagem de posse já aplicada a client-supplied ids em outras
+  // actions desta sessão).
+  let versionNumber = 1;
+  let rootAttachmentId: string | null = null;
+  let previousAttachment: typeof attachments.$inferSelect | undefined;
+  if (supersedesAttachmentId) {
+    previousAttachment = await db.query.attachments.findFirst({
+      where: and(
+        eq(attachments.id, supersedesAttachmentId),
+        eq(attachments.organizationId, organizationId),
+        eq(attachments.entityType, entityType),
+        eq(attachments.entityId, entityId),
+      ),
+    });
+    if (!previousAttachment) throw new Error("Anexo anterior não encontrado.");
+    rootAttachmentId = previousAttachment.rootAttachmentId ?? previousAttachment.id;
+    versionNumber = previousAttachment.versionNumber + 1;
   }
 
   const file = formData.get("file");
@@ -138,11 +160,15 @@ export async function uploadFile(
 
   await uploadObject(objectKey, buffer, file.type);
 
-  // Only proposal/contract/approval attachments can be marked public (shown
-  // on the matching public page); everything else stays private regardless
-  // of the form field, since there is no public page that would ever read it.
+  // Only proposal/contract/approval/project attachments can be marked public
+  // (shown on the matching public page); everything else stays private
+  // regardless of the form field, since there is no public page that would
+  // ever read it.
   const canBePublic =
-    entityType === "proposal" || entityType === "contract" || entityType === "approval";
+    entityType === "proposal" ||
+    entityType === "contract" ||
+    entityType === "approval" ||
+    entityType === "project";
   const isPrivate = !(canBePublic && formData.get("isPublic") === "true");
 
   const fileId = crypto.randomUUID();
@@ -161,11 +187,21 @@ export async function uploadFile(
       isPrivate,
     });
 
+    if (previousAttachment) {
+      await tx
+        .update(attachments)
+        .set({ isCurrent: false })
+        .where(eq(attachments.id, previousAttachment.id));
+    }
+
     await tx.insert(attachments).values({
       organizationId,
       fileId,
       entityType,
       entityId,
+      versionNumber,
+      rootAttachmentId,
+      isCurrent: true,
     });
   });
 
@@ -181,6 +217,7 @@ export async function getFilesForEntity(entityType: AttachableEntityType, entity
       eq(attachments.organizationId, organizationId),
       eq(attachments.entityType, entityType),
       eq(attachments.entityId, entityId),
+      eq(attachments.isCurrent, true),
     ),
     orderBy: [desc(attachments.createdAt)],
     with: { file: true },
@@ -196,6 +233,47 @@ export async function getFilesForEntity(entityType: AttachableEntityType, entity
       sizeBytes: row.file.sizeBytes,
       createdAt: row.file.createdAt,
       label: row.label,
+      versionNumber: row.versionNumber,
+    }));
+}
+
+/** Histórico completo de versões de um anexo (CRM-F2-05), mais antiga
+ * primeiro. Resolve a raiz da cadeia (o próprio anexo, se ele nunca foi
+ * superado, ou o valor já gravado em rootAttachmentId) e lista todas as
+ * linhas que compartilham essa raiz. */
+export async function getFileVersionHistory(attachmentId: string) {
+  const { organizationId } = await requirePermission("files.read");
+
+  const attachment = await db.query.attachments.findFirst({
+    where: and(eq(attachments.id, attachmentId), eq(attachments.organizationId, organizationId)),
+  });
+  if (!attachment) throw new Error("Anexo não encontrado.");
+
+  const rootId = attachment.rootAttachmentId ?? attachment.id;
+
+  const rows = await db.query.attachments.findMany({
+    where: and(eq(attachments.organizationId, organizationId), eq(attachments.rootAttachmentId, rootId)),
+    orderBy: [desc(attachments.versionNumber)],
+    with: { file: true },
+  });
+
+  const rootRow = await db.query.attachments.findFirst({
+    where: eq(attachments.id, rootId),
+    with: { file: true },
+  });
+
+  const all = rootRow ? [rootRow, ...rows] : rows;
+
+  return all
+    .filter((row) => row.file)
+    .sort((a, b) => b.versionNumber - a.versionNumber)
+    .map((row) => ({
+      attachmentId: row.id,
+      fileId: row.file.id,
+      originalName: row.file.originalName,
+      versionNumber: row.versionNumber,
+      isCurrent: row.isCurrent,
+      createdAt: row.file.createdAt,
     }));
 }
 
@@ -230,14 +308,14 @@ export async function deleteFile(attachmentId: string) {
 
 /**
  * No requirePermission() here on purpose - this is meant to be called from
- * inside an already-gated public action (getPublicProposal/getPublicContract),
- * which resolves organizationId/entityId itself only after validating the
- * public token + publicAccessEnabled. Only ever returns attachments whose
- * underlying file is explicitly isPrivate = false.
+ * inside an already-gated public action (getPublicProposal/getPublicContract/
+ * getClientPortalProject), which resolves organizationId/entityId itself only
+ * after validating the public token + enabled flag. Only ever returns
+ * attachments whose underlying file is explicitly isPrivate = false.
  */
 export async function getPublicFilesForEntity(
   organizationId: string,
-  entityType: "proposal" | "contract" | "approval",
+  entityType: "proposal" | "contract" | "approval" | "project",
   entityId: string,
 ) {
   const rows = await db.query.attachments.findMany({
@@ -245,6 +323,7 @@ export async function getPublicFilesForEntity(
       eq(attachments.organizationId, organizationId),
       eq(attachments.entityType, entityType),
       eq(attachments.entityId, entityId),
+      eq(attachments.isCurrent, true),
     ),
     with: { file: true },
   });
