@@ -191,6 +191,16 @@ export const briefingSubmissions = pgTable(
     templateSnapshot: jsonb("template_snapshot").notNull().default({}),
     metadata: jsonb("metadata").notNull().default({}),
     submittedAt: timestamp("submitted_at", { withTimezone: true, mode: "date" }),
+    // CRM-F1-04: "solicitação de complemento" - nota interna do que falta
+    // pedir ao lead, sem envio automático de e-mail (SMTP não está
+    // configurado neste projeto). O compartilhamento do protocolo/link com o
+    // lead segue o mesmo padrão manual já usado em propostas/contratos
+    // ("copiar link/WhatsApp", ação client-side, sem endpoint dedicado).
+    complementRequestedNote: text("complement_requested_note"),
+    complementRequestedAt: timestamp("complement_requested_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
     qualifiedAt: timestamp("qualified_at", { withTimezone: true, mode: "date" }),
     linkedAt: timestamp("linked_at", { withTimezone: true, mode: "date" }),
     archivedAt: timestamp("archived_at", { withTimezone: true, mode: "date" }),

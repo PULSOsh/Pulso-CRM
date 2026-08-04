@@ -18,6 +18,7 @@ import { useState } from "react";
 import {
   approveBriefingSubmission,
   type getBriefingSubmissionById,
+  requestSubmissionComplement,
 } from "@/server/actions/briefing-submissions";
 
 export function SubmissionDetails({
@@ -28,6 +29,9 @@ export function SubmissionDetails({
   const router = useRouter();
   const [isApproving, setIsApproving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isRequestingComplement, setIsRequestingComplement] = useState(false);
+  const [complementNote, setComplementNote] = useState("");
+  const [isSendingComplement, setIsSendingComplement] = useState(false);
 
   const handleApprove = async () => {
     setIsApproving(true);
@@ -42,7 +46,23 @@ export function SubmissionDetails({
     }
   };
 
+  const handleRequestComplement = async () => {
+    setIsSendingComplement(true);
+    setError(null);
+    try {
+      await requestSubmissionComplement(submission.id, { note: complementNote });
+      setIsRequestingComplement(false);
+      setComplementNote("");
+      router.refresh();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsSendingComplement(false);
+    }
+  };
+
   const isLinked = submission.status === "linked";
+  const needsMoreInfo = submission.status === "needs_more_info";
   const submissionUserAgent = (submission.metadata as { userAgent?: string })?.userAgent;
   // As respostas ficam em metadata.answers (jsonb, sem FK), não na tabela
   // normalizada briefing_submission_answers - ver src/app/api/public/
@@ -78,6 +98,11 @@ export function SubmissionDetails({
               <div className="ml-auto bg-green-100 text-green-800 px-4 py-2 rounded-md flex items-center gap-2 font-medium">
                 <CheckCircle size={20} />
                 Aprovado e Vinculado
+              </div>
+            )}
+            {needsMoreInfo && (
+              <div className="ml-auto bg-amber-100 text-amber-800 px-4 py-2 rounded-md flex items-center gap-2 font-medium">
+                Complemento solicitado
               </div>
             )}
           </div>
@@ -175,6 +200,15 @@ export function SubmissionDetails({
           </div>
         </div>
 
+        {needsMoreInfo && submission.complementRequestedNote && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
+            <h3 className="font-semibold text-amber-900 mb-2">Complemento solicitado</h3>
+            <p className="text-sm text-amber-800 whitespace-pre-wrap">
+              {submission.complementRequestedNote}
+            </p>
+          </div>
+        )}
+
         {!isLinked && (
           <div className="bg-orange-50 border border-orange-200 rounded-xl p-6">
             <h3 className="font-semibold text-orange-900 mb-2">Aprovar Lead</h3>
@@ -200,6 +234,45 @@ export function SubmissionDetails({
               )}
               Aprovar e Converter
             </button>
+
+            {!isRequestingComplement ? (
+              <button
+                type="button"
+                onClick={() => setIsRequestingComplement(true)}
+                className="w-full mt-2 flex justify-center items-center gap-2 px-4 py-2 text-orange-700 border border-orange-300 font-medium rounded-md hover:bg-orange-100 transition-colors"
+              >
+                Solicitar complemento
+              </button>
+            ) : (
+              <div className="mt-3 space-y-2">
+                <textarea
+                  value={complementNote}
+                  onChange={(e) => setComplementNote(e.target.value)}
+                  rows={3}
+                  maxLength={1000}
+                  placeholder="Ex: falta o endereço completo da obra e a data desejada de início."
+                  className="w-full px-3 py-2 border border-orange-300 rounded-md text-sm"
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsRequestingComplement(false)}
+                    className="flex-1 px-4 py-2 text-slate-600 border border-slate-300 rounded-md text-sm"
+                    disabled={isSendingComplement}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRequestComplement}
+                    disabled={isSendingComplement || complementNote.trim().length < 3}
+                    className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-md text-sm disabled:opacity-50"
+                  >
+                    {isSendingComplement ? "Salvando..." : "Confirmar"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

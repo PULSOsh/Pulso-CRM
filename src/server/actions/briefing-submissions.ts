@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requirePermission } from "../auth/require-permission";
 import { db } from "../db/connection";
 import { briefingSubmissions, companies, contacts, opportunities, pipelineStages } from "../db/schema";
+import { requestComplementSchema } from "./briefing-submissions.schemas";
 import { ensureDefaultPipeline } from "./pipeline";
 
 export async function getBriefingSubmissions() {
@@ -40,6 +41,65 @@ export async function getBriefingSubmissionById(id: string) {
       opportunity: true,
     },
   });
+}
+
+// CRM-F1-05: transforma as respostas de um briefing vinculado à oportunidade
+// num texto pronto pra colar no campo "Escopo" da proposta. Só formata
+// texto, nunca cria/edita nada - chamada explícita a partir do construtor de
+// orçamento (quote-builder-form.tsx), o mesmo padrão de "preencher a partir
+// de um template" que já existe ali pra escopo padrão de produto.
+export async function getBriefingSummaryForOpportunity(opportunityId: string) {
+  const { organizationId } = await requirePermission("opportunities.read");
+
+  const submission = await db.query.briefingSubmissions.findFirst({
+    where: and(
+      eq(briefingSubmissions.opportunityId, opportunityId),
+      eq(briefingSubmissions.organizationId, organizationId),
+    ),
+    orderBy: (t, { desc }) => [desc(t.createdAt)],
+  });
+  if (!submission) return null;
+
+  const answers = (submission.metadata as { answers?: Record<string, unknown> })?.answers ?? {};
+  const lines = Object.entries(answers)
+    .filter(([, value]) => {
+      if (Array.isArray(value)) return value.length > 0;
+      return value !== undefined && value !== null && value !== "";
+    })
+    .map(([key, value]) => {
+      const label = key
+        .replace(/^q_/, "")
+        .replace(/_/g, " ")
+        .replace(/^./, (c) => c.toUpperCase());
+      const text = Array.isArray(value) ? value.join(", ") : String(value);
+      return `${label}: ${text}`;
+    });
+
+  return { protocol: submission.protocol, summary: lines.join("\n") };
+}
+
+export async function requestSubmissionComplement(id: string, input: unknown) {
+  const { organizationId } = await requirePermission("briefings.review");
+  const parsed = requestComplementSchema.parse(input);
+
+  const [updated] = await db
+    .update(briefingSubmissions)
+    .set({
+      status: "needs_more_info",
+      complementRequestedNote: parsed.note,
+      complementRequestedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(
+      and(eq(briefingSubmissions.id, id), eq(briefingSubmissions.organizationId, organizationId)),
+    )
+    .returning({ id: briefingSubmissions.id });
+
+  if (!updated) throw new Error("Submissão não encontrada.");
+
+  revalidatePath("/crm/briefings/inbox");
+  revalidatePath(`/crm/briefings/inbox/${id}`);
+  return { success: true };
 }
 
 export async function approveBriefingSubmission(id: string) {

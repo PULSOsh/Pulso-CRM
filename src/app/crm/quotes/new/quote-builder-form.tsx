@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { type CSSProperties, useMemo, useState, useTransition } from "react";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { getBriefingSummaryForOpportunity } from "@/server/actions/briefing-submissions";
 import type { getProducts } from "@/server/actions/products";
 import type { getOpenOpportunities } from "@/server/actions/quotes";
 import { createQuote, publishQuote, type QuoteItemInput } from "@/server/actions/quotes";
@@ -50,6 +51,8 @@ export default function QuoteBuilderForm({
   const [notIncludedText, setNotIncludedText] = useState("");
   const [responsibilitiesEnabled, setResponsibilitiesEnabled] = useState(false);
   const [responsibilitiesText, setResponsibilitiesText] = useState("");
+  const [loadingBriefing, setLoadingBriefing] = useState(false);
+  const [briefingNotice, setBriefingNotice] = useState<string | null>(null);
 
   const selectedOpportunity = useMemo(
     () => opportunities.find((opp) => opp.id === opportunityId) ?? null,
@@ -84,6 +87,25 @@ export default function QuoteBuilderForm({
 
     if (!scope && product.scopeDefault) setScope(product.scopeDefault);
     if (!terms && product.termsDefault) setTerms(product.termsDefault);
+  }
+
+  async function handleGenerateScopeFromBriefing() {
+    if (!opportunityId) return;
+    setLoadingBriefing(true);
+    setBriefingNotice(null);
+    try {
+      const result = await getBriefingSummaryForOpportunity(opportunityId);
+      if (!result?.summary) {
+        setBriefingNotice("Esta oportunidade não tem briefing vinculado com respostas.");
+        return;
+      }
+      setScope(result.summary);
+      setBriefingNotice(`Escopo preenchido a partir do briefing ${result.protocol}.`);
+    } catch (err) {
+      setBriefingNotice(err instanceof Error ? err.message : "Erro ao buscar briefing.");
+    } finally {
+      setLoadingBriefing(false);
+    }
   }
 
   function handleRemoveItem(index: number) {
@@ -287,7 +309,24 @@ export default function QuoteBuilderForm({
           </label>
 
           <label className="field" htmlFor="scope" style={{ marginTop: "14px" }}>
-            <span>Contexto entendido / Escopo</span>
+            <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              Contexto entendido / Escopo
+              <button
+                type="button"
+                onClick={handleGenerateScopeFromBriefing}
+                disabled={!opportunityId || loadingBriefing}
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  color: "var(--signal)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                {loadingBriefing ? "Buscando..." : "Gerar do briefing"}
+              </button>
+            </span>
             <Textarea
               id="scope"
               value={scope}
@@ -295,6 +334,9 @@ export default function QuoteBuilderForm({
               rows={6}
               placeholder="Descreva o que o cliente precisa e o que está incluso no projeto."
             />
+            {briefingNotice && (
+              <small style={{ color: "var(--mineral)" }}>{briefingNotice}</small>
+            )}
           </label>
         </div>
 

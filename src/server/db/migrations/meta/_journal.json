@@ -57,6 +57,13 @@
       "when": 1785855214553,
       "tag": "0007_public_hulk",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1785868669054,
+      "tag": "0008_soft_excalibur",
+      "breakpoints": true
     }
   ]
 }

@@ -1331,3 +1331,25 @@ A leitura cuidadosa encontrou, porém, **2 bugs reais**:
 ### Próxima story elegível
 
 A critério do responsável: F1-04 a F1-10 (briefing versionado, escopo do briefing, opcionais na proposta, comparação de versões, expiração, ou o encadeamento automático contrato/projeto/recebível no aceite).
+
+## 41. Fase 1 — F1-04 e F1-05: Solicitação de complemento e escopo gerado do briefing (concluído 04/08/2026)
+
+### Contexto
+
+Pedido explícito do responsável para seguir de F1-04 a F1-10. Confirmado por leitura antes de implementar: versionamento de template de briefing já existia (`briefingTemplateVersions`); o que faltava era "solicitação de complemento" (F1-04) e "escopo gerado do briefing" (F1-05).
+
+### O que foi feito
+
+- **F1-04**: novo valor de enum `needs_more_info`, colunas `complementRequestedNote`/`complementRequestedAt` em `briefing_submissions`, action `requestSubmissionComplement`, UI em `submission-details.tsx` (nota inline, sem `window.prompt`). Sem envio automático (SMTP não configurado) — segue o padrão manual já usado em propostas/contratos.
+- **F1-05**: `getBriefingSummaryForOpportunity(opportunityId)` formata as respostas do briefing vinculado num texto pronto pra colar no escopo; botão "Gerar do briefing" em `quote-builder-form.tsx`, dentro do fluxo "Usar oportunidade" já existente (as origens "Usar briefing"/"Preencher manualmente" continuam desabilitadas, decisão de sessão anterior não revisitada).
+
+### Validação real
+
+- `tsc --noEmit`: limpo. `vitest run`: **106/106** (+3 novos, `requestComplementSchema`). `next build`: verde, 32 rotas (sem rota nova). `biome lint`: 0 erros.
+- Verificação via `playwright test` (guard/login) adiada para um lote único ao fim das stories F1-04–F1-10 desta sessão.
+- **Não validado com dado real**: mesma limitação de toda a sessão.
+
+### Débitos conhecidos
+
+- Migration `0008` inclui `ALTER TYPE ... ADD VALUE` — verificar se precisa ser aplicada fora de uma transação que também usa o valor novo (limitação conhecida do Postgres), no momento em que for aplicada de verdade.
+- Sem página pública de retomada por protocolo (`allowResume` no schema, nunca implementado) — fora de escopo desta story.
