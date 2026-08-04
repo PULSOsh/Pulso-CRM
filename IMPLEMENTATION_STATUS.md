@@ -1397,3 +1397,24 @@ Imutabilidade de versão já existia (`createNewProposalVersion` preserva a ante
 
 - `tsc --noEmit`: limpo. `vitest run`: 106/106 (inalterado). `next build`: verde, 32 rotas. `biome lint`: 0 erros.
 - **Não validado com dado real**: mesma limitação de toda a sessão.
+
+## 44. Fase 1 — F1-08: Expiração de proposta (concluído 04/08/2026)
+
+### Achado
+
+`validUntil` existe e é editável desde uma sessão anterior, mas nada verificava — proposta vencida continuava aceitável. `proposal_events` (tabela dedicada) nunca foi usada — o projeto já resolve "eventos" via `activities`/`logActivity`; decisão desta story foi **não** duplicar esse mecanismo escrevendo também em `proposal_events`.
+
+### O que foi feito
+
+- `getPublicProposal` transiciona proposta pendente vencida pra `expired` na própria leitura (mesmo padrão de "primeira visualização").
+- `approveProposal` revalida expiração no momento do aceite (defesa em profundidade).
+- Página pública mostra mensagem clara de expiração.
+
+### Validação real
+
+- `tsc --noEmit`: limpo. `vitest run`: 106/106 (inalterado). `next build`: verde, 32 rotas. `biome lint`: 0 erros.
+- **Não validado com dado real**: mesma limitação de toda a sessão.
+
+### Próxima story elegível
+
+F1-10 (encadear contrato/projeto/recebível automaticamente no aceite) — última pendente do lote F1-04 a F1-10 pedido pelo responsável.

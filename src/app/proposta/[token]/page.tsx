@@ -229,7 +229,11 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
         {isDecided ? (
           <div className="investment-actions">
             <p style={{ color: "white", fontWeight: 800, fontSize: 18 }}>
-              {proposal.status === "approved" ? "Proposta aceita ✓" : `Status: ${proposal.status}`}
+              {proposal.status === "approved"
+                ? "Proposta aceita ✓"
+                : proposal.status === "expired"
+                  ? "Esta proposta expirou. Entre em contato para uma nova."
+                  : `Status: ${proposal.status}`}
             </p>
           </div>
         ) : (

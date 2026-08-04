@@ -40,6 +40,16 @@ export async function getPublicProposal(token: string) {
     return null;
   }
 
+  // CRM-F1-08: expiração. validUntil já existia e era editável, mas nada
+  // verificava - uma proposta vencida continuava aceitável indefinidamente.
+  // Mesmo padrão já usado por "primeira visualização" nesta função: uma
+  // leitura pública pode transicionar o status quando o dado justifica.
+  const isPending = ["draft", "sent", "viewed"].includes(proposal.status);
+  if (isPending && proposal.validUntil && proposal.validUntil.getTime() < Date.now()) {
+    await db.update(proposals).set({ status: "expired" }).where(eq(proposals.id, proposal.id));
+    proposal.status = "expired";
+  }
+
   // 2. Fetch the current version
   const version = await db.query.proposalVersions.findFirst({
     where: eq(proposalVersions.id, proposal.currentVersionId),
@@ -178,6 +188,14 @@ export async function approveProposal(
     !proposal.currentVersionId
   ) {
     return { success: false, error: "Proposta inválida ou já processada." };
+  }
+
+  // CRM-F1-08: revalida expiração no momento do aceite (defesa em
+  // profundidade - a página pública já marca como "expired" na leitura, mas
+  // uma aba aberta antes do vencimento não deve conseguir aceitar depois).
+  if (proposal.validUntil && proposal.validUntil.getTime() < Date.now()) {
+    await db.update(proposals).set({ status: "expired" }).where(eq(proposals.id, proposal.id));
+    return { success: false, error: "Esta proposta expirou." };
   }
 
   // CRM-F1-06: itens opcionais da versão aceita - o cliente escolhe quais
