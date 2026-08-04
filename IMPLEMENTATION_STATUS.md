@@ -1205,3 +1205,41 @@ Com `npm run dev` local rodando (sem `DATABASE_URL` configurado — a connection
 8 stories implementadas nesta sessão (F0-02 a F0-08; F0-01 e F0-05 já estavam prontas de sessões anteriores). Commits locais desta sessão: 6. Nada enviado ao GitHub. 4 migrations pendentes de autorização explícita para aplicar (`0003`, `0004`, `0005`, `0006`), todas aditivas.
 
 Próximo item da "Ordem imediata recomendada": F0-09/F0-10 (observabilidade, logs, correlação de erros, runbook, backup/rollback) — ou, se o responsável priorizar fechar o débito de E2E antes, montar um seed de organização/usuário de teste dedicado pra desbloquear o fluxo crítico completo.
+
+## 37. Fase 0 — F0-09/F0-10: Observabilidade, logs, correlação de erros e runbook de backup (concluído 04/08/2026)
+
+### Contexto
+
+Pedido explícito do responsável para seguir de F0-08 pra F0-09/F0-10, os últimos itens da "Ordem imediata recomendada" antes da Fase 1.
+
+### Achado real (não hipotético)
+
+`src/app/error.tsx`/`global-error.tsx` (sessão anterior) mostram `error.digest` ao usuário como "código de referência", mas são `"use client"` — o `console.error` deles roda no navegador, nunca chega ao log do servidor. Não existia nenhum log de servidor contendo esse digest: um usuário reportando "Referência: 123456" não podia ser localizado via `docker service logs` (o método de diagnóstico já documentado em `docs/ARCHITECTURE_AND_STANDARDS.md` §11). `/api/health` também respondia "ok" incondicionalmente, sem checar nada — um banco fora do ar continuava reportando saudável. `LOG_LEVEL` estava documentado desde a fundação mas nunca lido por nenhum código.
+
+### O que foi feito
+
+- `src/server/logger.ts` (novo): logger estruturado mínimo, sem dependência nova, respeita `LOG_LEVEL`, emite JSON em stdout/stderr.
+- `src/instrumentation.ts` (novo): hook `onRequestError` do Next.js — loga toda falha não tratada numa requisição com o `digest`, correlacionando com a tela de erro amigável que o usuário vê.
+- `src/app/api/health/route.ts`: executa `select 1` real (reporta `"degraded"`/503 se o banco falhar), inclui `version`/`commit`.
+- `.env.example`: +`COMMIT_SHA` (opcional), +`LOG_LEVEL` (já documentado em outro lugar, faltava aqui).
+- `docs/runbooks/production-safety.md` §7 (novo): procedimento real de backup/restauração (`pg_dump`/`pg_restore`/`createdb`/`dropdb` contra um banco de teste descartável, nunca produção) — os runbooks já eram completos como checklist, esse era o único gap concreto ("testar restauração periodicamente" sem nenhum comando escrito).
+
+### Verificação real de ponta a ponta
+
+Com o servidor local rodando (banco genuinamente inacessível neste ambiente), acessei `/solicitar/qualquer-coisa`: a tela mostrou "Referência: 1882923231"; o log do servidor, na mesma requisição, gravou uma linha JSON com `"digest":"1882923231"` — **mesmo valor**, confirmando a correlação de fato, não só por leitura de código. `/api/health` testado via `curl` com o banco inacessível retornou `503`/`"degraded"`/`"database":"unreachable"` em vez do "ok" incondicional de antes.
+
+### Validação real
+
+- `tsc --noEmit`: limpo. `vitest run`: 86/86 (inalterado). `next build`: verde, 32 rotas (sem rota nova). `biome lint`: 0 erros. `npx playwright test`: 6/6.
+
+### Débitos conhecidos
+
+- Sem teste automatizado dedicado para `logger.ts` (comportamento simples, coberto pela verificação manual real desta sessão).
+- Procedimento de backup/restauração (§7 do runbook) não foi executado contra infraestrutura real — sem acesso SSH nesta sessão. Fica pronto pra próxima vez que alguém com acesso testar de verdade.
+- Sem serviço de log externo (Sentry/Datadog) — `docker service logs` continua sendo o método, agora com conteúdo estruturado e correlacionável.
+
+### Estado da sessão ao final
+
+9 stories implementadas nesta sessão (F0-02 a F0-10, contando F0-09/F0-10 como uma). F0-01 e F0-05 já estavam prontas de sessões anteriores. Commits locais desta sessão: 7. Nada enviado ao GitHub. 4 migrations aditivas pendentes de autorização (`0003`-`0006`).
+
+Com isso, toda a "Ordem imediata recomendada" do `PLANO_MESTRE_EVOLUCAO_CRM.md` §16 está concluída (itens 1-7; o item 8, "iniciar F1-03/F1-06", é o próximo natural). Recomendo ao responsável, antes de avançar pra Fase 1: revisar os 7 commits, decidir sobre as 4 migrations pendentes, e decidir sobre o push.
