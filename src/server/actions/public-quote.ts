@@ -20,6 +20,7 @@ import {
 import { logActivity } from "../services/activity-log";
 import { writeAuditLog } from "../services/audit-log";
 import { notifyUser } from "../services/notify";
+import { tryAutoGenerateContract } from "./contracts";
 import { getPublicFilesForEntity } from "./files";
 
 export async function getPublicProposal(token: string) {
@@ -329,6 +330,11 @@ export async function approveProposal(
       tx,
     );
   });
+
+  // CRM-F1-10: gera o contrato automaticamente no aceite, fora da transação
+  // principal - uma falha aqui não deve impedir a confirmação de aceite que
+  // o cliente já viu (tryAutoGenerateContract nunca lança, só loga e segue).
+  await tryAutoGenerateContract(proposal.organizationId, proposal.id);
 
   return { success: true };
 }

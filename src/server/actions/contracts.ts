@@ -16,8 +16,11 @@ import {
   proposals,
   proposalVersions,
 } from "../db/schema";
+import { logger } from "../logger";
 import { writeAuditLog } from "../services/audit-log";
 import { notifyUser } from "../services/notify";
+import { tryAutoGenerateReceivable } from "./finance";
+import { tryAutoGenerateProject } from "./projects";
 
 export async function getContracts() {
   const { organizationId } = await requirePermission("contracts.read");
@@ -188,9 +191,19 @@ Este documento reflete o snapshot da proposta aprovada no momento da geração d
   return sections.join("\n\n");
 }
 
-export async function createContractFromProposal(proposalId: string) {
-  const { organizationId, userId } = await requirePermission("contracts.create");
-
+// Núcleo reaproveitável (CRM-F1-10): chamado tanto pela action autenticada
+// createContractFromProposal (abaixo) quanto pelo aceite público da proposta
+// (public-quote.ts::approveProposal), que não tem sessão/userId - por isso
+// actorUserId é nullable e nenhuma chamada a requirePermission() acontece
+// aqui (o chamador já resolveu autorização do jeito certo pro seu contexto).
+// Retorna null (em vez de lançar) se já existir contrato, pra deixar o
+// aceite automático seguir sem erro quando o contrato já tiver sido gerado
+// manualmente antes.
+async function createContractForApprovedProposal(
+  organizationId: string,
+  proposalId: string,
+  actorUserId: string | null,
+) {
   const proposal = await db.query.proposals.findFirst({
     where: and(eq(proposals.id, proposalId), eq(proposals.organizationId, organizationId)),
   });
@@ -206,9 +219,7 @@ export async function createContractFromProposal(proposalId: string) {
   const existingContract = await db.query.contracts.findFirst({
     where: and(eq(contracts.proposalId, proposal.id), eq(contracts.organizationId, organizationId)),
   });
-  if (existingContract) {
-    throw new Error(`Esta proposta já possui um contrato gerado (${existingContract.code})`);
-  }
+  if (existingContract) return null;
 
   const version = await db.query.proposalVersions.findFirst({
     where: eq(proposalVersions.id, proposal.currentVersionId),
@@ -254,28 +265,56 @@ export async function createContractFromProposal(proposalId: string) {
     terms: version?.terms ?? null,
   });
 
-  const [contract] = await db
-    .insert(contracts)
-    .values({
-      organizationId,
-      opportunityId: proposal.opportunityId,
-      proposalId: proposal.id,
-      createdBy: userId,
-      code,
-      title: proposal.title,
-      status: "draft",
-      content,
-    })
-    .returning();
+  return db.transaction(async (tx) => {
+    const [contract] = await tx
+      .insert(contracts)
+      .values({
+        organizationId,
+        opportunityId: proposal.opportunityId,
+        proposalId: proposal.id,
+        createdBy: actorUserId,
+        code,
+        title: proposal.title,
+        status: "draft",
+        content,
+      })
+      .returning();
 
-  await db.insert(contractEvents).values({
-    contractId: contract.id,
-    eventType: "created",
-    actorUserId: userId,
+    await tx.insert(contractEvents).values({
+      contractId: contract.id,
+      eventType: "created",
+      actorUserId,
+    });
+
+    return contract;
   });
+}
+
+export async function createContractFromProposal(proposalId: string) {
+  const { organizationId, userId } = await requirePermission("contracts.create");
+  const contract = await createContractForApprovedProposal(organizationId, proposalId, userId);
+  if (!contract) throw new Error("Esta proposta já possui um contrato gerado.");
 
   revalidatePath("/crm/contratos");
   return contract;
+}
+
+// Chamado pelo aceite público da proposta (CRM-F1-10) - gera o contrato
+// automaticamente, sem exigir que alguém da equipe clique manualmente.
+// Nunca lança: uma falha aqui não deve derrubar a confirmação de aceite que
+// o cliente já viu na tela; fica registrado no log de erro estruturado
+// (F0-09) pra follow-up manual via o botão "Gerar Contrato" já existente.
+export async function tryAutoGenerateContract(organizationId: string, proposalId: string) {
+  try {
+    return await createContractForApprovedProposal(organizationId, proposalId, null);
+  } catch (error) {
+    logger.error("Falha ao gerar contrato automaticamente após aceite de proposta", {
+      organizationId,
+      proposalId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
 }
 
 export async function getApprovedProposalsWithoutContract() {
@@ -445,6 +484,35 @@ export async function signContractPublic(
       tx,
     );
   });
+
+  // CRM-F1-10: gera projeto e recebível automaticamente na assinatura, fora
+  // da transação principal - uma falha aqui não deve impedir a confirmação
+  // de assinatura que o cliente já viu (as duas funções nunca lançam, só
+  // logam e seguem). Dono do projeto herda o responsável da oportunidade,
+  // já que não há sessão/usuário atual neste fluxo público.
+  const opp = contract.opportunityId
+    ? await db.query.opportunities.findFirst({
+        where: eq(opportunities.id, contract.opportunityId),
+        columns: { ownerUserId: true },
+      })
+    : null;
+
+  await tryAutoGenerateProject(contract.organizationId, contract.id, opp?.ownerUserId ?? null);
+
+  const proposal = contract.proposalId
+    ? await db.query.proposals.findFirst({
+        where: eq(proposals.id, contract.proposalId),
+        columns: { total: true },
+      })
+    : null;
+  if (proposal) {
+    await tryAutoGenerateReceivable(
+      contract.organizationId,
+      contract.id,
+      proposal.total,
+      contract.title,
+    );
+  }
 
   revalidatePath(`/crm/contratos/${contract.id}`);
   return { success: true };

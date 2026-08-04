@@ -5,19 +5,23 @@ import { revalidatePath } from "next/cache";
 import { requirePermission } from "../auth/require-permission";
 import { db } from "../db/connection";
 import { contracts, installments, projects, receivables } from "../db/schema";
+import { logger } from "../logger";
 import { logActivity } from "../services/activity-log";
 import { writeAuditLog } from "../services/audit-log";
 
 export type InstallmentInput = { amount: number; dueDate: string };
 
-/** Gera recebível + parcelas a partir de um contrato assinado.
- * docs/MODULE_SPECIFICATIONS.md §12; STEP_BY_STEP_IMPLEMENTATION.md Fase 4. */
-export async function createReceivableFromContract(
+// Núcleo reaproveitável (CRM-F1-10): usado tanto pela action autenticada
+// createReceivableFromContract quanto pela assinatura pública do contrato
+// (sem sessão/userId, actorUserId nullable). Retorna null em vez de lançar
+// se já existir recebível, pra chamada automática não quebrar quando já foi
+// gerado manualmente antes.
+async function createReceivableForSignedContract(
+  organizationId: string,
   contractId: string,
+  actorUserId: string | null,
   data: { description: string; installmentsPlan: InstallmentInput[] },
 ) {
-  const { organizationId, userId } = await requirePermission("finance.create");
-
   const contract = await db.query.contracts.findFirst({
     where: and(eq(contracts.id, contractId), eq(contracts.organizationId, organizationId)),
   });
@@ -48,9 +52,7 @@ export async function createReceivableFromContract(
           ),
         })
       : null;
-  if (existing) {
-    throw new Error("Já existe um recebível gerado para este contrato.");
-  }
+  if (existing) return null;
 
   // Validação de soma e arredondamento (docs/ARCHITECTURE_AND_STANDARDS.md §7:
   // dinheiro sempre em numeric/string, nunca float) - soma em centavos inteiros.
@@ -87,7 +89,7 @@ export async function createReceivableFromContract(
       await logActivity(
         {
           organizationId,
-          actorUserId: userId,
+          actorUserId,
           type: "payment",
           title: `Recebível gerado: ${data.description} (${data.installmentsPlan.length}x)`,
           opportunityId: contract.opportunityId,
@@ -99,9 +101,65 @@ export async function createReceivableFromContract(
     return [rec];
   });
 
+  return receivable;
+}
+
+/** Gera recebível + parcelas a partir de um contrato assinado.
+ * docs/MODULE_SPECIFICATIONS.md §12; STEP_BY_STEP_IMPLEMENTATION.md Fase 4. */
+export async function createReceivableFromContract(
+  contractId: string,
+  data: { description: string; installmentsPlan: InstallmentInput[] },
+) {
+  const { organizationId, userId } = await requirePermission("finance.create");
+  const receivable = await createReceivableForSignedContract(
+    organizationId,
+    contractId,
+    userId,
+    data,
+  );
+  if (!receivable) throw new Error("Já existe um recebível gerado para este contrato.");
+
   revalidatePath("/crm/financeiro");
   revalidatePath(`/crm/contratos/${contractId}`);
   return receivable;
+}
+
+// Chamado pela assinatura pública do contrato (CRM-F1-10) - gera um recebível
+// com parcela única padrão (valor total do contrato, vencimento em 30 dias),
+// já que não há ninguém definindo um plano de parcelamento no momento da
+// assinatura. A equipe pode ajustar depois (o registro já existe pra baixa/
+// estorno; um parcelamento diferente exigiria estornar e recriar, mesmo
+// caminho que já existe pra qualquer correção financeira). Nunca lança: uma
+// falha aqui não deve impedir a confirmação de assinatura que o cliente já
+// viu; fica registrada no log estruturado (F0-09) pra follow-up manual via
+// o formulário "Gerar recebível" já existente.
+export async function tryAutoGenerateReceivable(
+  organizationId: string,
+  contractId: string,
+  totalAmount: string,
+  contractTitle: string,
+) {
+  try {
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 30);
+
+    const receivable = await createReceivableForSignedContract(organizationId, contractId, null, {
+      description: `Recebível - ${contractTitle}`,
+      installmentsPlan: [{ amount: Number(totalAmount), dueDate: dueDate.toISOString() }],
+    });
+    if (receivable) {
+      revalidatePath("/crm/financeiro");
+      revalidatePath(`/crm/contratos/${contractId}`);
+    }
+    return receivable;
+  } catch (error) {
+    logger.error("Falha ao gerar recebível automaticamente após assinatura de contrato", {
+      organizationId,
+      contractId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
 }
 
 export async function getReceivableForContract(contractId: string) {

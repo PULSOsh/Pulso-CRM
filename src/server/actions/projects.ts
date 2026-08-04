@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requirePermission } from "../auth/require-permission";
 import { db } from "../db/connection";
 import { contracts, projectChecklistItems, projectStages, projects } from "../db/schema";
+import { logger } from "../logger";
 
 const DEFAULT_STAGES = [
   { name: "Aguardando pagamento", position: 1, color: "#64748b" },
@@ -95,9 +96,16 @@ export async function getSignedContractsWithoutProject() {
   return signedContracts.filter((c) => !contractIdsWithProject.has(c.id));
 }
 
-export async function createProjectFromContract(contractId: string) {
-  const { organizationId, userId } = await requirePermission("projects.create");
-
+// Núcleo reaproveitável (CRM-F1-10): usado tanto pela action autenticada
+// createProjectFromContract quanto pela assinatura pública do contrato
+// (contracts.ts::signContractPublic, sem sessão/userId). Retorna null (em
+// vez de lançar) se já existir projeto, pra permitir chamada automática
+// sem quebrar quando já foi gerado manualmente antes.
+async function createProjectForSignedContract(
+  organizationId: string,
+  contractId: string,
+  ownerUserId: string | null,
+) {
   const contract = await db.query.contracts.findFirst({
     where: and(eq(contracts.id, contractId), eq(contracts.organizationId, organizationId)),
   });
@@ -109,9 +117,7 @@ export async function createProjectFromContract(contractId: string) {
   const existingProject = await db.query.projects.findFirst({
     where: and(eq(projects.organizationId, organizationId), eq(projects.contractId, contractId)),
   });
-  if (existingProject) {
-    throw new Error("Este contrato já possui um projeto vinculado");
-  }
+  if (existingProject) return null;
 
   const stages = await getOrCreateDefaultStages(organizationId);
   const firstStage = stages[0];
@@ -123,7 +129,7 @@ export async function createProjectFromContract(contractId: string) {
       opportunityId: contract.opportunityId,
       contractId: contract.id,
       stageId: firstStage?.id,
-      ownerUserId: userId,
+      ownerUserId,
       name: contract.title,
       status: "planned",
     })
@@ -137,8 +143,40 @@ export async function createProjectFromContract(contractId: string) {
     })),
   );
 
+  return project;
+}
+
+export async function createProjectFromContract(contractId: string) {
+  const { organizationId, userId } = await requirePermission("projects.create");
+  const project = await createProjectForSignedContract(organizationId, contractId, userId);
+  if (!project) throw new Error("Este contrato já possui um projeto vinculado");
+
   revalidatePath("/crm/projetos");
   return project;
+}
+
+// Chamado pela assinatura pública do contrato (CRM-F1-10) - gera o projeto
+// (com checklist padrão) automaticamente. Nunca lança: uma falha aqui não
+// deve impedir a confirmação de assinatura que o cliente já viu; fica
+// registrada no log estruturado (F0-09) pra follow-up manual via o botão
+// "Gerar Projeto" já existente.
+export async function tryAutoGenerateProject(
+  organizationId: string,
+  contractId: string,
+  ownerUserId: string | null,
+) {
+  try {
+    const project = await createProjectForSignedContract(organizationId, contractId, ownerUserId);
+    if (project) revalidatePath("/crm/projetos");
+    return project;
+  } catch (error) {
+    logger.error("Falha ao gerar projeto automaticamente após assinatura de contrato", {
+      organizationId,
+      contractId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
 }
 
 export async function updateProjectStage(id: string, stageId: string) {

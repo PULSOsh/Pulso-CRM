@@ -1418,3 +1418,32 @@ Imutabilidade de versão já existia (`createNewProposalVersion` preserva a ante
 ### Próxima story elegível
 
 F1-10 (encadear contrato/projeto/recebível automaticamente no aceite) — última pendente do lote F1-04 a F1-10 pedido pelo responsável.
+
+## 45. Fase 1 — F1-10: Encadeamento automático contrato/projeto/recebível (concluído 04/08/2026) — fecha a Fase 1
+
+### Contexto
+
+Última story do lote F1-04 a F1-10 pedido pelo responsável. Gate explícito da Fase 1 (`PLANO_MESTRE_EVOLUCAO_CRM.md` §7): "lead → briefing → proposta → aceite → contrato → projeto → recebível sem intervenção no banco".
+
+### Decisão de design
+
+"No aceite" não significa tudo no mesmo instante — projeto/recebível já exigiam contrato **assinado** (checagem pré-existente, não alterada). Os 2 gatilhos automáticos corretos: aceite da proposta → gera contrato; assinatura do contrato → gera projeto + recebível.
+
+### O que foi feito
+
+- Núcleo de `createContractFromProposal`/`createProjectFromContract`/`createReceivableFromContract` extraído (sem `requirePermission`, ator nullable), reaproveitado tanto pela action manual quanto por 3 novas `tryAutoGenerate*` (nunca lançam — falha vira log estruturado, não impede a resposta de sucesso ao cliente).
+- `approveProposal` chama `tryAutoGenerateContract` após commitar.
+- `signContractPublic` chama `tryAutoGenerateProject` (dono = responsável da oportunidade) e `tryAutoGenerateReceivable` (parcela única, valor = total da proposta, vencimento 30 dias) após commitar.
+
+### Validação real
+
+- `tsc --noEmit`: limpo. `vitest run`: 106/106 (inalterado). `next build`: verde, 32 rotas, sem import circular real entre `contracts.ts`/`projects.ts`/`finance.ts`. `biome lint`: 0 erros. `npx playwright test`: 6/6.
+- **Não validado com dado real**: mesma limitação de toda a sessão.
+
+### Débitos conhecidos
+
+- Recebível automático usa parcela única (não o parcelamento real da proposta) e o total base (sem opcionais aceitos, decisão de `F1-06`) — ajuste manual necessário nesses casos.
+
+### Estado da sessão ao final (Fase 0 + Fase 1 completas até aqui)
+
+16 stories implementadas nesta sessão (F0-02 a F0-10, F1-01 a F1-08, F1-10; F1-03/F1-09 confirmadas já implementadas por auditoria, sem código novo). Commits locais desta sessão: 15. Nada enviado ao GitHub. 6 migrations aditivas pendentes de autorização explícita (`0003`-`0009`, todas geradas mas nunca aplicadas em nenhum ambiente).
