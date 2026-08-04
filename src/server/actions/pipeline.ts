@@ -40,7 +40,12 @@ const DEFAULT_STAGE_TEMPLATE = [
   { name: "Perdido", position: 6, color: "#ef4444", probability: 0, isLost: true },
 ] as const;
 
-async function ensureDefaultPipeline(organizationId: string) {
+// Exportado (não só interno a este arquivo) porque briefing-submissions.ts
+// (CRM-F1-03) também precisa do funil padrão da organização ao converter uma
+// submissão em oportunidade - reaproveitar garante a mesma semântica de
+// bootstrap (etapa "Perdido"/isLost, fallback pro funil mais antigo) em vez
+// de duplicar uma versão simplificada nesse outro arquivo.
+export async function ensureDefaultPipeline(organizationId: string) {
   let defaultPipeline = await db.query.pipelines.findFirst({
     where: and(eq(pipelines.organizationId, organizationId), eq(pipelines.isDefault, true)),
   });

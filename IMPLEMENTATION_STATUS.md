@@ -1299,3 +1299,35 @@ Pedido explícito do responsável para seguir com F1-02 e F1-03. `docs/PLANO_MES
 ### Próxima story elegível
 
 F1-03 (vincular briefing à oportunidade) — próximo pedido explícito do responsável.
+
+## 40. Fase 1 — F1-03: Briefing vinculado à oportunidade (auditado e corrigido 04/08/2026)
+
+### Contexto
+
+Pedido explícito do responsável para seguir com F1-02 e F1-03. Antes de escrever qualquer código, auditei o estado real (mesma disciplina de "auditar antes de implementar") — a hipótese inicial de que "nenhuma ação liga briefing a oportunidade" estava **errada**.
+
+### Achado real
+
+`approveBriefingSubmission()` (`src/server/actions/briefing-submissions.ts`) já existia e já fazia a conversão completa (contato/empresa/oportunidade), com botão "Aprovar e Converter" já wireado em `submission-details.tsx`. Corrigir a suposição evitou duplicar uma feature que já funcionava.
+
+A leitura cuidadosa encontrou, porém, **2 bugs reais**:
+1. Buscava "o primeiro funil" da organização sem filtrar `isDefault` — inofensivo antes de `CRM-F0-02` (só existia um funil por org), mas depois de múltiplos funis existirem de verdade, um lead aprovado por briefing podia cair num funil secundário aleatório.
+2. As 4 escritas (contato, empresa, oportunidade, submissão) não estavam numa transação — uma falha no meio deixava registros órfãos.
+
+### O que foi feito
+
+- `ensureDefaultPipeline()` (`pipeline.ts`) exportada e reaproveitada em `briefing-submissions.ts`, em vez de duplicar uma busca simplificada.
+- Toda a conversão (contato + empresa + oportunidade + atualização da submissão) agora roda dentro de `db.transaction`.
+
+### Validação real
+
+- `tsc --noEmit`: limpo. `vitest run`: 103/103 (inalterado). `next build`: verde, 32 rotas. `biome lint`: 0 erros. `npx playwright test`: 6/6.
+- **Não validado com dado real**: mesma limitação de toda a sessão.
+
+### Débitos conhecidos
+
+- Sem opção de vincular a uma oportunidade já existente (sempre cria nova) — capacidade distinta, não pedida explicitamente, registrada como upgrade futuro.
+
+### Próxima story elegível
+
+A critério do responsável: F1-04 a F1-10 (briefing versionado, escopo do briefing, opcionais na proposta, comparação de versões, expiração, ou o encadeamento automático contrato/projeto/recebível no aceite).
