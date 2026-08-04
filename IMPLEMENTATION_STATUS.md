@@ -1243,3 +1243,32 @@ Com o servidor local rodando (banco genuinamente inacessível neste ambiente), a
 9 stories implementadas nesta sessão (F0-02 a F0-10, contando F0-09/F0-10 como uma). F0-01 e F0-05 já estavam prontas de sessões anteriores. Commits locais desta sessão: 7. Nada enviado ao GitHub. 4 migrations aditivas pendentes de autorização (`0003`-`0006`).
 
 Com isso, toda a "Ordem imediata recomendada" do `PLANO_MESTRE_EVOLUCAO_CRM.md` §16 está concluída (itens 1-7; o item 8, "iniciar F1-03/F1-06", é o próximo natural). Recomendo ao responsável, antes de avançar pra Fase 1: revisar os 7 commits, decidir sobre as 4 migrations pendentes, e decidir sobre o push.
+
+## 38. Fase 1 — F1-01: Importação e deduplicação de contatos e empresas (concluído 04/08/2026)
+
+### Contexto
+
+Pedido explícito do responsável para avançar pra Fase 1. Levantamento rápido do estado real de cada story F1-0X antes de escolher por onde começar (F1-01: importação/dedup ausente; F1-02: perda com motivo existe, lista configurável não; F1-03: briefing sem vínculo a oportunidade; F1-06: tabela de opcionais sem uso; F1-08: `validUntil` existe, nada verifica; F1-10: contrato/projeto/recebível manuais, não encadeados no aceite). Perguntei ao responsável por qual começar — escolheu F1-01, seguindo a ordem do plano.
+
+### O que foi feito
+
+- `src/server/services/csv.ts` (novo): parser CSV próprio, sem dependência nova, RFC 4180 (aspas, vírgula/quebra de linha embutida, aspas escapadas, CRLF).
+- `src/server/services/dedup.ts` (novo): normalização pura pra comparação (e-mail, dígitos de telefone/CNPJ) — os índices `contacts_org_email_idx`/`contacts_org_phone_idx`/`companies_org_document_idx` já existiam desde a fundação prontos pra isso, nunca consultados.
+- `importContacts`/`importCompanies` (`contacts.ts`/`companies.ts`): parseiam o CSV, deduplicam contra o banco e dentro do próprio arquivo, inserem os novos (contatos em transação, com vínculo a empresa existente quando a coluna `empresa` casa por nome), retornam relatório de criados/duplicados/inválidos.
+- `src/components/crm/import-csv-modal.tsx` (novo, reutilizado): upload de arquivo ou colar texto, relatório do resultado.
+- Botão "Importar CSV" em `/crm/contatos` e `/crm/empresas`.
+
+### Validação real
+
+- `tsc --noEmit`: limpo. `vitest run`: **100/100** (+16 testes novos). `next build`: verde, 32 rotas. `biome lint`: 0 erros. `npx playwright test`: 6/6.
+- **Não validado com dado real**: mesma limitação de `.env`/`DATABASE_URL` de toda a sessão.
+
+### Débitos conhecidos
+
+- Merge de duplicados já existentes no banco (distinto de deduplicação na importação) não implementado — fora de escopo desta story.
+- Dedup de empresa sem CNPJ é por nome fantasia exato, não fuzzy.
+- Sem exportação (só importação).
+
+### Próxima story elegível
+
+F1-02 (motivos de perda configuráveis) ou F1-03 (vincular briefing à oportunidade), a critério do responsável.

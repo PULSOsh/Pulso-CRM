@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, Globe, MapPin, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Building2, Globe, MapPin, Pencil, Plus, Search, Trash2, Upload } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,9 +9,11 @@ import {
   createCompany,
   deleteCompany,
   getDeletedCompanies,
+  importCompanies,
   restoreCompany,
   updateCompany,
 } from "@/server/actions/companies";
+import { ImportCsvModal } from "./import-csv-modal";
 
 type Company = {
   id: string;
@@ -37,6 +39,7 @@ export function CompaniesClient({ initialCompanies }: { initialCompanies: Compan
   const [showDeleted, setShowDeleted] = useState(false);
   const [deletedCompanies, setDeletedCompanies] = useState<DeletedCompany[] | null>(null);
   const [loadingDeleted, setLoadingDeleted] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   const filtered = companies.filter((c) =>
     c.tradeName.toLowerCase().includes(search.toLowerCase()),
@@ -149,10 +152,16 @@ export function CompaniesClient({ initialCompanies }: { initialCompanies: Compan
           </h1>
           <p className="text-slate-500 mt-1">Gerencie as empresas e clientes da sua carteira.</p>
         </div>
-        <Button onClick={openCreateModal} className="w-full sm:w-auto">
-          <Plus size={20} />
-          Nova Empresa
-        </Button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button variant="outline" onClick={() => setIsImportOpen(true)}>
+            <Upload size={18} />
+            Importar CSV
+          </Button>
+          <Button onClick={openCreateModal} className="w-full sm:w-auto">
+            <Plus size={20} />
+            Nova Empresa
+          </Button>
+        </div>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
@@ -391,6 +400,15 @@ export function CompaniesClient({ initialCompanies }: { initialCompanies: Compan
           </div>
         </form>
       </Modal>
+
+      <ImportCsvModal
+        open={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        title="Importar Empresas"
+        headerExample="nomeFantasia,razaoSocial,cnpj,email,telefone,site"
+        onImport={importCompanies}
+        onImported={() => window.location.reload()}
+      />
     </div>
   );
 }

@@ -10,6 +10,7 @@ import {
   Plus,
   Search,
   Trash2,
+  Upload,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -20,9 +21,11 @@ import {
   createContact,
   deleteContact,
   getDeletedContacts,
+  importContacts,
   restoreContact,
   updateContact,
 } from "@/server/actions/contacts";
+import { ImportCsvModal } from "./import-csv-modal";
 
 type ContactType = {
   id: string;
@@ -61,6 +64,7 @@ export function ContactsClient({
   const [showDeleted, setShowDeleted] = useState(false);
   const [deletedContacts, setDeletedContacts] = useState<DeletedContact[] | null>(null);
   const [loadingDeleted, setLoadingDeleted] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   async function toggleShowDeleted() {
     const next = !showDeleted;
@@ -194,10 +198,16 @@ export function ContactsClient({
           </h1>
           <p className="text-slate-500 mt-1">Gerencie pessoas e leads da sua carteira.</p>
         </div>
-        <Button onClick={openCreateModal} className="w-full sm:w-auto">
-          <Plus size={20} />
-          Novo Contato
-        </Button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button variant="outline" onClick={() => setIsImportOpen(true)}>
+            <Upload size={18} />
+            Importar CSV
+          </Button>
+          <Button onClick={openCreateModal} className="w-full sm:w-auto">
+            <Plus size={20} />
+            Novo Contato
+          </Button>
+        </div>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
@@ -464,6 +474,15 @@ export function ContactsClient({
           </div>
         </form>
       </Modal>
+
+      <ImportCsvModal
+        open={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        title="Importar Contatos"
+        headerExample="nome,sobrenome,email,telefone,whatsapp,cargo,empresa"
+        onImport={importContacts}
+        onImported={() => window.location.reload()}
+      />
     </div>
   );
 }

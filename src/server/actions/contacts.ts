@@ -5,7 +5,15 @@ import { revalidatePath } from "next/cache";
 import { requirePermission } from "../auth/require-permission";
 import { db } from "../db/connection";
 import { companies, companyContacts, contacts } from "../db/schema";
-import { updateContactSchema } from "./contacts.schemas";
+import { csvToObjects } from "../services/csv";
+import { normalizeDigits, normalizeEmail } from "../services/dedup";
+import { importContactRowSchema, updateContactSchema } from "./contacts.schemas";
+
+export type ImportResult = {
+  created: number;
+  duplicates: { row: number; reason: string }[];
+  invalid: { row: number; error: string }[];
+};
 
 export async function getContacts() {
   const { organizationId } = await requirePermission("contacts.read");
@@ -76,6 +84,112 @@ export async function createContact(input: unknown) {
 
   revalidatePath("/crm/contatos");
   return { ...contact, companyId: parsed.companyId || null, companyName };
+}
+
+export async function importContacts(csvText: string): Promise<ImportResult> {
+  const { organizationId } = await requirePermission("contacts.create");
+
+  const rows = csvToObjects(csvText);
+  if (rows.length === 0) throw new Error("CSV vazio ou sem linhas de dados.");
+  if (rows.length > 1000) throw new Error("Máximo de 1000 linhas por importação.");
+
+  const [existingContacts, existingCompanies] = await Promise.all([
+    db.query.contacts.findMany({
+      where: and(eq(contacts.organizationId, organizationId), isNull(contacts.deletedAt)),
+      columns: { email: true, phone: true, whatsapp: true },
+    }),
+    db.query.companies.findMany({
+      where: and(eq(companies.organizationId, organizationId), isNull(companies.deletedAt)),
+      columns: { id: true, tradeName: true },
+    }),
+  ]);
+
+  const existingEmails = new Set(
+    existingContacts.map((c) => normalizeEmail(c.email)).filter((v): v is string => !!v),
+  );
+  const existingPhones = new Set(
+    existingContacts
+      .flatMap((c) => [normalizeDigits(c.phone), normalizeDigits(c.whatsapp)])
+      .filter((v): v is string => !!v),
+  );
+  const companyIdByName = new Map(
+    existingCompanies.map((c) => [c.tradeName.trim().toLowerCase(), c.id]),
+  );
+
+  const seenEmails = new Set<string>();
+  const seenPhones = new Set<string>();
+  const duplicates: ImportResult["duplicates"] = [];
+  const invalid: ImportResult["invalid"] = [];
+  const toInsert: { values: typeof contacts.$inferInsert; companyId?: string }[] = [];
+
+  rows.forEach((rawRow, index) => {
+    const rowNumber = index + 2; // linha 1 é o cabeçalho; humanos contam a partir de 1
+    const parsed = importContactRowSchema.safeParse(rawRow);
+    if (!parsed.success) {
+      invalid.push({ row: rowNumber, error: parsed.error.issues[0]?.message ?? "Linha inválida." });
+      return;
+    }
+    const data = parsed.data;
+    const email = normalizeEmail(data.email);
+    const phone = normalizeDigits(data.telefone) ?? normalizeDigits(data.whatsapp);
+
+    if (email && (existingEmails.has(email) || seenEmails.has(email))) {
+      duplicates.push({ row: rowNumber, reason: `E-mail já cadastrado: ${data.email}` });
+      return;
+    }
+    if (phone && (existingPhones.has(phone) || seenPhones.has(phone))) {
+      duplicates.push({
+        row: rowNumber,
+        reason: `Telefone já cadastrado: ${data.telefone || data.whatsapp}`,
+      });
+      return;
+    }
+    if (email) seenEmails.add(email);
+    if (phone) seenPhones.add(phone);
+
+    const companyId = data.empresa
+      ? companyIdByName.get(data.empresa.trim().toLowerCase())
+      : undefined;
+
+    toInsert.push({
+      values: {
+        organizationId,
+        firstName: data.nome,
+        lastName: data.sobrenome || null,
+        email: data.email || null,
+        phone: data.telefone || null,
+        whatsapp: data.whatsapp || null,
+        jobTitle: data.cargo || null,
+      },
+      companyId,
+    });
+  });
+
+  if (toInsert.length > 0) {
+    await db.transaction(async (tx) => {
+      const inserted = await tx
+        .insert(contacts)
+        .values(toInsert.map((item) => item.values))
+        .returning({ id: contacts.id });
+
+      const links = inserted
+        .map((row, index) => ({ contactId: row.id, companyId: toInsert[index].companyId }))
+        .filter((link): link is { contactId: string; companyId: string } => !!link.companyId);
+
+      if (links.length > 0) {
+        await tx.insert(companyContacts).values(
+          links.map((link) => ({
+            companyId: link.companyId,
+            contactId: link.contactId,
+            isPrimary: true,
+          })),
+        );
+      }
+    });
+  }
+
+  revalidatePath("/crm/contatos");
+  return { created: toInsert.length, duplicates, invalid };
 }
 
 export async function updateContact(contactId: string, input: unknown) {

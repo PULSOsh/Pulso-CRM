@@ -10,3 +10,16 @@ export const updateCompanySchema = z.object({
 });
 
 export type UpdateCompanyInput = z.infer<typeof updateCompanySchema>;
+
+// Cabeçalho esperado do CSV de importação (CRM-F1-01):
+// nomeFantasia,razaoSocial,cnpj,email,telefone,site.
+export const importCompanyRowSchema = z.object({
+  nomeFantasia: z.string().trim().min(1, "Nome fantasia é obrigatório."),
+  razaoSocial: z.string().trim().optional().or(z.literal("")),
+  cnpj: z.string().trim().optional().or(z.literal("")),
+  email: z.email("E-mail inválido.").optional().or(z.literal("")),
+  telefone: z.string().trim().optional().or(z.literal("")),
+  site: z.string().trim().optional().or(z.literal("")),
+});
+
+export type ImportCompanyRow = z.infer<typeof importCompanyRowSchema>;
