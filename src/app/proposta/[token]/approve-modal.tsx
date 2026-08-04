@@ -5,14 +5,40 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { approveProposal } from "@/server/actions/public-quote";
 
-export default function ApproveModal({ token }: { token: string }) {
+type OptionalItem = { id: string; description: string; total: number };
+
+export default function ApproveModal({
+  token,
+  baseTotal,
+  optionalItems,
+}: {
+  token: string;
+  baseTotal: number;
+  optionalItems: OptionalItem[];
+}) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [selectedOptionalIds, setSelectedOptionalIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+
+  const selectedTotal =
+    baseTotal +
+    optionalItems
+      .filter((item) => selectedOptionalIds.includes(item.id))
+      .reduce((sum, item) => sum + item.total, 0);
+
+  function toggleOptional(id: string) {
+    setSelectedOptionalIds((prev) =>
+      prev.includes(id) ? prev.filter((existing) => existing !== id) : [...prev, id],
+    );
+  }
 
   function handleApprove(e: React.FormEvent) {
     e.preventDefault();
@@ -23,7 +49,7 @@ export default function ApproveModal({ token }: { token: string }) {
     }
 
     startTransition(async () => {
-      const result = await approveProposal(token, { name, email });
+      const result = await approveProposal(token, { name, email }, selectedOptionalIds);
       if (result.success) {
         setIsOpen(false);
         router.refresh();
@@ -72,6 +98,31 @@ export default function ApproveModal({ token }: { token: string }) {
             </p>
 
             <form onSubmit={handleApprove} style={{ display: "grid", gap: 18 }}>
+              {optionalItems.length > 0 && (
+                <div style={{ display: "grid", gap: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>Itens opcionais</span>
+                  {optionalItems.map((item) => (
+                    <label
+                      key={item.id}
+                      style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 13 }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedOptionalIds.includes(item.id)}
+                        onChange={() => toggleOptional(item.id)}
+                        style={{ marginTop: 3, accentColor: "var(--signal)" }}
+                      />
+                      <span>
+                        {item.description} — {formatCurrency(item.total)}
+                      </span>
+                    </label>
+                  ))}
+                  <p style={{ fontSize: 13, fontWeight: 700, margin: 0 }}>
+                    Total com opcionais selecionados: {formatCurrency(selectedTotal)}
+                  </p>
+                </div>
+              )}
+
               <label className="field">
                 <span>Nome completo</span>
                 <input

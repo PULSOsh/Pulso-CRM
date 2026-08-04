@@ -54,6 +54,7 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
             quantity: Number(item.quantity),
             unitPrice: Number(item.unitPrice),
             discount: Number(item.discount),
+            isOptional: item.isOptional,
           }))}
           scope={version?.scope ?? ""}
           terms={version?.terms ?? ""}

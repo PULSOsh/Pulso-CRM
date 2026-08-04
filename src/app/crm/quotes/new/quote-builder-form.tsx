@@ -108,6 +108,12 @@ export default function QuoteBuilderForm({
     }
   }
 
+  function handleToggleOptional(index: number) {
+    const newItems = [...items];
+    newItems[index] = { ...newItems[index], isOptional: !newItems[index].isOptional };
+    setItems(newItems);
+  }
+
   function handleRemoveItem(index: number) {
     setItems(items.filter((_, i) => i !== index));
   }
@@ -360,7 +366,7 @@ export default function QuoteBuilderForm({
                   key={index.toString() + item.description}
                   className="proposal-item-row"
                   style={{
-                    gridTemplateColumns: "1fr 60px 110px 90px 110px 30px",
+                    gridTemplateColumns: "1fr 60px 110px 90px 110px 70px 30px",
                     padding: "0 4px",
                   }}
                 >
@@ -396,6 +402,23 @@ export default function QuoteBuilderForm({
                     style={{ ...itemInputStyle, color: "var(--danger)" }}
                   />
                   <strong>{currency.format(item.quantity * item.unitPrice - item.discount)}</strong>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      fontSize: 11,
+                      color: "var(--mineral)",
+                    }}
+                    title="Item opcional: o cliente escolhe incluir ou não na página pública"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!!item.isOptional}
+                      onChange={() => handleToggleOptional(index)}
+                    />
+                    Opcional
+                  </label>
                   <button type="button" onClick={() => handleRemoveItem(index)}>
                     <Trash2 size={16} />
                   </button>

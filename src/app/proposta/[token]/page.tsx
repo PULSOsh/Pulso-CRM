@@ -86,6 +86,7 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
               <span>
                 {item.description} ({Number(item.quantity)}× {formatCurrency(item.unitPrice)}) —{" "}
                 {formatCurrency(item.total)}
+                {item.isOptional && " (opcional)"}
               </span>
             </li>
           ))}
@@ -232,7 +233,17 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
             </p>
           </div>
         ) : (
-          <ApproveModal token={token} />
+          <ApproveModal
+            token={token}
+            baseTotal={Number(proposal.total)}
+            optionalItems={proposal.items
+              .filter((item) => item.isOptional)
+              .map((item) => ({
+                id: item.id,
+                description: item.description,
+                total: Number(item.total),
+              }))}
+          />
         )}
       </section>
 

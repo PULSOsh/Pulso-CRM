@@ -1,6 +1,8 @@
 "use server";
 
+import crypto from "node:crypto";
 import { eq } from "drizzle-orm";
+import { headers } from "next/headers";
 import { db } from "../db/connection";
 import {
   companies,
@@ -10,7 +12,9 @@ import {
   proposalBlocks,
   proposalItems,
   proposalPaymentOptions,
+  proposalResponses,
   proposals,
+  proposalSelectedAddons,
   proposalVersions,
 } from "../db/schema";
 import { logActivity } from "../services/activity-log";
@@ -133,6 +137,7 @@ export async function getPublicProposal(token: string) {
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       total: item.total,
+      isOptional: item.isOptional,
     })),
     blocks: blocks.map((b) => ({
       stableKey: b.stableKey,
@@ -153,7 +158,11 @@ export async function getPublicProposal(token: string) {
   };
 }
 
-export async function approveProposal(token: string, _signerData: { name: string; email: string }) {
+export async function approveProposal(
+  token: string,
+  signerData: { name: string; email: string },
+  selectedOptionalItemIds: string[] = [],
+) {
   if (!token) {
     return { success: false, error: "Proposta inválida ou já processada." };
   }
@@ -165,10 +174,39 @@ export async function approveProposal(token: string, _signerData: { name: string
 
   if (
     !proposal?.publicAccessEnabled ||
-    (proposal.status !== "draft" && proposal.status !== "sent" && proposal.status !== "viewed")
+    (proposal.status !== "draft" && proposal.status !== "sent" && proposal.status !== "viewed") ||
+    !proposal.currentVersionId
   ) {
     return { success: false, error: "Proposta inválida ou já processada." };
   }
+
+  // CRM-F1-06: itens opcionais da versão aceita - o cliente escolhe quais
+  // incluir no momento do aceite. proposal_selected_addons (schema existia
+  // desde a fundação, nunca usado) registra o que foi oferecido e o que foi
+  // escolhido, com o valor congelado no momento do aceite.
+  const versionItems = await db.query.proposalItems.findMany({
+    where: eq(proposalItems.proposalVersionId, proposal.currentVersionId),
+  });
+  const optionalItems = versionItems.filter((item) => item.isOptional);
+  const selectedIdSet = new Set(
+    selectedOptionalItemIds.filter((id) => optionalItems.some((item) => item.id === id)),
+  );
+
+  const requestHeaders = await headers();
+  const ipAddress = requestHeaders.get("x-forwarded-for") ?? requestHeaders.get("x-real-ip");
+  const userAgent = requestHeaders.get("user-agent");
+
+  const snapshotHash = crypto
+    .createHash("sha256")
+    .update(
+      JSON.stringify({
+        proposalId: proposal.id,
+        versionId: proposal.currentVersionId,
+        items: versionItems.map((i) => ({ id: i.id, total: i.total })),
+        selectedOptionalItemIds: [...selectedIdSet].sort(),
+      }),
+    )
+    .digest("hex");
 
   await db.transaction(async (tx) => {
     // 2. Mark proposal as approved
@@ -179,6 +217,34 @@ export async function approveProposal(token: string, _signerData: { name: string
         approvedAt: new Date(),
       })
       .where(eq(proposals.id, proposal.id));
+
+    // 2b. Evidência formal do aceite - a UI já promete isso ("Aceite registra
+    // nome, e-mail, data e IP como evidência"), mas antes desta story nada
+    // gravava em proposal_responses.
+    const [response] = await tx
+      .insert(proposalResponses)
+      .values({
+        proposalId: proposal.id,
+        proposalVersionId: proposal.currentVersionId as string,
+        responseType: "accepted",
+        signerName: signerData.name,
+        signerEmail: signerData.email,
+        snapshotHash,
+        ipAddress,
+        userAgent,
+      })
+      .returning({ id: proposalResponses.id });
+
+    if (optionalItems.length > 0) {
+      await tx.insert(proposalSelectedAddons).values(
+        optionalItems.map((item) => ({
+          responseId: response.id,
+          proposalItemId: item.id,
+          selected: selectedIdSet.has(item.id),
+          amountSnapshot: item.total,
+        })),
+      );
+    }
 
     // 3. Move Opportunity in Kanban
     if (proposal.opportunityId) {
@@ -245,9 +311,6 @@ export async function approveProposal(token: string, _signerData: { name: string
       tx,
     );
   });
-
-  // Note: we'd ideally insert into proposalResponses here, but the schema requires publicLinkId which is for phase 9 extension
-  // For the MVP, updating the proposal and opportunity is the core business value.
 
   return { success: true };
 }

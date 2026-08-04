@@ -1353,3 +1353,30 @@ Pedido explícito do responsável para seguir de F1-04 a F1-10. Confirmado por l
 
 - Migration `0008` inclui `ALTER TYPE ... ADD VALUE` — verificar se precisa ser aplicada fora de uma transação que também usa o valor novo (limitação conhecida do Postgres), no momento em que for aplicada de verdade.
 - Sem página pública de retomada por protocolo (`allowResume` no schema, nunca implementado) — fora de escopo desta story.
+
+## 42. Fase 1 — F1-06: Proposta com itens opcionais (concluído 04/08/2026)
+
+### Contexto
+
+Pedido explícito do responsável para seguir com F1-06 a F1-10.
+
+### Achado real
+
+`proposal_selected_addons` existia desde a migration `0000` (produção), pronta pra registrar opcionais escolhidos, nunca usada. Pior: sua FK `responseId` aponta pra `proposal_responses`, **também nunca usada** — `approveProposal` tinha um comentário admitindo isso, e a UI pública já promete evidência de aceite ("registra nome, e-mail, data e IP") que não era gravada em lugar nenhum. Implementar opcionais de verdade exigiu implementar `proposalResponses` como pré-requisito, fechando esse débito antigo de sessões anteriores de uma vez.
+
+### O que foi feito
+
+- `proposalItems.isOptional` (novo). `computeTotals` só soma itens obrigatórios no total "de cabeçalho".
+- `approveProposal` agora grava `proposalResponses` (nome/e-mail/hash/IP/user-agent via `headers()`) e `proposalSelectedAddons` por item opcional da versão, com valor congelado no momento do aceite.
+- UI: checkbox "Opcional" no construtor/editor de proposta; página pública + modal de aceite mostram opcionais com checkbox e total dinâmico antes de confirmar.
+
+### Validação real
+
+- `tsc --noEmit`: limpo. `vitest run`: 106/106 (inalterado). `next build`: verde, 32 rotas. `biome lint`: 0 erros.
+- **Não validado com dado real**: mesma limitação de toda a sessão.
+
+### Débitos conhecidos
+
+- Nenhuma tela interna consulta `proposal_selected_addons` ainda (dado existe, sem relatório).
+- `proposals.total` não reflete o valor aceito com opcionais (decisão deliberada — histórico confiável, não sobrescrever valor publicado).
+- Migration `0009` soma-se a `0003`-`0008` como pendente de autorização.

@@ -74,10 +74,15 @@ function generateProposalCode() {
   return `PRP-${num}`;
 }
 
+// Total "de cabeçalho" da proposta (subtotal/total exibidos com destaque)
+// conta só os itens obrigatórios - itens opcionais (CRM-F1-06) só entram no
+// valor final se o cliente escolher incluí-los no momento do aceite, então
+// não devem inflar o total garantido mostrado antes disso.
 function computeTotals(items: QuoteItemInput[]) {
   let subtotal = 0;
   let totalDiscount = 0;
   items.forEach((item) => {
+    if (item.isOptional) return;
     subtotal += item.quantity * item.unitPrice;
     totalDiscount += item.discount;
   });
@@ -171,6 +176,7 @@ export type QuoteItemInput = {
   quantity: number;
   unitPrice: number;
   discount: number;
+  isOptional?: boolean;
 };
 
 export async function createQuote(data: {
@@ -241,6 +247,7 @@ export async function createQuote(data: {
           discount: item.discount.toString(),
           total: (item.quantity * item.unitPrice - item.discount).toString(),
           position: index,
+          isOptional: item.isOptional ?? false,
         })),
       );
     }
@@ -434,6 +441,7 @@ export async function updateQuoteDraft(
           discount: item.discount.toString(),
           total: (item.quantity * item.unitPrice - item.discount).toString(),
           position: index,
+          isOptional: item.isOptional ?? false,
         })),
       );
     }
@@ -553,6 +561,7 @@ export async function createNewProposalVersion(
           discount: item.discount.toString(),
           total: (item.quantity * item.unitPrice - item.discount).toString(),
           position: index,
+          isOptional: item.isOptional ?? false,
         })),
       );
     }

@@ -107,6 +107,10 @@ export const proposalItems = pgTable("proposal_items", {
   discount: numeric("discount", { precision: 14, scale: 2 }).notNull().default("0"),
   total: numeric("total", { precision: 14, scale: 2 }).notNull().default("0"),
   position: integer("position").notNull().default(0),
+  // CRM-F1-06: item opcional - o cliente decide incluir ou não na página
+  // pública antes de aceitar. proposal_selected_addons (schema já existia,
+  // nunca usado) registra o que foi oferecido/escolhido em cada aceite.
+  isOptional: boolean("is_optional").notNull().default(false),
 });
 
 export const proposalEvents = pgTable("proposal_events", {

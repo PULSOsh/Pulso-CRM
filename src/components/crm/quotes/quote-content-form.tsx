@@ -118,6 +118,12 @@ export function QuoteContentForm({
     setItems(items.filter((_, i) => i !== index));
   }
 
+  function handleToggleOptional(index: number) {
+    const newItems = [...items];
+    newItems[index] = { ...newItems[index], isOptional: !newItems[index].isOptional };
+    setItems(newItems);
+  }
+
   function handleItemChange(index: number, field: keyof QuoteItemInput, value: string | number) {
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
@@ -232,13 +238,14 @@ export function QuoteContentForm({
                 <th className="px-6 py-3 font-semibold text-slate-600 w-40">Valor Un. (R$)</th>
                 <th className="px-6 py-3 font-semibold text-slate-600 w-32">Desc. (R$)</th>
                 <th className="px-6 py-3 font-semibold text-slate-600 w-40 text-right">Total</th>
+                <th className="px-6 py-3 font-semibold text-slate-600 w-20 text-center">Opcional</th>
                 <th className="px-6 py-3 w-12" />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
+                  <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                     Nenhum item adicionado. Use o catálogo acima para puxar os valores.
                   </td>
                 </tr>
@@ -293,6 +300,14 @@ export function QuoteContentForm({
                         style: "currency",
                         currency: "BRL",
                       }).format(item.quantity * item.unitPrice - item.discount)}
+                    </td>
+                    <td className="px-6 py-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={!!item.isOptional}
+                        onChange={() => handleToggleOptional(index)}
+                        title="Item opcional: o cliente escolhe incluir ou não na página pública"
+                      />
                     </td>
                     <td className="px-6 py-3 text-right">
                       <button

@@ -64,6 +64,13 @@
       "when": 1785868669054,
       "tag": "0008_soft_excalibur",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1785869441919,
+      "tag": "0009_heavy_dark_beast",
+      "breakpoints": true
     }
   ]
 }
