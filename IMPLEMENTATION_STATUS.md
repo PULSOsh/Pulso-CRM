@@ -1162,3 +1162,46 @@ Confirmado correto sem alteração: `finance.ts::createReceivableFromContract`, 
 7 stories implementadas (F0-02, F0-03, F0-04, F0-06, F0-07 nesta sessão; F0-01 e F0-05 já estavam prontas de sessões anteriores, confirmado antes de assumir pendência). 4 migrations geradas nesta sessão (`0005`, `0006`) somadas às 2 já pendentes de sessões anteriores (`0003`, `0004`) — nenhuma aplicada em nenhum ambiente, todas aditivas. Commits locais desta sessão: 5 (F0-02 a F0-07, ver seções 31-35). Nada enviado ao GitHub.
 
 Próximo item da "Ordem imediata recomendada" (`PLANO_MESTRE_EVOLUCAO_CRM.md` §16): F0-08 (E2E dos módulos atuais) — mas o projeto não tem Playwright/Cypress configurado (confirmado na Fase 0 original, seção 7: "E2E (playwright): não configurado no projeto; script não existe"). Configurar E2E do zero é uma decisão de investimento maior (escolher ferramenta, CI, ambiente de teste) que vale confirmar com o responsável antes de iniciar, diferente das stories anteriores que só estenderam código já existente.
+
+## 36. Fase 0 — F0-08: E2E dos módulos atuais, primeiro lote (concluído 03/08/2026)
+
+### Contexto
+
+Pedido explícito do responsável ("pode seguir") para continuar de F0-07 direto para F0-08. A ferramenta já estava especificada em `docs/ARCHITECTURE_AND_STANDARDS.md`/`docs/QUALITY_AND_ACCEPTANCE.md` §8 (Playwright, script `test:e2e`) — não era uma decisão a tomar, só implementar.
+
+### Bloqueio real de ambiente, resolvido com autorização do responsável
+
+`pnpm add -D @playwright/test` falhou com `ERR_PNPM_UNEXPECTED_STORE`: o `node_modules` deste checkout estava linkado a partir de `.pnpm-store\v11`, mas o `pnpm` instalado neste ambiente é `10.34.5` (usa store `v10`); `corepack` (que buscaria automaticamente a versão certa) falhou por erro de verificação de assinatura ao consultar o registro — problema de ambiente, não do projeto. Perguntei ao responsável como proceder (3 opções: `pnpm install` para reconciliar / pular Playwright por agora / ele resolver e avisar); escolheu `pnpm install`. Executado com `CI=true` (sem TTY neste ambiente, evita prompt de confirmação de purge) — as 219 dependências resolveram exatamente nas mesmas versões já travadas no lockfile, sem nenhuma mudança de versão.
+
+### O que foi feito
+
+- `@playwright/test` instalado (dev dependency) + navegador `chromium` (`npx playwright install chromium`).
+- `playwright.config.ts` (novo): `testDir: "./e2e"`, `webServer` inicia/reaproveita `npm run dev`, `baseURL` configurável.
+- `package.json`: script `test:e2e` (igual à especificação da doc). Não entra no `check` combinado — a doc também não inclui, porque E2E precisa de servidor rodando e `check` precisa funcionar sem isso.
+- `vitest.config.ts`: exclui `e2e/**` (mesmo padrão de nome `*.spec.ts` do Vitest, colidiria sem isso).
+- `.gitignore`: `test-results/`, `playwright-report/`, `blob-report/`.
+- `e2e/auth.spec.ts` (novo, 6 specs): login renderiza os campos esperados; login com credenciais inválidas mostra erro sem crashar; 4 rotas internas (`/crm/pipeline`, `/crm/tarefas`, `/crm/tarefas/calendario`, `/dashboard`) redirecionam pra `/login` sem sessão.
+
+### Verificação real (não hipotética) — primeira vez nesta sessão que o app rodou de verdade no navegador
+
+Com `npm run dev` local rodando (sem `DATABASE_URL` configurado — a connection string cai num fallback local, e a lib `postgres` só conecta na primeira query real), consegui abrir o app de verdade: `/login` renderiza os campos, `/crm/pipeline` e `/crm/tarefas/calendario` (novos desta sessão) redirecionam corretamente pra `/login` sem sessão, e uma tentativa de login com credenciais inválidas retorna `500` do servidor (confirmado via rede do navegador — provavelmente por não haver um Postgres real em `localhost:5432`) tratado pela tela com uma mensagem de erro, sem crash. Cada spec escrito reflete exatamente esse comportamento já confirmado manualmente antes de escrever o teste, não uma suposição.
+
+### Validação real
+
+- `tsc --noEmit`: limpo.
+- `vitest run`: 86/86 (inalterado — confirma que `e2e/**` não colide com o Vitest).
+- `next build`: verde, 32 rotas (sem rota nova).
+- `biome lint` nos arquivos novos: 0 erros.
+- **`npx playwright test`: 6/6 passando, executado de fato duas vezes nesta sessão** (não assumido — é a primeira vez nesta sessão que um comando de teste roda contra o app renderizado de verdade, não só `tsc`/`vitest`/`build` estáticos).
+
+### Débitos conhecidos
+
+- O fluxo crítico completo de `docs/QUALITY_AND_ACCEPTANCE.md` §4 (login autenticado → empresa → contato → oportunidade → tarefa → proposta → publicação → aceite → contrato → assinatura → recebível → projeto → arquivo → aprovação → relatório) e §5 (E2E de briefing) **não têm cobertura ainda** — exigem uma organização e usuário de teste reais (seed dedicado, idealmente banco de teste isolado do de produção), que não existem nesta sessão. Escrever esses specs sem poder executá-los seria pior que não escrevê-los (mock como resultado final). Próximo passo natural quando houver banco de teste disponível.
+- Os "casos negativos obrigatórios" de §6 (token expirado/revogado, parcela já paga, conflito de edição etc.) têm a mesma dependência.
+- Só `chromium` instalado (suficiente para este lote; adicionar firefox/webkit é trivial).
+
+### Estado da sessão ao final
+
+8 stories implementadas nesta sessão (F0-02 a F0-08; F0-01 e F0-05 já estavam prontas de sessões anteriores). Commits locais desta sessão: 6. Nada enviado ao GitHub. 4 migrations pendentes de autorização explícita para aplicar (`0003`, `0004`, `0005`, `0006`), todas aditivas.
+
+Próximo item da "Ordem imediata recomendada": F0-09/F0-10 (observabilidade, logs, correlação de erros, runbook, backup/rollback) — ou, se o responsável priorizar fechar o débito de E2E antes, montar um seed de organização/usuário de teste dedicado pra desbloquear o fluxo crítico completo.
