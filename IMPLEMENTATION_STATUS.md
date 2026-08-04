@@ -1380,3 +1380,20 @@ Pedido explícito do responsável para seguir com F1-06 a F1-10.
 - Nenhuma tela interna consulta `proposal_selected_addons` ainda (dado existe, sem relatório).
 - `proposals.total` não reflete o valor aceito com opcionais (decisão deliberada — histórico confiável, não sobrescrever valor publicado).
 - Migration `0009` soma-se a `0003`-`0008` como pendente de autorização.
+
+## 43. Fase 1 — F1-07: Comparação de versões (concluído 04/08/2026)
+
+### Contexto
+
+Imutabilidade de versão já existia (`createNewProposalVersion` preserva a anterior). Faltava a comparação: a tela só mostrava contagem de versões.
+
+### O que foi feito
+
+- `getProposalVersionDetail(proposalId, versionId)`: título/escopo/itens/total de uma versão específica.
+- `VersionCompareModal`: dois seletores, busca e exibe lado a lado (sem diff algorítmico — versão lado a lado simples, decisão de escopo registrada na story).
+- Link "Comparar versões" na tela de detalhe da proposta.
+
+### Validação real
+
+- `tsc --noEmit`: limpo. `vitest run`: 106/106 (inalterado). `next build`: verde, 32 rotas. `biome lint`: 0 erros.
+- **Não validado com dado real**: mesma limitação de toda a sessão.

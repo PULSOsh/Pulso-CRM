@@ -12,6 +12,7 @@ import {
   updateQuoteDraft,
 } from "@/server/actions/quotes";
 import { QuoteContentForm } from "./quote-content-form";
+import { VersionCompareModal } from "./version-compare-modal";
 
 type FileRow = Parameters<typeof FilesPanel>[0]["initialFiles"];
 
@@ -59,7 +60,7 @@ export function QuoteDetailClient({
     installmentCount: number;
     installmentAmount: number;
   } | null;
-  allVersions: { id: string; versionNumber: number }[];
+  allVersions: { id: string; versionNumber: number; createdAt: Date }[];
   products: Awaited<ReturnType<typeof getProducts>>;
   initialFiles: FileRow;
 }) {
@@ -67,6 +68,7 @@ export function QuoteDetailClient({
   const [isPending, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isCompareOpen, setIsCompareOpen] = useState(false);
 
   const canEditFreely = proposal.status === "draft" && !proposal.publicAccessEnabled;
   const canPublish = proposal.status === "draft" && !proposal.publicAccessEnabled;
@@ -122,7 +124,19 @@ export function QuoteDetailClient({
               <span className="font-medium">
                 {STATUS_LABELS[proposal.status] ?? proposal.status}
               </span>
-              {allVersions.length > 1 && ` • ${allVersions.length} versões`}
+              {allVersions.length > 1 && (
+                <>
+                  {" "}
+                  • {allVersions.length} versões •{" "}
+                  <button
+                    type="button"
+                    onClick={() => setIsCompareOpen(true)}
+                    className="text-orange-600 hover:underline"
+                  >
+                    Comparar versões
+                  </button>
+                </>
+              )}
             </p>
           </div>
           <div className="text-right">
@@ -263,6 +277,13 @@ export function QuoteDetailClient({
           allowPublicToggle
         />
       </div>
+
+      <VersionCompareModal
+        open={isCompareOpen}
+        onClose={() => setIsCompareOpen(false)}
+        proposalId={proposal.id}
+        versions={allVersions}
+      />
     </div>
   );
 }

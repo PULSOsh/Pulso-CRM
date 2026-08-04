@@ -270,6 +270,49 @@ export async function createQuote(data: {
   return { success: true, proposalId };
 }
 
+// CRM-F1-07: comparação de versões. `proposalVersions` já é imutável (nunca
+// editada depois de criada - createNewProposalVersion sempre cria uma linha
+// nova); faltava uma forma de ver duas versões lado a lado.
+export async function getProposalVersionDetail(proposalId: string, versionId: string) {
+  const { organizationId } = await requirePermission("proposals.read");
+
+  const proposal = await db.query.proposals.findFirst({
+    where: and(eq(proposals.id, proposalId), eq(proposals.organizationId, organizationId)),
+    columns: { id: true },
+  });
+  if (!proposal) throw new Error("Proposta não encontrada.");
+
+  const version = await db.query.proposalVersions.findFirst({
+    where: and(eq(proposalVersions.id, versionId), eq(proposalVersions.proposalId, proposalId)),
+  });
+  if (!version) throw new Error("Versão não encontrada.");
+
+  const items = await db.query.proposalItems.findMany({
+    where: eq(proposalItems.proposalVersionId, version.id),
+    orderBy: (t, { asc }) => [asc(t.position)],
+  });
+
+  return {
+    id: version.id,
+    versionNumber: version.versionNumber,
+    title: version.title,
+    scope: version.scope,
+    terms: version.terms,
+    subtotal: version.subtotal,
+    discount: version.discount,
+    total: version.total,
+    createdAt: version.createdAt,
+    items: items.map((item) => ({
+      id: item.id,
+      description: item.description,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      total: item.total,
+      isOptional: item.isOptional,
+    })),
+  };
+}
+
 export async function getQuoteById(id: string) {
   const { organizationId } = await requirePermission("proposals.read");
 
