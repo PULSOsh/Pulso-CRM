@@ -21,8 +21,30 @@ import {
   receivables,
   storedFiles,
 } from "../db/schema";
+import { requirePersonalAccess } from "../services/personal-workspace";
 import { deleteObject, getSignedDownloadUrl, uploadObject } from "../storage/s3";
 import { exceedsMaxUploadSize, isAllowedMimeType, sanitizeFileName } from "./files.validation";
+
+// CRM-F4-01: expense é o único entityType anexável que pode ser dado
+// pessoal (expenses.scope === "personal"). requirePermission("files.*")
+// sozinho não é suficiente pra esse caso - qualquer papel com acesso a
+// arquivos (ex.: "projects") passaria pela checagem genérica sem nunca ter
+// profitability.*_personal. Chamado depois de confirmar que a entidade
+// pertence à organização, antes de qualquer leitura/escrita do anexo.
+async function assertFileEntityAccess(
+  entityType: string,
+  entityId: string,
+  organizationId: string,
+  mode: "read" | "manage",
+) {
+  if (entityType !== "expense") return;
+  const expense = await db.query.expenses.findFirst({
+    where: and(eq(expenses.id, entityId), eq(expenses.organizationId, organizationId)),
+    columns: { scope: true },
+  });
+  if (expense?.scope !== "personal") return;
+  await requirePersonalAccess(mode);
+}
 
 // entityId vem do cliente - antes de gravar um attachment, confirma que a
 // entidade referenciada realmente pertence à organização da sessão. Sem essa
@@ -47,7 +69,10 @@ async function entityBelongsToOrganization(
       }));
     case "opportunity":
       return !!(await db.query.opportunities.findFirst({
-        where: and(eq(opportunities.id, entityId), eq(opportunities.organizationId, organizationId)),
+        where: and(
+          eq(opportunities.id, entityId),
+          eq(opportunities.organizationId, organizationId),
+        ),
         columns: { id: true },
       }));
     case "briefing":
@@ -121,6 +146,7 @@ export async function uploadFile(
   if (!(await entityBelongsToOrganization(entityType, entityId, organizationId))) {
     throw new Error("Registro não encontrado.");
   }
+  await assertFileEntityAccess(entityType, entityId, organizationId, "manage");
 
   // CRM-F2-05: nova versão de um anexo existente - confirma que o anexo
   // anterior pertence à mesma organização/entidade antes de encadear (mesma
@@ -211,6 +237,7 @@ export async function uploadFile(
 
 export async function getFilesForEntity(entityType: AttachableEntityType, entityId: string) {
   const { organizationId } = await requirePermission("files.read");
+  await assertFileEntityAccess(entityType, entityId, organizationId, "read");
 
   const rows = await db.query.attachments.findMany({
     where: and(
@@ -248,11 +275,15 @@ export async function getFileVersionHistory(attachmentId: string) {
     where: and(eq(attachments.id, attachmentId), eq(attachments.organizationId, organizationId)),
   });
   if (!attachment) throw new Error("Anexo não encontrado.");
+  await assertFileEntityAccess(attachment.entityType, attachment.entityId, organizationId, "read");
 
   const rootId = attachment.rootAttachmentId ?? attachment.id;
 
   const rows = await db.query.attachments.findMany({
-    where: and(eq(attachments.organizationId, organizationId), eq(attachments.rootAttachmentId, rootId)),
+    where: and(
+      eq(attachments.organizationId, organizationId),
+      eq(attachments.rootAttachmentId, rootId),
+    ),
     orderBy: [desc(attachments.versionNumber)],
     with: { file: true },
   });
@@ -285,6 +316,19 @@ export async function getFileDownloadUrl(fileId: string) {
   });
   if (!file) throw new Error("Arquivo não encontrado.");
 
+  const attachment = await db.query.attachments.findFirst({
+    where: eq(attachments.fileId, fileId),
+    columns: { entityType: true, entityId: true },
+  });
+  if (attachment) {
+    await assertFileEntityAccess(
+      attachment.entityType,
+      attachment.entityId,
+      organizationId,
+      "read",
+    );
+  }
+
   return getSignedDownloadUrl(file.objectKey);
 }
 
@@ -295,6 +339,12 @@ export async function deleteFile(attachmentId: string) {
     where: and(eq(attachments.id, attachmentId), eq(attachments.organizationId, organizationId)),
   });
   if (!attachment) throw new Error("Anexo não encontrado.");
+  await assertFileEntityAccess(
+    attachment.entityType,
+    attachment.entityId,
+    organizationId,
+    "manage",
+  );
 
   // Exclusão lógica: remove só o vínculo (attachment). O objeto no storage e
   // o registro em storedFiles permanecem intactos - não apagamos o arquivo

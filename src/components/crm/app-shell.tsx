@@ -83,6 +83,7 @@ type ActiveKey =
   | "finance"
   | "reports"
   | "profitability"
+  | "personal"
   | "products";
 
 type AppShellProps = {

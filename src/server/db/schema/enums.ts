@@ -138,3 +138,15 @@ export const financialRecurrenceTargetEnum = pgEnum("financial_recurrence_target
 ]);
 
 export const payableStatusEnum = pgEnum("payable_status", ["open", "paid", "cancelled"]);
+
+/** CRM-F4-03: lançamento pessoal - diferente do razão empresarial (Fase 3),
+ * sem reversão/estorno formal (é bookkeeping casual do proprietário, não
+ * evento financeiro auditável de negócio). */
+export const personalTransactionKindEnum = pgEnum("personal_transaction_kind", [
+  "income",
+  "expense",
+  "transfer_in",
+  "transfer_out",
+]);
+
+export const personalCategoryKindEnum = pgEnum("personal_category_kind", ["income", "expense"]);

@@ -19,6 +19,7 @@ export * from "./notifications";
 export * from "./opportunities";
 export * from "./organizations";
 export * from "./outbox";
+export * from "./personal-finance";
 export * from "./pipelines";
 export * from "./products";
 export * from "./projects";

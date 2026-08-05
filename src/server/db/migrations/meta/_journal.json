@@ -85,6 +85,13 @@
       "when": 1785894243815,
       "tag": "0011_fase3_financeiro_base",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1785927778259,
+      "tag": "0012_fase4_financas_pessoais_base",
+      "breakpoints": true
     }
   ]
 }

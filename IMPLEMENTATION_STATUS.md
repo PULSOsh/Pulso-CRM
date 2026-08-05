@@ -1543,3 +1543,54 @@ Um razão único (`financial_transactions`) nunca editado após criado — todo 
 **36 stories implementadas nesta sessão** (F0-02 a F0-10, F1-01 a F1-10, F2-01 a F2-08, F3-01 a F3-12; F1-03/F1-09/F0-05/F0-01 confirmadas já implementadas por auditoria antes de construir algo novo). Migrations aditivas geradas nesta sessão: `0003` a `0011` (9 no total), nenhuma aplicada em nenhum ambiente. Nada enviado ao GitHub.
 
 Próximo item do plano mestre: **Fase 4 — Finanças pessoais** (workspace pessoal privado, isolamento testado contra acesso empresarial), a critério do responsável.
+
+## 48. Fase 4 — Finanças pessoais, completa (F4-01 a F4-11) (concluído 05/08/2026)
+
+### Contexto
+
+Pedido explícito do responsável: "pode seguir" após confirmação de que a auditoria prévia havia terminado (Fase 4 inteira). Gate da fase (`PLANO_MESTRE_EVOLUCAO_CRM.md` §7): "usuários sem acesso não conseguem consultar nem inferir dados pessoais por UI, action, API, exportação, relatório ou log."
+
+### Achado prévio confirmado (auditoria antes de construir)
+
+- `expenses.scope="personal"` + `financial_settings.personalCashBalance`/`monthlyPersonalNeed` + `getPersonalProfitability`/`profitability.read_personal` já existiam (sessão anterior) e funcionavam corretamente - isolamento real por `requirePermission()` no servidor, nunca por ocultação de UI. Não alterado nesta fase.
+- **Vazamento real encontrado e corrigido antes de construir qualquer entidade nova**: `files.ts` permitia anexar/ler/baixar arquivos de despesas `scope="personal"` verificando só `organizationId`, nunca o `scope` - qualquer papel com `files.read`/`files.upload` (ex.: `projects`) podia em tese acessar anexos de despesa pessoal sem nunca passar por `profitability.*_personal`. Nenhuma UI explorava isso ainda, mas era uma porta destrancada real (server actions são endpoints RPC independentes de tela). Corrigido em `files.ts` (F4-01).
+- **Risco de design identificado e endereçado**: a permissão pessoal é resolvida por papel (`owner`), não por usuário específico - nada impedia tecnicamente um segundo usuário com papel `owner` de herdar acesso a dados pessoais que não são dele. F4-01 cria `personal_workspaces` (uma linha por organização, `ownerUserId` fixo) como segunda trava, além do papel.
+- Cartões, faturas, orçamento, metas/dívidas/patrimônio, importação/conciliação pessoal e calendário pessoal não existiam de nenhuma forma - desenhados do zero, reaproveitando parsers/padrões já validados na Fase 3 (CSV/OFX, recorrência, razão de movimentações) onde fazia sentido.
+
+### O que foi feito (resumo — detalhe completo em cada `docs/stories/CRM-F4-0X-*.md`)
+
+- **F4-01 Espaço pessoal**: `personal_workspaces` + `requirePersonalAccess()` (dupla trava: papel + `ownerUserId` exato) + correção de segurança em `files.ts`.
+- **F4-02 Contas e saldos**: `personal_accounts`, saldo sempre derivado da soma de lançamentos (nunca campo próprio).
+- **F4-03 Receitas, despesas e transferências**: `personal_categories`/`personal_transactions`, CRUD simples (sem razão imutável - bookkeeping pessoal informal, diferente do financeiro empresarial).
+- **F4-04 Cartões e faturas**: `personal_credit_cards`/`personal_credit_card_invoices`, valor da fatura sempre derivado somando lançamentos do mês.
+- **F4-05 Parcelamentos e recorrências**: parcelamento = N lançamentos com `installmentGroupId` (sem tabela própria); `personal_recurrences` com geração manual (sem motor de automação - Fase 5).
+- **F4-06 Orçamento mensal**: `personal_budgets`, planejado vs. realizado por categoria/mês.
+- **F4-07 Metas, dívidas e patrimônio**: `personal_goals`/`personal_debts` + `getPersonalNetWorth` (contas + metas - dívidas).
+- **F4-08 Importação e conciliação**: `personal_bank_imports`/`personal_bank_import_lines`, mesmo parser CSV/OFX da Fase 3, conciliação sempre manual.
+- **F4-09 Calendário e alertas**: relatório de próximos 60 dias, **deliberadamente nunca integrado** ao calendário compartilhado de tarefas/marcos (visível a papéis de negócio).
+- **F4-10 Relatórios**: fluxo de caixa mensal + gasto por categoria.
+- **F4-11 Testes negativos de privacidade**: `permission-keys.test.ts` (nenhum papel além de `owner` tem as chaves pessoais) + `personal-workspace.test.ts` (`isAuthorizedPersonalOwner` rejeita usuário errado).
+
+### Arquitetura central desta fase
+
+Dupla trava de privacidade (`requirePersonalAccess`): permissão de papel (`profitability.*_personal`, já existente) **e** identidade exata do usuário fixada em `personal_workspaces.ownerUserId` (nova). Diferente do financeiro empresarial (Fase 3), o bookkeeping pessoal usa CRUD simples sem razão imutável - decisão deliberada, já que não há exigência de "histórico confiável" para lançamentos pessoais informais.
+
+### Validação real
+
+- `tsc --noEmit`: limpo em cada lote. `vitest run`: **180/180** (37 arquivos, +26 novos nesta fase, incluindo os 2 testes negativos de privacidade). `next build`: verde, **35 rotas** (+1, `/crm/pessoal`). `biome check`: 0 erros em todos os arquivos tocados. `npx playwright test`: 6/6 (guard/login inalterado).
+- Página `/crm/pessoal` fora do menu principal, mesmo padrão de confidencialidade de `/crm/lucratividade` - acessível só por URL direta, barreira real é `requirePersonalAccess()` no servidor.
+- **Não validado com dado real**: mesma limitação de `.env`/`DATABASE_URL` de toda a sessão - nenhum fluxo completo (ativar espaço pessoal → lançar despesa → conciliar extrato → ver no patrimônio) foi exercitado contra um banco de verdade ou dois usuários reais.
+
+### Débitos conhecidos (agregados — detalhe em cada story)
+
+- Saldo de conta pessoal assume zero na criação (sem saldo de abertura configurável).
+- Parcelamento não pode ser editado/excluído como grupo (só linha por linha).
+- Recorrência pessoal depende de alguém clicar "Gerar próxima" (sem job agendado).
+- Sem notificação proativa dos próximos itens (F4-09) - é um relatório sob consulta.
+- Teste negativo de privacidade é estático/unitário (mapeamento de permissão + pure function), não um teste de integração com dois usuários reais - maior cobertura exigiria banco disponível.
+
+### Estado da sessão ao final (Fase 0 + Fase 1 + Fase 2 + Fase 3 + Fase 4 completas)
+
+**47 stories implementadas nesta sessão** (F0-02 a F0-10, F1-01 a F1-10, F2-01 a F2-08, F3-01 a F3-12, F4-01 a F4-11; F1-03/F1-09/F0-05/F0-01 confirmadas já implementadas por auditoria antes de construir algo novo). Migrations aditivas geradas nesta sessão: `0003` a `0012` (10 no total), nenhuma aplicada em nenhum ambiente. Nada enviado ao GitHub.
+
+Próximo item do plano mestre: **Fase 5 — Atendimento, automação e inteligência**, a critério do responsável.
