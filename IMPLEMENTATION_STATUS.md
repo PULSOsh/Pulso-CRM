@@ -1490,3 +1490,56 @@ Nenhuma das 8 entidades da Fase 2 (templates, marcos, apontamento de horas, vers
 **24 stories implementadas nesta sessão** (F0-02 a F0-10, F1-01 a F1-10, F2-01 a F2-08; F1-03/F1-09/F0-05/F0-01 confirmadas já implementadas por auditoria antes de construir algo novo). Migrations aditivas geradas nesta sessão: `0003` a `0010` (8 no total), nenhuma aplicada em nenhum ambiente. Nada enviado ao GitHub.
 
 Próximo item do plano mestre: **Fase 3 — Financeiro empresarial** (contas financeiras, contas a pagar, categorias/centros de custo, fornecedores, conciliação, fluxo de caixa, DRE), a critério do responsável.
+
+## 47. Fase 3 — Financeiro empresarial, completa (F3-01 a F3-12) (concluído 05/08/2026)
+
+### Contexto
+
+Pedido explícito do responsável: "implementa a f3 toda" (Fase 3 inteira). Gate da fase (`PLANO_MESTRE_EVOLUCAO_CRM.md` §7): "saldo, fluxo e DRE reconciliam com o conjunto de transações de teste".
+
+### Achado prévio confirmado (auditoria antes de construir)
+
+- `financial_accounts` existe desde a migration `0000` (produção) mas nunca teve nenhuma action/tela — zero uso real até esta fase.
+- `receivables`/`installments` (Fase 1) e `expenses`/`expense_categories`/`financial_settings` (lucratividade, sessão anterior) já eram funcionais — nada foi reescrito neles além da integração ao razão (F3-05).
+- Lucratividade (`/crm/lucratividade`) já estava concluída — o gap real de F3-12 era só inadimplência.
+- Contas a pagar, centros de custo, fornecedores, transferências, recorrência financeira, importação bancária, conciliação, fluxo de caixa e DRE não existiam de nenhuma forma — desenhados do zero.
+- Contradição material identificada e resolvida com o responsável antes de desenhar qualquer schema: F3-01 pedia um "workspace financeiro empresarial" (nova tabela `financial_workspaces`), mas o `CLAUDE.md` do projeto proíbe explicitamente qualquer construção multi-workspace (single-organization fixo). Decisão confirmada via pergunta direta: reaproveitar `organizationId` normal, nenhuma tabela de workspace criada (detalhe em `docs/stories/CRM-F3-01-decisao-de-escopo-financeiro.md`).
+
+### O que foi feito (resumo — detalhe completo em cada `docs/stories/CRM-F3-0X-*.md`)
+
+- **F3-01 Decisão de escopo**: sem tabela nova, Fase 3 usa `organizationId` normal em tudo.
+- **F3-02 Contas financeiras**: CRUD completo sobre `financial_accounts` (existia sem uso), conta padrão por organização.
+- **F3-03 Categorias, centros de custo e fornecedores**: `cost_centers` (novo); `createExpenseCategory` (categorias eram só seedadas); fornecedor reaproveita `companies` (`isVendor`, novo) em vez de tabela paralela.
+- **F3-04 Contas a pagar**: `payables`/`payable_installments`, mesmo padrão de `receivables`/`installments`.
+- **F3-05 Integração dos recebíveis ao razão**: `markInstallmentPaid`/`reverseInstallmentPayment` passam a escrever em `financial_transactions` (razão único, novo) a cada baixa/estorno.
+- **F3-06 Transferências e baixas parciais**: novo status `partially_paid` (recebível e pagável); baixa acumulativa; transferência entre contas = duas linhas do razão ligadas por `transferGroupId`.
+- **F3-07 Recorrência financeira**: `financial_recurrence_rules`; geração da próxima ocorrência é manual (sem motor de automação — isso é Fase 5).
+- **F3-08 Importação CSV/OFX**: `bank_imports`/`bank_import_lines`; parser CSV reaproveitado (`services/csv.ts` já existia), parser OFX novo e mínimo.
+- **F3-09 Conciliação bancária**: casamento manual entre linha do extrato e transação do razão, por sugestão (valor + data ±5 dias), nunca automático.
+- **F3-10 Fluxo de caixa**: projeção por mês a partir do saldo do razão + parcelas abertas de recebível/pagável.
+- **F3-11 DRE gerencial**: receita/despesa por categoria em regime de caixa, a partir do razão.
+- **F3-12 Inadimplência**: aging (4 faixas), taxa e detalhamento por cliente a partir de recebíveis vencidos.
+
+### Arquitetura central desta fase
+
+Um razão único (`financial_transactions`) nunca editado após criado — todo estorno é uma linha nova com direção invertida, nunca um update ("histórico confiável", mesmo princípio já aplicado a versionamento de arquivo/proposta em fases anteriores). Fluxo de caixa, DRE e conciliação são todos derivados dele, e só existem porque F3-05 passou a alimentá-lo a partir das ações que já existiam.
+
+### Validação real
+
+- `tsc --noEmit`: limpo em cada lote. `vitest run`: **154/154** (27 arquivos, +27 novos nesta fase, incluindo parser CSV/OFX). `next build`: verde, **34 rotas** (inalterado — Fase 3 não adiciona rota pública, só a aba nova em `/crm/financeiro`). `biome check`: 0 erros em todos os arquivos tocados. `npx playwright test`: 6/6 (guard/login inalterado).
+- **Não validado com dado real**: mesma limitação de `.env`/`DATABASE_URL` de toda a sessão — nenhum fluxo completo (importar extrato real → conciliar → ver refletido no fluxo de caixa/DRE) foi exercitado contra um banco de verdade ou um extrato bancário real.
+
+### Débitos conhecidos (agregados — detalhe em cada story)
+
+- Sem backfill de `financial_transactions` a partir de baixas históricas anteriores a esta fase — só lançamentos novos alimentam o razão.
+- Recorrência financeira depende de alguém clicar "Gerar próxima" (sem job agendado).
+- Conciliação é sempre 1:1 (uma linha do extrato, uma transação) e sempre manual.
+- DRE usa regime de caixa (`occurredAt` da transação), não competência do pagável/recebível.
+- Inadimplência cobre só recebíveis (risco de receita); pagáveis vencidos aparecem no fluxo de caixa, não neste relatório.
+- Sem dedupe automático de reimportação de extrato por FITID (campo armazenado, comparação ainda não implementada).
+
+### Estado da sessão ao final (Fase 0 + Fase 1 + Fase 2 + Fase 3 completas)
+
+**36 stories implementadas nesta sessão** (F0-02 a F0-10, F1-01 a F1-10, F2-01 a F2-08, F3-01 a F3-12; F1-03/F1-09/F0-05/F0-01 confirmadas já implementadas por auditoria antes de construir algo novo). Migrations aditivas geradas nesta sessão: `0003` a `0011` (9 no total), nenhuma aplicada em nenhum ambiente. Nada enviado ao GitHub.
+
+Próximo item do plano mestre: **Fase 4 — Finanças pessoais** (workspace pessoal privado, isolamento testado contra acesso empresarial), a critério do responsável.

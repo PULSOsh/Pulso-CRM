@@ -74,6 +74,26 @@ export async function getExpenseCategories() {
   });
 }
 
+/** CRM-F3-03: categorias eram só seedadas até aqui - a Fase 3 (contas a
+ * pagar, ledger) precisa que o time crie categorias novas sob demanda. */
+export async function createExpenseCategory(data: {
+  name: string;
+  scope: "personal" | "business" | "project";
+}) {
+  const permission =
+    data.scope === "personal" ? "profitability.manage_personal" : "profitability.manage_business";
+  const { organizationId } = await requirePermission(permission);
+
+  const [category] = await db
+    .insert(expenseCategories)
+    .values({ organizationId, name: data.name, scope: data.scope })
+    .returning();
+
+  revalidatePath("/crm/lucratividade");
+  revalidatePath("/crm/financeiro");
+  return category;
+}
+
 export async function createExpense(data: {
   categoryId?: string;
   projectId?: string;

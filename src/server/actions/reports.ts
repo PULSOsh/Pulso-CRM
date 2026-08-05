@@ -1,12 +1,17 @@
 "use server";
 
-import { and, count, eq, gte, inArray, sql, sum } from "drizzle-orm";
+import { and, count, eq, gte, inArray, lt, notInArray, sql, sum } from "drizzle-orm";
 import { requirePermission } from "../auth/require-permission";
 import { db } from "../db/connection";
 import {
   approvals,
+  companies,
+  expenseCategories,
+  financialTransactions,
   installments,
   opportunities,
+  payableInstallments,
+  payables,
   projects,
   receivables,
   tasks,
@@ -157,5 +162,197 @@ export async function getFinancialReport(days: number) {
     byMonth,
     totalReceivables: totalsRow[0]?.totalReceivables ?? 0,
     totalAmount: Number(totalsRow[0]?.totalAmount ?? 0),
+  };
+}
+
+/** CRM-F3-10: saldo atual = soma de todas as linhas do razão (entradas -
+ * saídas, histórico). Projeção = saldo atual + o que ainda está para entrar
+ * (parcelas de recebível abertas) - o que ainda está para saír (parcelas de
+ * pagável abertas), por mês de vencimento. */
+export async function getCashFlowReport(monthsAhead = 3) {
+  const { organizationId } = await requirePermission("reports.finance");
+
+  const [balanceRow, inflowByMonth, outflowByMonth] = await Promise.all([
+    db
+      .select({
+        balance: sql<string>`coalesce(sum(case when ${financialTransactions.direction} = 'in' then ${financialTransactions.amount} else -${financialTransactions.amount} end), 0)`,
+      })
+      .from(financialTransactions)
+      .where(eq(financialTransactions.organizationId, organizationId)),
+
+    db
+      .select({
+        month: sql<string>`to_char(${installments.dueDate}, 'YYYY-MM')`,
+        total: sql<string>`coalesce(sum(${installments.amount} - coalesce(${installments.paidAmount}, 0)), 0)`,
+      })
+      .from(installments)
+      .innerJoin(receivables, eq(receivables.id, installments.receivableId))
+      .where(
+        and(
+          eq(receivables.organizationId, organizationId),
+          notInArray(installments.status, ["paid", "cancelled"]),
+        ),
+      )
+      .groupBy(sql`to_char(${installments.dueDate}, 'YYYY-MM')`)
+      .orderBy(sql`to_char(${installments.dueDate}, 'YYYY-MM')`),
+
+    db
+      .select({
+        month: sql<string>`to_char(${payableInstallments.dueDate}, 'YYYY-MM')`,
+        total: sql<string>`coalesce(sum(${payableInstallments.amount} - coalesce(${payableInstallments.paidAmount}, 0)), 0)`,
+      })
+      .from(payableInstallments)
+      .innerJoin(payables, eq(payables.id, payableInstallments.payableId))
+      .where(
+        and(
+          eq(payables.organizationId, organizationId),
+          notInArray(payableInstallments.status, ["paid", "cancelled"]),
+        ),
+      )
+      .groupBy(sql`to_char(${payableInstallments.dueDate}, 'YYYY-MM')`)
+      .orderBy(sql`to_char(${payableInstallments.dueDate}, 'YYYY-MM')`),
+  ]);
+
+  const currentBalance = Number(balanceRow[0]?.balance ?? 0);
+
+  const now = new Date();
+  const months = Array.from({ length: monthsAhead }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+
+  let runningBalance = currentBalance;
+  const byMonth = months.map((month) => {
+    const inflow = Number(inflowByMonth.find((r) => r.month === month)?.total ?? 0);
+    const outflow = Number(outflowByMonth.find((r) => r.month === month)?.total ?? 0);
+    runningBalance += inflow - outflow;
+    return { month, inflow, outflow, net: inflow - outflow, projectedBalance: runningBalance };
+  });
+
+  return { currentBalance, byMonth };
+}
+
+/** CRM-F3-11: DRE gerencial em regime de caixa, a partir do razão único
+ * (financial_transactions) - só existe porque F3-05 passou a lançar toda
+ * baixa de recebível/pagável ali. Estornos entram com direção invertida e
+ * já netam automaticamente. */
+export async function getDreReport(days: number) {
+  const { organizationId } = await requirePermission("reports.finance");
+  const since = daysAgo(days);
+
+  const [revenueRow, expensesByCategory] = await Promise.all([
+    db
+      .select({
+        total: sql<string>`coalesce(sum(case when ${financialTransactions.direction} = 'in' then ${financialTransactions.amount} else -${financialTransactions.amount} end), 0)`,
+      })
+      .from(financialTransactions)
+      .where(
+        and(
+          eq(financialTransactions.organizationId, organizationId),
+          eq(financialTransactions.kind, "receivable_payment"),
+          gte(financialTransactions.occurredAt, since),
+        ),
+      ),
+
+    db
+      .select({
+        categoryName: sql<string>`coalesce(${expenseCategories.name}, 'Sem categoria')`,
+        total: sql<string>`coalesce(sum(case when ${financialTransactions.direction} = 'out' then ${financialTransactions.amount} else -${financialTransactions.amount} end), 0)`,
+      })
+      .from(financialTransactions)
+      .leftJoin(expenseCategories, eq(expenseCategories.id, financialTransactions.categoryId))
+      .where(
+        and(
+          eq(financialTransactions.organizationId, organizationId),
+          eq(financialTransactions.kind, "payable_payment"),
+          gte(financialTransactions.occurredAt, since),
+        ),
+      )
+      .groupBy(expenseCategories.name),
+  ]);
+
+  const revenue = Number(revenueRow[0]?.total ?? 0);
+  const totalExpenses = expensesByCategory.reduce((acc, row) => acc + Number(row.total), 0);
+
+  return {
+    revenue,
+    expensesByCategory: expensesByCategory.map((row) => ({
+      category: row.categoryName,
+      total: Number(row.total),
+    })),
+    totalExpenses,
+    result: revenue - totalExpenses,
+  };
+}
+
+/** CRM-F3-12: inadimplência de clientes (recebíveis vencidos) - aging em
+ * faixas e detalhamento por cliente. Calculado direto de due_date < now(),
+ * sem depender de refreshOverdueInstallments já ter rodado. */
+export async function getDelinquencyReport() {
+  const { organizationId } = await requirePermission("reports.finance");
+  const now = new Date();
+
+  const overdueRows = await db
+    .select({
+      installmentId: installments.id,
+      amount: installments.amount,
+      paidAmount: installments.paidAmount,
+      dueDate: installments.dueDate,
+      companyId: receivables.companyId,
+      companyName: sql<string>`coalesce(${companies.tradeName}, 'Sem cliente vinculado')`,
+    })
+    .from(installments)
+    .innerJoin(receivables, eq(receivables.id, installments.receivableId))
+    .leftJoin(companies, eq(companies.id, receivables.companyId))
+    .where(
+      and(
+        eq(receivables.organizationId, organizationId),
+        lt(installments.dueDate, now),
+        notInArray(installments.status, ["paid", "cancelled"]),
+      ),
+    );
+
+  const openRows = await db
+    .select({
+      total: sql<string>`coalesce(sum(${installments.amount} - coalesce(${installments.paidAmount}, 0)), 0)`,
+    })
+    .from(installments)
+    .innerJoin(receivables, eq(receivables.id, installments.receivableId))
+    .where(
+      and(
+        eq(receivables.organizationId, organizationId),
+        notInArray(installments.status, ["paid", "cancelled"]),
+      ),
+    );
+
+  const aging = { "0-30": 0, "31-60": 0, "61-90": 0, "90+": 0 };
+  const byCompany = new Map<string, { companyName: string; total: number; count: number }>();
+  let totalOverdue = 0;
+
+  for (const row of overdueRows) {
+    const remaining = Number(row.amount) - Number(row.paidAmount ?? 0);
+    const daysOverdue = Math.floor((now.getTime() - row.dueDate.getTime()) / (24 * 60 * 60 * 1000));
+    totalOverdue += remaining;
+
+    if (daysOverdue <= 30) aging["0-30"] += remaining;
+    else if (daysOverdue <= 60) aging["31-60"] += remaining;
+    else if (daysOverdue <= 90) aging["61-90"] += remaining;
+    else aging["90+"] += remaining;
+
+    const key = row.companyId ?? "sem-cliente";
+    const existing = byCompany.get(key) ?? { companyName: row.companyName, total: 0, count: 0 };
+    existing.total += remaining;
+    existing.count += 1;
+    byCompany.set(key, existing);
+  }
+
+  const totalOpen = Number(openRows[0]?.total ?? 0);
+
+  return {
+    totalOverdue,
+    totalOpen,
+    delinquencyRate: totalOpen > 0 ? totalOverdue / totalOpen : 0,
+    aging,
+    byCompany: Array.from(byCompany.values()).sort((a, b) => b.total - a.total),
   };
 }

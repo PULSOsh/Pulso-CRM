@@ -37,6 +37,10 @@ export const companies = pgTable(
     postalCode: varchar("postal_code", { length: 16 }),
     country: char("country", { length: 2 }).notNull().default("BR"),
     notes: text("notes"),
+    // CRM-F3-03: fornecedor reaproveita o cadastro de empresa em vez de uma
+    // tabela vendors paralela - evita duplicar contato/documento para quem é
+    // cliente e fornecedor ao mesmo tempo.
+    isVendor: boolean("is_vendor").notNull().default(false),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),

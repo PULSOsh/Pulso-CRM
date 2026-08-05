@@ -8,6 +8,8 @@ import { contracts, installments, projects, receivables } from "../db/schema";
 import { logger } from "../logger";
 import { logActivity } from "../services/activity-log";
 import { writeAuditLog } from "../services/audit-log";
+import { deriveInstallmentStatus } from "../services/installment-status";
+import { postFinancialTransaction } from "../services/ledger";
 
 export type InstallmentInput = { amount: number; dueDate: string };
 
@@ -259,9 +261,14 @@ export async function refreshOverdueInstallments() {
     );
 }
 
+/** CRM-F3-05/F3-06: baixa acumulativa (aceita paidAmount parcial em mais de
+ * uma chamada, status "partially_paid" enquanto não cobrir o total) e
+ * escreve uma linha no razão financeiro (financial_transactions) a cada
+ * baixa - a parcela guarda só o total acumulado, o razão guarda o histórico
+ * detalhado e nunca é sobrescrito. */
 export async function markInstallmentPaid(
   installmentId: string,
-  data: { paidAmount: number; paymentMethod?: string; notes?: string },
+  data: { paidAmount: number; paymentMethod?: string; accountId?: string; notes?: string },
 ) {
   const { organizationId, userId } = await requirePermission("finance.mark_paid");
 
@@ -281,14 +288,26 @@ export async function markInstallmentPaid(
   if (installment.status === "cancelled")
     throw new Error("Parcela cancelada não pode ser baixada.");
 
+  const alreadyPaid = Number(installment.paidAmount ?? 0);
+  const totalPaid = alreadyPaid + data.paidAmount;
+  if (totalPaid > Number(installment.amount) + 0.005) {
+    throw new Error("O valor pago não pode superar o valor da parcela.");
+  }
+  const newStatus = deriveInstallmentStatus(
+    Number(installment.amount),
+    totalPaid,
+    installment.dueDate,
+  );
+
   await db.transaction(async (tx) => {
     await tx
       .update(installments)
       .set({
-        status: "paid",
+        status: newStatus,
         paidAt: new Date(),
-        paidAmount: data.paidAmount.toFixed(2),
+        paidAmount: totalPaid.toFixed(2),
         paymentMethod: data.paymentMethod,
+        accountId: data.accountId || installment.accountId,
         notes: data.notes,
         updatedAt: new Date(),
       })
@@ -298,12 +317,27 @@ export async function markInstallmentPaid(
       where: eq(installments.receivableId, receivable.id),
     });
     const allPaid = remaining.every((i) => i.id === installmentId || i.status === "paid");
-    if (allPaid) {
+    if (allPaid && newStatus === "paid") {
       await tx
         .update(receivables)
         .set({ status: "paid", updatedAt: new Date() })
         .where(eq(receivables.id, receivable.id));
     }
+
+    await postFinancialTransaction(
+      {
+        organizationId,
+        accountId: data.accountId || null,
+        kind: "receivable_payment",
+        direction: "in",
+        amount: data.paidAmount,
+        sourceType: "receivable_installment",
+        sourceId: installmentId,
+        description: `Recebimento: ${receivable.description} (parcela ${installment.installmentNumber})`,
+        createdBy: userId,
+      },
+      tx,
+    );
 
     if (receivable.opportunityId) {
       await logActivity(
@@ -331,8 +365,8 @@ export async function markInstallmentPaid(
         action: "installment.paid",
         entityType: "installment",
         entityId: installmentId,
-        before: { status: installment.status },
-        after: { status: "paid", paidAmount: data.paidAmount },
+        before: { status: installment.status, paidAmount: alreadyPaid },
+        after: { status: newStatus, paidAmount: totalPaid },
       },
       tx,
     );
@@ -343,17 +377,24 @@ export async function markInstallmentPaid(
 }
 
 /** Estorno como evento inverso (docs/ARCHITECTURE_AND_STANDARDS.md §8):
- * volta a parcela para pendente/vencida e reabre o recebível, sem apagar
- * o histórico do que foi pago (o valor anterior fica só até aqui, sem
- * tabela de ledger dedicada nesta fase - registrado como débito). */
-export async function reverseInstallmentPayment(installmentId: string, reason: string) {
+ * volta a parcela para pendente/vencida/parcialmente paga e reabre o
+ * recebível. CRM-F3-06: `amount` opcional permite estornar só parte do que
+ * foi pago (default reverte o total pago até agora); a reversão em si
+ * também gera uma linha no razão (direção invertida), nunca some do
+ * histórico o que já tinha sido lançado. */
+export async function reverseInstallmentPayment(
+  installmentId: string,
+  reason: string,
+  amount?: number,
+) {
   const { organizationId, userId } = await requirePermission("finance.reverse");
 
   const installment = await db.query.installments.findFirst({
     where: eq(installments.id, installmentId),
   });
   if (!installment) throw new Error("Parcela não encontrada.");
-  if (installment.status !== "paid") throw new Error("Só é possível estornar uma parcela baixada.");
+  const paidSoFar = Number(installment.paidAmount ?? 0);
+  if (paidSoFar <= 0) throw new Error("Esta parcela não tem pagamento para estornar.");
 
   const receivable = await db.query.receivables.findFirst({
     where: and(
@@ -363,15 +404,24 @@ export async function reverseInstallmentPayment(installmentId: string, reason: s
   });
   if (!receivable) throw new Error("Parcela não encontrada.");
 
-  const newStatus = installment.dueDate < new Date() ? "overdue" : "pending";
+  const reversalAmount = amount ?? paidSoFar;
+  if (reversalAmount > paidSoFar + 0.005) {
+    throw new Error("O valor do estorno não pode superar o valor pago.");
+  }
+  const newPaidAmount = Math.max(0, paidSoFar - reversalAmount);
+  const newStatus = deriveInstallmentStatus(
+    Number(installment.amount),
+    newPaidAmount,
+    installment.dueDate,
+  );
 
   await db.transaction(async (tx) => {
     await tx
       .update(installments)
       .set({
         status: newStatus,
-        paidAt: null,
-        paidAmount: null,
+        paidAmount: newPaidAmount > 0 ? newPaidAmount.toFixed(2) : null,
+        paidAt: newPaidAmount > 0 ? installment.paidAt : null,
         notes: `${installment.notes ? `${installment.notes}\n` : ""}Estornado: ${reason}`,
         updatedAt: new Date(),
       })
@@ -381,6 +431,22 @@ export async function reverseInstallmentPayment(installmentId: string, reason: s
       .update(receivables)
       .set({ status: "open", updatedAt: new Date() })
       .where(eq(receivables.id, receivable.id));
+
+    await postFinancialTransaction(
+      {
+        organizationId,
+        accountId: installment.accountId,
+        kind: "receivable_payment",
+        direction: "out",
+        amount: reversalAmount,
+        sourceType: "receivable_installment",
+        sourceId: installmentId,
+        description: `Estorno: ${receivable.description} (parcela ${installment.installmentNumber})`,
+        notes: reason,
+        createdBy: userId,
+      },
+      tx,
+    );
 
     if (receivable.opportunityId) {
       await logActivity(
@@ -402,8 +468,8 @@ export async function reverseInstallmentPayment(installmentId: string, reason: s
         action: "installment.reversed",
         entityType: "installment",
         entityId: installmentId,
-        before: { status: "paid", paidAmount: installment.paidAmount },
-        after: { status: newStatus, reason },
+        before: { status: installment.status, paidAmount: paidSoFar },
+        after: { status: newStatus, paidAmount: newPaidAmount, reason },
       },
       tx,
     );

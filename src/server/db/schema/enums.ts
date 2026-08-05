@@ -71,6 +71,8 @@ export const installmentStatusEnum = pgEnum("installment_status", [
   "paid",
   "overdue",
   "cancelled",
+  // CRM-F3-06: baixa parcial - soma acumulada em paidAmount menor que amount.
+  "partially_paid",
 ]);
 
 export const notificationChannelEnum = pgEnum("notification_channel", [
@@ -112,3 +114,27 @@ export const fieldOriginTypeEnum = pgEnum("field_origin_type", [
   "ai_suggestion",
   "system",
 ]);
+
+/** CRM-F3-05/F3-06: razão financeiro único - toda movimentação real de caixa
+ * (recebível pago, pagável pago, transferência, ajuste) gera uma linha, nunca
+ * editada depois (estorno é uma linha nova com direção invertida). */
+export const financialTransactionKindEnum = pgEnum("financial_transaction_kind", [
+  "receivable_payment",
+  "payable_payment",
+  "transfer_in",
+  "transfer_out",
+  "adjustment",
+]);
+
+export const financialTransactionDirectionEnum = pgEnum("financial_transaction_direction", [
+  "in",
+  "out",
+]);
+
+/** CRM-F3-07: alvo da regra de recorrência financeira. */
+export const financialRecurrenceTargetEnum = pgEnum("financial_recurrence_target", [
+  "receivable",
+  "payable",
+]);
+
+export const payableStatusEnum = pgEnum("payable_status", ["open", "paid", "cancelled"]);
