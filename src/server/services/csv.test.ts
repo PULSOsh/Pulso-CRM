@@ -1,5 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { csvToObjects, parseCsv } from "./csv";
+import { csvToObjects, parseCsv, toCsv } from "./csv";
+
+describe("toCsv", () => {
+  it("gera cabeçalho e linhas a partir de objetos", () => {
+    expect(
+      toCsv([
+        { a: 1, b: "x" },
+        { a: 2, b: "y" },
+      ]),
+    ).toBe("a,b\r\n1,x\r\n2,y");
+  });
+
+  it("coloca entre aspas valores com vírgula", () => {
+    expect(toCsv([{ nome: "Silva, João" }])).toBe('nome\r\n"Silva, João"');
+  });
+
+  it("retorna string vazia para lista vazia", () => {
+    expect(toCsv([])).toBe("");
+  });
+
+  it("é o inverso de csvToObjects para dados simples", () => {
+    const original = [{ nome: "Ana", cidade: "Recife" }];
+    const csv = toCsv(original);
+    expect(csvToObjects(csv)).toEqual(original.map((r) => ({ nome: r.nome, cidade: r.cidade })));
+  });
+});
 
 describe("parseCsv", () => {
   it("faz parse de linhas simples separadas por vírgula", () => {
@@ -16,7 +41,7 @@ describe("parseCsv", () => {
     ]);
   });
 
-  it("resolve aspas escapadas (\"\") dentro de campo entre aspas", () => {
+  it('resolve aspas escapadas ("") dentro de campo entre aspas', () => {
     expect(parseCsv('a\n"disse ""oi"""')).toEqual([["a"], ['disse "oi"']]);
   });
 

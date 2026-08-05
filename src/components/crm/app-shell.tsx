@@ -4,12 +4,14 @@ import {
   AlertTriangle,
   BarChart3,
   Bell,
+  BookOpen,
   Building2,
   CheckSquare,
   ClipboardList,
   Contact,
   FileSignature,
   FileText,
+  Headphones,
   Inbox,
   KanbanSquare,
   LayoutDashboard,
@@ -19,6 +21,7 @@ import {
   Settings,
   WalletCards,
   X,
+  Zap,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -46,6 +49,14 @@ const operation = [
   { href: "/crm/projetos", label: "Projetos", key: "projects", icon: KanbanSquare },
   { href: "/crm/tarefas", label: "Tarefas", key: "tasks", icon: CheckSquare },
   { href: "/crm/financeiro", label: "Financeiro", key: "finance", icon: WalletCards },
+  { href: "/crm/atendimento", label: "Atendimento", key: "tickets", icon: Headphones },
+  {
+    href: "/crm/base-de-conhecimento",
+    label: "Base de conhecimento",
+    key: "knowledge",
+    icon: BookOpen,
+  },
+  { href: "/crm/automacoes", label: "Automações", key: "automation", icon: Zap },
   { href: "/crm/relatorios", label: "Relatórios", key: "reports", icon: BarChart3 },
   { href: "#", label: "Configurações", key: "settings", icon: Settings },
 ];
@@ -84,6 +95,9 @@ type ActiveKey =
   | "reports"
   | "profitability"
   | "personal"
+  | "tickets"
+  | "knowledge"
+  | "automation"
   | "products";
 
 type AppShellProps = {

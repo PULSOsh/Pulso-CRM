@@ -11,6 +11,7 @@ import {
   pipelineStages,
 } from "../db/schema";
 import { logActivity } from "../services/activity-log";
+import { enqueueOutboxEvent } from "../services/outbox";
 import { loseOpportunitySchema, nextActionSchema } from "./opportunities.schemas";
 
 export async function updateNextAction(
@@ -97,6 +98,23 @@ export async function winOpportunity(opportunityId: string) {
       },
       tx,
     );
+
+    // CRM-F5-04: evento de domínio para o motor de automações consumir sob
+    // demanda (processPendingAutomations) - nunca dispara nada aqui.
+    await enqueueOutboxEvent(
+      {
+        organizationId,
+        eventType: "opportunity_won",
+        aggregateType: "opportunity",
+        aggregateId: opportunityId,
+        payload: {
+          value: Number(opp.estimatedValue ?? 0),
+          ownerUserId: opp.ownerUserId,
+          companyId: opp.companyId,
+        },
+      },
+      tx,
+    );
   });
 
   revalidatePath(`/crm/opportunities/${opportunityId}`);
@@ -168,6 +186,21 @@ export async function loseOpportunity(opportunityId: string, input: unknown) {
         title: "Oportunidade perdida",
         body: parsed.lostReason,
         opportunityId,
+      },
+      tx,
+    );
+
+    await enqueueOutboxEvent(
+      {
+        organizationId,
+        eventType: "opportunity_lost",
+        aggregateType: "opportunity",
+        aggregateId: opportunityId,
+        payload: {
+          value: Number(opp.estimatedValue ?? 0),
+          ownerUserId: opp.ownerUserId,
+          lostReason: parsed.lostReason,
+        },
       },
       tx,
     );

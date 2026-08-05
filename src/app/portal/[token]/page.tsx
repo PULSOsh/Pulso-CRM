@@ -3,7 +3,9 @@ import { ptBR } from "date-fns/locale";
 import { CheckCircle2, Circle, FileText, LayoutDashboard } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getClientPortalProject } from "@/server/actions/client-portal";
+import { getClientPortalTickets } from "@/server/actions/tickets";
 import SatisfactionForm from "./satisfaction-form";
+import TicketForm from "./ticket-form";
 
 const STATUS_LABELS: Record<string, string> = {
   planned: "Planejado",
@@ -22,13 +24,20 @@ const APPROVAL_STATUS_LABELS: Record<string, string> = {
   cancelled: "Cancelada",
 };
 
-export default async function ClientPortalPage({
-  params,
-}: {
-  params: Promise<{ token: string }>;
-}) {
+const TICKET_STATUS_LABELS: Record<string, string> = {
+  open: "Aberto",
+  in_progress: "Em atendimento",
+  waiting_customer: "Aguardando você",
+  resolved: "Resolvido",
+  closed: "Encerrado",
+};
+
+export default async function ClientPortalPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const project = await getClientPortalProject(token);
+  const [project, tickets] = await Promise.all([
+    getClientPortalProject(token),
+    getClientPortalTickets(token),
+  ]);
 
   if (!project) {
     notFound();
@@ -54,14 +63,24 @@ export default async function ClientPortalPage({
         <div>
           <p className="eyebrow">PROJETO</p>
           <h1>{project.name}</h1>
-          <p className="proposal-validity">Status: {STATUS_LABELS[project.status] ?? project.status}</p>
+          <p className="proposal-validity">
+            Status: {STATUS_LABELS[project.status] ?? project.status}
+          </p>
         </div>
       </section>
 
       {project.description && (
         <section className="proposal-section">
           <p className="eyebrow">01 · SOBRE O PROJETO</p>
-          <p style={{ maxWidth: 720, marginTop: 16, color: "var(--mineral)", fontSize: 16, lineHeight: 1.75 }}>
+          <p
+            style={{
+              maxWidth: 720,
+              marginTop: 16,
+              color: "var(--mineral)",
+              fontSize: 16,
+              lineHeight: 1.75,
+            }}
+          >
             {project.description}
           </p>
         </section>
@@ -92,8 +111,7 @@ export default async function ClientPortalPage({
           <ul style={{ marginTop: 16 }}>
             {project.approvals.map((a) => (
               <li key={a.id} style={{ marginBottom: 8 }}>
-                {a.title} —{" "}
-                <strong>{APPROVAL_STATUS_LABELS[a.status] ?? a.status}</strong>
+                {a.title} — <strong>{APPROVAL_STATUS_LABELS[a.status] ?? a.status}</strong>
               </li>
             ))}
           </ul>
@@ -105,7 +123,10 @@ export default async function ClientPortalPage({
           <p className="eyebrow">04 · ARQUIVOS</p>
           <ul style={{ marginTop: 16 }}>
             {project.files.map((f) => (
-              <li key={f.url} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <li
+                key={f.url}
+                style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}
+              >
                 <FileText size={16} />
                 <a href={f.url} target="_blank" rel="noopener noreferrer">
                   {f.label || f.originalName}
@@ -115,6 +136,19 @@ export default async function ClientPortalPage({
           </ul>
         </section>
       )}
+
+      <section className="proposal-section">
+        <p className="eyebrow">05 · CHAMADOS</p>
+        <ul style={{ marginTop: 16, marginBottom: 16 }}>
+          {tickets.map((t) => (
+            <li key={t.id} style={{ marginBottom: 8 }}>
+              {t.subject} — <strong>{TICKET_STATUS_LABELS[t.status] ?? t.status}</strong>
+            </li>
+          ))}
+          {tickets.length === 0 && <li>Nenhum chamado aberto ainda.</li>}
+        </ul>
+        <TicketForm token={token} />
+      </section>
 
       {needsSatisfaction && (
         <section className="proposal-section">

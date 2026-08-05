@@ -119,6 +119,17 @@ export const PERMISSION_KEYS = [
   "audit.read",
 
   "integrations.manage",
+
+  // Fase 5 - Atendimento, automação e inteligência (F5-01 a F5-09).
+  "tickets.read",
+  "tickets.manage",
+  "tickets.comment",
+  "knowledge.read",
+  "knowledge.manage",
+  "automation.read",
+  "automation.manage",
+  "automation.run",
+  "ai.use",
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
@@ -187,6 +198,7 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     "contracts.send",
     "reports.read",
     "members.read",
+    "knowledge.read",
   ],
 
   projects: [
@@ -208,6 +220,11 @@ export const ROLE_PERMISSIONS: Record<RoleKey, readonly PermissionKey[]> = {
     "approvals.decide",
     "reports.read",
     "members.read",
+    "tickets.read",
+    "tickets.manage",
+    "tickets.comment",
+    "knowledge.read",
+    "knowledge.manage",
   ],
 
   finance: [

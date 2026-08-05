@@ -150,3 +150,51 @@ export const personalTransactionKindEnum = pgEnum("personal_transaction_kind", [
 ]);
 
 export const personalCategoryKindEnum = pgEnum("personal_category_kind", ["income", "expense"]);
+
+/** CRM-F5-01: atendimento. */
+export const ticketStatusEnum = pgEnum("ticket_status", [
+  "open",
+  "in_progress",
+  "waiting_customer",
+  "resolved",
+  "closed",
+]);
+
+/** CRM-F5-02: rascunho até alguém publicar de propósito. */
+export const knowledgeArticleStatusEnum = pgEnum("knowledge_article_status", [
+  "draft",
+  "published",
+]);
+
+/** CRM-F5-04: gatilhos deliberadamente restritos a um punhado de eventos de
+ * negócio já significativos - nunca "qualquer mudança de qualquer tabela".
+ * "manual" cobre execução sob demanda pela equipe, sem gatilho automático. */
+export const automationTriggerEnum = pgEnum("automation_trigger", [
+  "opportunity_won",
+  "opportunity_lost",
+  "ticket_created",
+  "ticket_sla_breached",
+  "manual",
+]);
+
+/** CRM-F5-04: só ações seguras/reversíveis - nunca algo destrutivo ou
+ * financeiro (docs/PLANO_MESTRE_EVOLUCAO_CRM.md §5 Módulo O). */
+export const automationActionTypeEnum = pgEnum("automation_action_type", [
+  "create_notification",
+  "create_task",
+  "send_webhook",
+]);
+
+export const automationRunStatusEnum = pgEnum("automation_run_status", [
+  "success",
+  "failed",
+  "dead_letter",
+]);
+
+/** CRM-F5-08: nunca aplicado sem confirmação humana explícita
+ * (docs/PLANO_MESTRE_EVOLUCAO_CRM.md §5 Módulo O). */
+export const aiSuggestionStatusEnum = pgEnum("ai_suggestion_status", [
+  "pending",
+  "accepted",
+  "rejected",
+]);

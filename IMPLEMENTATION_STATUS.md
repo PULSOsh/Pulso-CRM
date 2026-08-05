@@ -1594,3 +1594,51 @@ Dupla trava de privacidade (`requirePersonalAccess`): permissão de papel (`prof
 **47 stories implementadas nesta sessão** (F0-02 a F0-10, F1-01 a F1-10, F2-01 a F2-08, F3-01 a F3-12, F4-01 a F4-11; F1-03/F1-09/F0-05/F0-01 confirmadas já implementadas por auditoria antes de construir algo novo). Migrations aditivas geradas nesta sessão: `0003` a `0012` (10 no total), nenhuma aplicada em nenhum ambiente. Nada enviado ao GitHub.
 
 Próximo item do plano mestre: **Fase 5 — Atendimento, automação e inteligência**, a critério do responsável.
+
+## 49. Fase 5 — Atendimento, automação e inteligência, completa (F5-01 a F5-09) (concluído 05/08/2026)
+
+### Contexto
+
+Pedido explícito do responsável: "segue para a fase 5 completa". Gate da fase (`PLANO_MESTRE_EVOLUCAO_CRM.md` §7): "automações são idempotentes, observáveis e reversíveis; IA nunca executa ação crítica sem confirmação."
+
+### Achado prévio confirmado (auditoria antes de construir)
+
+- `notifications`/`notifyUser` (canal in-app) já funcionais de sessão anterior - não alterado.
+- `outbox_events`, `idempotency_keys`, `integration_connections` existiam desde a migration `0000` (produção), todas com **zero uso real** até esta fase - schemas prontos, nunca escritos nem lidos por nenhuma action. A Fase 5 é a primeira a dar uso de verdade a essas três tabelas.
+- Tickets/SLA, base de conhecimento, motor de automações, dashboards configuráveis e IA: gap total, nada existia.
+- Exportação de dados (CSV/PDF): só importação existia; exportação foi construída do zero.
+
+### O que foi feito (resumo — detalhe completo em cada `docs/stories/CRM-F5-0X-*.md`)
+
+- **F5-01 Tickets e SLA**: `support_tickets`/`ticket_comments`, SLA por prioridade calculado na criação (nunca recalculado depois).
+- **F5-02 Base de conhecimento**: `knowledge_articles`, slug único com deduplicação automática.
+- **F5-03 Portal de atendimento**: chamados integrados ao portal do cliente já existente (F2-07, reaproveitando o mesmo token, não um portal novo); central de ajuda pública nova (`/ajuda`).
+- **F5-04/F5-05 Motor de automações + fila**: `automation_rules`/`automation_runs` sobre `outbox_events` (finalmente usada); idempotência por constraint unique; só 3 tipos de ação, todas seguras/reversíveis; retry até 5 tentativas, depois vira dead-letter; geração/processamento manual (sem job agendado, mesmo padrão já usado em recorrências).
+- **F5-06 Notificações**: canal webhook de saída, primeira vez que o motor de automações fecha o ciclo até `integration_connections`.
+- **F5-07 Dashboards configuráveis**: mostrar/ocultar seção de relatório por usuário (`dashboard_widget_preferences`), sobre o catálogo fixo já existente em `reports.ts`.
+- **F5-08 IA assistida e auditável**: primeiro uso de IA no sistema - cliente mínimo da API Anthropic via fetch (sem SDK novo), um caso de uso (resumo/classificação de chamado), toda sugestão auditada e pendente de confirmação humana explícita antes de qualquer efeito real.
+- **F5-09 Exportações e integrações**: exportação CSV dos relatórios fixos; CRUD de `integration_connections` restrito a webhook (único provedor que o motor de automações consome).
+
+### Arquitetura central desta fase
+
+`outbox_events` como razão de eventos de domínio (2 pontos de emissão reais: oportunidade ganha/perdida, chamado criado) consumido sob demanda por `processPendingAutomations`, que dispara `automation_rules` ativas com idempotência garantida por constraint unique (nunca a mesma regra roda duas vezes pro mesmo evento) e observabilidade via `automation_runs` (status, tentativas, último erro). IA nunca aplica nada sozinha - toda sugestão fica `pending` até uma decisão humana explícita.
+
+### Validação real
+
+- `tsc --noEmit`: limpo em cada lote. `vitest run`: **205/205** (44 arquivos, +32 novos nesta fase). `next build`: verde, **39 rotas** (+4: `/ajuda`, `/ajuda/[slug]`, `/crm/atendimento`, `/crm/automacoes`, `/crm/base-de-conhecimento`). `biome check`: 0 erros em todos os arquivos tocados. `npx playwright test`: 6/6 (guard/login inalterado).
+- Erro real encontrado e corrigido durante a verificação: `/ajuda` (sem `params`/`searchParams`) seria pré-renderizada estaticamente em build time pelo Next e bateria no banco inexistente neste ambiente - corrigido com `export const dynamic = "force-dynamic"`, confirmado pelo build ficando verde depois.
+- **Não validado com dado real**: mesma limitação de `.env`/`DATABASE_URL` de toda a sessão, agora somada à ausência de `ANTHROPIC_API_KEY` (F5-08) - nenhum fluxo completo (chamado → automação disparada → webhook recebido; sugestão de IA → aceite → nota aplicada) foi exercitado contra infraestrutura real.
+
+### Débitos conhecidos (agregados — detalhe em cada story)
+
+- `ticket_sla_breached` existe como gatilho aceito por regras de automação, mas nada emite esse evento ainda (exigiria verificação periódica sem job agendado disponível).
+- Sem e-mail/WhatsApp reais (mesma decisão já documentada de sessão anterior - sem credencial de provedor).
+- Dashboards configuráveis por seção inteira, não por sub-métrica individual.
+- Sem exportação em PDF (seria uma dependência nova, decisão não tomada nesta fase).
+- IA com um único caso de uso implementado (resumo/classificação de chamado) - outros casos permitidos pelo Módulo O (duplicidade, rascunho) ficam para quando houver necessidade real.
+
+### Estado da sessão ao final (Fase 0 a Fase 5 completas)
+
+**56 stories implementadas nesta sessão** (F0-02 a F0-10, F1-01 a F1-10, F2-01 a F2-08, F3-01 a F3-12, F4-01 a F4-11, F5-01 a F5-09; F1-03/F1-09/F0-05/F0-01 confirmadas já implementadas por auditoria antes de construir algo novo). Migrations aditivas geradas nesta sessão: `0003` a `0013` (11 no total), nenhuma aplicada em nenhum ambiente. Nada enviado ao GitHub.
+
+Com a Fase 5, o plano mestre (`docs/PLANO_MESTRE_EVOLUCAO_CRM.md`) está com todas as 6 fases (0 a 5) implementadas em código. Próximo passo é decisão do responsável: validação com dado real (banco/credenciais em ambiente de homologação) antes de qualquer aplicação de migração ou deploy em produção.

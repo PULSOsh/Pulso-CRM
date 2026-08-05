@@ -17,6 +17,7 @@ import {
   tasks,
   users,
 } from "../db/schema";
+import { toCsv } from "../services/csv";
 
 function daysAgo(days: number) {
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
@@ -355,4 +356,24 @@ export async function getDelinquencyReport() {
     aging,
     byCompany: Array.from(byCompany.values()).sort((a, b) => b.total - a.total),
   };
+}
+
+/** CRM-F5-09: exportação CSV dos relatórios fixos já existentes - reaproveita
+ * a mesma permissão do relatório de origem, gera a string no servidor,
+ * download é feito no cliente (Blob), sem armazenar arquivo nenhum. */
+export async function exportCommercialReportCsv(days: number) {
+  const report = await getCommercialReport(days);
+  return toCsv(report.leadsByMonth.map((row) => ({ mes: row.month, total: row.total })));
+}
+
+export async function exportFinancialReportCsv(days: number) {
+  const report = await getFinancialReport(days);
+  return toCsv(
+    report.byMonth.map((row) => ({
+      mes: row.month,
+      recebido: row.received,
+      pendente: row.pending,
+      vencido: row.overdue,
+    })),
+  );
 }

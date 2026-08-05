@@ -92,6 +92,13 @@
       "when": 1785927778259,
       "tag": "0012_fase4_financas_pessoais_base",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1785931237730,
+      "tag": "0013_fase5_atendimento_automacao_base",
+      "breakpoints": true
     }
   ]
 }

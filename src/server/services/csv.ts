@@ -81,3 +81,23 @@ export function csvToObjects(text: string): Record<string, string>[] {
     return obj;
   });
 }
+
+/** CRM-F5-09: gerador CSV (RFC 4180) - inverso de parseCsv/csvToObjects.
+ * Aspas só quando o valor contém vírgula/aspas/quebra de linha. */
+function escapeCsvField(value: unknown): string {
+  const str = value === null || value === undefined ? "" : String(value);
+  if (/[",\n\r]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+export function toCsv(rows: Record<string, unknown>[]): string {
+  if (rows.length === 0) return "";
+  const headers = Object.keys(rows[0]);
+  const lines = [
+    headers.map(escapeCsvField).join(","),
+    ...rows.map((row) => headers.map((h) => escapeCsvField(row[h])).join(",")),
+  ];
+  return lines.join("\r\n");
+}
